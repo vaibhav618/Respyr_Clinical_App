@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "225603940102",
+    "project_id": "respyrclinical",
+    "storage_bucket": "respyrclinical.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:225603940102:android:ff252fe18a417902df7887",
+        "android_client_info": {
+          "package_name": "com.humorstech.respyr_clinical"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "225603940102-qf8t4qen7pjrtv68rrskj2getoafp4t6.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.humorstech.respyr_clinical",
+            "certificate_hash": "134b2921da492c4443fa57d75122dd39d303647f"
+          }
+        },
+        {
+          "client_id": "225603940102-k4i7t8l0l57pd8mk5g10559g10h636ni.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBvxdUCbZFAgQRyo6s_qufTZ2m3W1ICaOs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "225603940102-k4i7t8l0l57pd8mk5g10559g10h636ni.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

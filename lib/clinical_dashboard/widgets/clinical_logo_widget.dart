@@ -1,0 +1,92 @@
+import 'dart:convert';
+import 'dart:typed_data';
+import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+
+class ClinicLogoWidget extends StatelessWidget {
+  final String clinicName;
+  final double size;
+
+  const ClinicLogoWidget({
+    super.key,
+    required this.clinicName,
+    this.size = 34,
+  });
+
+  Color _getColor(String letter) {
+    const colorMap = {
+      'A': Color(0xFFFF6B6B), 'B': Color(0xFF6BCB77), 'C': Color(0xFF4D96FF),
+      'D': Color(0xFFFFB74D), 'E': Color(0xFF9575CD), 'F': Color(0xFF26A69A),
+      'G': Color(0xFFFF7043), 'H': Color(0xFF42A5F5), 'I': Color(0xFF66BB6A),
+      'J': Color(0xFFFFCA28), 'K': Color(0xFFAB47BC), 'L': Color(0xFF26C6DA),
+      'M': Color(0xFFEC407A), 'N': Color(0xFF8D6E63), 'O': Color(0xFF5C6BC0),
+      'P': Color(0xFF9CCC65), 'Q': Color(0xFF29B6F6), 'R': Color(0xFFF06292),
+      'S': Color(0xFF7986CB), 'T': Color(0xFFD4E157), 'U': Color(0xFF00ACC1),
+      'V': Color(0xFFFF8A65), 'W': Color(0xFFBA68C8), 'X': Color(0xFF4DB6AC),
+      'Y': Color(0xFFFFD54F), 'Z': Color(0xFF90CAF9),
+    };
+    return colorMap[letter] ?? Colors.blueGrey;
+  }
+
+  Future<Uint8List?> _fetchLogo(String clinicName) async {
+    final uri = Uri.parse(
+      "https://humorstech.com/humors_app/app_final/clinical/fetch_logo1.php?clinic_name=$clinicName",
+    );
+
+    try {
+      final res = await http.get(uri);
+      if (res.statusCode == 200) {
+        final data = json.decode(res.body);
+        if (data['status'] == 'success' && data['logo_blob'].toString().length > 100) {
+          return base64Decode(data['logo_blob']);
+        }
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final firstLetter = clinicName.isNotEmpty ? clinicName[0].toUpperCase() : 'A';
+    final color = _getColor(firstLetter);
+
+    return FutureBuilder<Uint8List?>(
+      future: _fetchLogo(clinicName),
+      builder: (context, snapshot) {
+        // ❌ Don't show anything while loading
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const SizedBox.shrink();
+        }
+
+        final logoImage = snapshot.data;
+
+        return AnimatedSwitcher(
+          duration: const Duration(milliseconds: 100),
+          child: logoImage != null
+              ? ClipOval(
+            key: const ValueKey('logo'),
+            child: Image.memory(
+              logoImage,
+              width: size,
+              height: size,
+              fit: BoxFit.cover,
+            ),
+          )
+              : CircleAvatar(
+            key: const ValueKey('avatar'),
+            backgroundColor: color,
+            radius: size / 2,
+            child: Text(
+              firstLetter,
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: size * 0.4,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
