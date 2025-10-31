@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:respyr_clinical/clinical_app_respyr/screens/usb_test/screens/usb_clinical_device_connectivity.dart';
 import 'package:respyr_clinical/clinical_dashboard/bloc/health_score_bloc.dart';
 import 'package:respyr_clinical/clinical_dashboard/service/overall_data_by_date_service.dart';
 import 'package:respyr_clinical/clinical_dashboard/views/clinical_dashboard.dart';

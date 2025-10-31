@@ -6,7 +6,6 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:respyr_clinical/clinical_app_respyr/screens/result_screen_clinical_app.dart';
-import 'package:respyr_clinical/clinical_app_respyr/screens/usb_test/screens/usb_clinical_device_connectivity.dart';
 import 'package:respyr_clinical/device_connectivity/presentation/pages/device_connectivity_screen.dart';
 
 import 'package:respyr_clinical/shared/colors.dart';

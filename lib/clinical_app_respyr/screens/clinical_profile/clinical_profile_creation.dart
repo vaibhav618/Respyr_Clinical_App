@@ -6,7 +6,6 @@ import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:numberpicker/numberpicker.dart';
 import 'package:respyr_clinical/clinical_app_respyr/screens/clinical_profile/clinical_profile_screen.dart';
-import 'package:respyr_clinical/clinical_app_respyr/screens/usb_test/screens/usb_clinical_device_connectivity.dart';
 import 'package:respyr_clinical/clinical_app_respyr/services/clinical_profile_creation_api.dart';
 import 'package:respyr_clinical/clinical_app_respyr/services/height_picker.dart';
 import 'package:respyr_clinical/device_connectivity/presentation/pages/device_connectivity_screen.dart';

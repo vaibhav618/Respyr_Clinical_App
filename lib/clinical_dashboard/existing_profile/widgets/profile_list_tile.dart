@@ -7,7 +7,6 @@ import 'package:respyr_clinical/device_connectivity/presentation/pages/device_co
 import 'package:respyr_clinical/shared/colors.dart';
 
 import '../../../clinical_app_respyr/screens/bluetooth_test/screens/bluetooth_clinical_device_connectivity.dart';
-import '../../../clinical_app_respyr/screens/usb_test/screens/usb_clinical_device_connectivity.dart';
 import '../../../new_result/data/model/result_profile_data_model.dart';
 import '../../views/subject_profile.dart';
 import '../../widgets/connection_option_sheet.dart';

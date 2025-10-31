@@ -95,7 +95,6 @@ class _UsbClinicalGeneratingResultState
   }
 
   void _loadProfileDetails() {
-    // Print the full profile details map
     debugPrint("Profile Details: ${widget.profileDetails}");
 
     height = widget.profileDetails.height ?? 0;
@@ -105,7 +104,6 @@ class _UsbClinicalGeneratingResultState
     gender = widget.profileDetails.gender ?? '';
     loginId = widget.profileDetails.clinicName ?? '';
     profileId = widget.profileDetails.subjectId ?? '';
-    // Optionally print each field
     debugPrint("Gender: $gender");
     debugPrint("Age: $age");
     debugPrint("Height: $height");

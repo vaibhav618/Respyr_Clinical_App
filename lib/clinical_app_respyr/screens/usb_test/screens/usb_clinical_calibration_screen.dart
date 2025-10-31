@@ -365,10 +365,18 @@ class _UsbClinicalCalibrationScreenState
     return didCancel;
   }
 
-  Future<void> _setCancelOrDisconnectFlag() async {
+  Future<void> _setCancelOrDisconnectFlag({bool isCancel = false}) async {
     final storage = GetStorage();
     final DateTime now = DateTime.now();
-    await storage.write('cancel_or_disconnect_time', now.toIso8601String());
+
+    final Duration offset =
+        isCancel ? const Duration(minutes: 1) : const Duration(minutes: 1);
+
+    final DateTime futureTime = now.add(offset);
+    await storage.write(
+      'cancel_or_disconnect_time',
+      futureTime.toIso8601String(),
+    );
   }
 
   void _abortProcess() {

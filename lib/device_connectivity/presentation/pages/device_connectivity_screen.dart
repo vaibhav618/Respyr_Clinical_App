@@ -4,10 +4,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:respyr_clinical/clinical_app_respyr/services/disconnected_error.dart';
 import 'package:respyr_clinical/clinical_dashboard/bloc/health_score_bloc.dart';
 import 'package:respyr_clinical/clinical_dashboard/service/overall_data_by_date_service.dart';
 import 'package:respyr_clinical/clinical_dashboard/views/clinical_dashboard.dart';
-import 'package:respyr_clinical/widgets/internet_connectivity_check.dart';
 import 'package:respyr_clinical/device_connectivity/presentation/cubit/usb_connection_cubit.dart';
 import 'package:respyr_clinical/device_connectivity/presentation/cubit/usb_connection_state.dart';
 import 'package:respyr_clinical/new_result/data/model/result_profile_data_model.dart';
@@ -34,15 +34,60 @@ class UsbDeviceConnectivity extends StatefulWidget {
 
 class _UsbDeviceConnectivityState extends State<UsbDeviceConnectivity> {
   final int totalStep = 5;
-  bool _hasInternet = true;
-  bool _isDialogShowing = false;
+  bool _isUiReady = false;
+
   @override
   void initState() {
     super.initState();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      // Start USB listener
       context.read<UsbCubit>().reinitializeListener();
+
+      // Delay UI readiness for 1.5 seconds to prevent premature button press
+      Future.delayed(const Duration(milliseconds: 1500), () {
+        if (mounted) {
+          setState(() {
+            _isUiReady = true;
+          });
+        }
+      });
     });
+  }
+
+  Future<bool> _handleCancelTest(BuildContext context) async {
+    bool didCancel = false;
+
+    showCancelTestBox(
+      context: context,
+      cancelTestButtonPressed: () async {
+        debugPrint("🛑 Cancel button pressed");
+
+        didCancel = true;
+
+        if (mounted) {
+          Navigator.pop(context);
+        }
+
+        await Future.delayed(const Duration(milliseconds: 300));
+
+        await Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(
+            builder:
+                (context) => BlocProvider(
+                  create: (_) => HealthScoreBloc(OverallDataByDateService()),
+                  child: ClinicalDashboardMain(
+                    loginId: widget.profileDetails.clinicName!,
+                  ),
+                ),
+          ),
+          (Route<dynamic> route) => false,
+        );
+      },
+    );
+
+    return didCancel;
   }
 
   @override
@@ -54,33 +99,17 @@ class _UsbDeviceConnectivityState extends State<UsbDeviceConnectivity> {
       ),
     );
 
-    return InternetConnectivityHandler(
-      onConnectivityChanged: (hasInternet) async {
-        debugPrint("📡 Connectivity changed: $hasInternet");
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (!didPop) {
+          // Handle cancel confirmation
+          final shouldExit = await _handleCancelTest(context);
 
-        if (!hasInternet && !_isDialogShowing) {
-          _isDialogShowing = true;
-          await NoInternetDialog.show(
-            context: context,
-            onRetry: () {
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(
-                  builder:
-                      (_) => BlocProvider(
-                        create:
-                            (_) => HealthScoreBloc(OverallDataByDateService()),
-                        child: ClinicalDashboardMain(
-                          loginId: widget.profileDetails.clinicName!,
-                        ),
-                      ),
-                ),
-              );
-            },
-          );
-          _isDialogShowing = false;
-        } else if (hasInternet) {
-          _isDialogShowing = false;
+          if (shouldExit) {
+            // ✅ Do NOT pop here. Directly navigate to dashboard (handled inside _handleCancelTest)
+            // Keeps the flow clean, without popping twice
+          }
         }
       },
       child: Scaffold(
@@ -284,47 +313,54 @@ class _UsbDeviceConnectivityState extends State<UsbDeviceConnectivity> {
                     ),
                     SizedBox(
                       width: 180,
-                      child: ElevatedButton(
-                        onPressed:
-                            state.isChecking
-                                ? null
-                                : () {
-                                  context.read<UsbCubit>().checkAndProceed(
-                                    isClinicalTest: widget.isClinicalTest,
-                                    context: context,
-                                    profileDetails: widget.profileDetails,
-                                  );
-                                },
-                        style: ElevatedButton.styleFrom(
-                          foregroundColor: Colors.white,
-                          backgroundColor:
-                              state.isChecking
-                                  ? AppColor.textLightColor.withAlpha(74)
-                                  : AppColor.primaryBlueColor,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 13,
+                      child: AnimatedOpacity(
+                        opacity: state.isChecking ? 0.6 : 1.0,
+                        duration: const Duration(milliseconds: 200),
+                        child: ElevatedButton(
+                          onPressed:
+                              (!_isUiReady ||
+                                      state.isChecking ||
+                                      !state.isConnected)
+                                  ? null
+                                  : () {
+                                    context.read<UsbCubit>().checkAndProceed(
+                                      isClinicalTest: widget.isClinicalTest,
+                                      context: context,
+                                      profileDetails: widget.profileDetails,
+                                    );
+                                  },
+
+                          style: ElevatedButton.styleFrom(
+                            foregroundColor: Colors.white,
+                            backgroundColor:
+                                state.isChecking
+                                    ? AppColor.textLightColor.withAlpha(74)
+                                    : AppColor.primaryBlueColor,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 13,
+                            ),
                           ),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Spacer(),
-                            Text(
-                              ResString.next,
-                              style: GoogleFonts.mulish(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: AppColor.whiteColor,
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Spacer(),
+                              Text(
+                                ResString.next,
+                                style: GoogleFonts.mulish(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColor.whiteColor,
+                                ),
                               ),
-                            ),
-                            const Spacer(),
-                            const Icon(
-                              Icons.chevron_right_outlined,
-                              size: 24,
-                              color: Colors.white,
-                            ),
-                          ],
+                              const Spacer(),
+                              const Icon(
+                                Icons.chevron_right_outlined,
+                                size: 24,
+                                color: Colors.white,
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),

@@ -1,4 +1,3 @@
-// android/build.gradle.kts
 
 buildscript {
     repositories {
@@ -7,6 +6,7 @@ buildscript {
     }
 
     dependencies {
+        classpath("com.android.tools.build:gradle:8.9.0")
         classpath("com.google.gms:google-services:4.3.15")
     }
 }
