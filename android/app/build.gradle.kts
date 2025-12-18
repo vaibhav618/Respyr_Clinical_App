@@ -23,12 +23,14 @@ android {
 
     defaultConfig {
         applicationId = "com.humorstech.respyr_clinical"
-        minSdk = flutter.minSdkVersion
-        targetSdk = flutter.targetSdkVersion
+        minSdk = 21
+        targetSdk = 35
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+
+        // ✅ Support all common ABIs (fixes device compatibility warning)
         ndk {
-            abiFilters += listOf("arm64-v8a", "x86_64")
+            abiFilters += listOf("armeabi-v7a", "arm64-v8a", "x86_64")
         }
     }
 
@@ -44,8 +46,19 @@ android {
     buildTypes {
         getByName("release") {
             signingConfig = signingConfigs.getByName("release")
+
+            // ⚙️ Optional: enable these if you want smaller app size
+            // isMinifyEnabled = true
+            // isShrinkResources = true
+
             isMinifyEnabled = false
             isShrinkResources = false
+
+            // ✅ Include debug symbols for Play Console crash analysis
+            ndk {
+                debugSymbolLevel = "FULL"
+            }
+
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -69,7 +82,6 @@ flutter {
 }
 
 dependencies {
-    // ✅ ADD THESE:
     implementation("com.google.firebase:firebase-auth:22.3.0")
     implementation("com.google.android.gms:play-services-auth:21.1.0")
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")

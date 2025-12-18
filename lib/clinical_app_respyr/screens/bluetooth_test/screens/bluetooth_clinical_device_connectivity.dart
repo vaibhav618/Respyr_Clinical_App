@@ -438,7 +438,7 @@ class _BluetoothClinicalDeviceConnectivityState
             ),
           ),
         ),
-        bottomNavigationBar: _buildBottomNavigationBar(height, width),
+        bottomNavigationBar: SafeArea(child: _buildBottomNavigationBar(height, width)),
       ),
     );
   }

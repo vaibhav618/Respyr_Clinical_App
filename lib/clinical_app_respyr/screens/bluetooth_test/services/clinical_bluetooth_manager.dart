@@ -8,7 +8,7 @@ class ClinicalBluetoothManager {
   factory ClinicalBluetoothManager() => _instance;
   ClinicalBluetoothManager._internal();
 
-  final String targetDeviceName = 'HUMORS_08';
+  final String targetDeviceName = 'RESPYR_01';
   BluetoothDevice? _targetDevice;
   BluetoothCharacteristic? _notifyCharacteristic;
   BluetoothCharacteristic? _writeCharacteristic;
@@ -16,7 +16,7 @@ class ClinicalBluetoothManager {
   bool _isConnected = false;
   bool _isScanning = false;
   bool _shouldStopAllProcesses = false;
-  bool _isReadyForWrite = false; // ✅ NEW FLAG
+  bool _isReadyForWrite = false;
 
   final StreamController<bool> _connectionStatusController =
       StreamController<bool>.broadcast();

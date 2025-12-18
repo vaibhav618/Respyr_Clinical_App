@@ -40,42 +40,15 @@ class ProfileListTile extends StatelessWidget {
           onBluetoothTap: () async {
             Navigator.pop(context); // ✅ Close the bottom sheet
 
-            // ✅ Delay to make sure bottom sheet is closed
-            await Future.delayed(const Duration(milliseconds: 200));
 
-            // ✅ Show snackbar on the main screen (not from bottom sheet)
-            Get.snackbar(
-              "",
-              "",
-              snackPosition: SnackPosition.BOTTOM,
-              snackStyle: SnackStyle.FLOATING,
-              backgroundColor: Colors.white,
-              colorText: Colors.black,
-              margin: const EdgeInsets.symmetric(horizontal: 100, vertical: 20),
-              padding: const EdgeInsets.only(bottom: 8, left: 10, right: 10),
-              borderRadius: 10,
-              boxShadows: [
-                BoxShadow(
-                  color: Colors.black.withAlpha(74),
-                  blurRadius: 10,
-                  spreadRadius: 1,
-                  offset: Offset(0, 4),
-                ),
-              ],
-              titleText: const SizedBox.shrink(),
-              messageText: Align(
-                alignment: Alignment.center,
-                child: Text(
-                  "Coming soon...",
-                  style: GoogleFonts.poppins(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: AppColor.primaryBlackColor,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
+            Navigator.pop(context);
+            Get.to(
+                  () => BluetoothClinicalDeviceConnectivity(
+                // isClinicalTest: true,
+                profileDetails: profileModel,
               ),
             );
+
           },
           onUsbTap: () {
             Navigator.pop(context);
