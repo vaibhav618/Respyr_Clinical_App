@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
@@ -14,6 +15,9 @@ import 'package:respyr_clinical/clinical_app_respyr/services/disconnected_error.
 import 'package:respyr_clinical/shared/audio_helper.dart';
 import 'package:respyr_clinical/shared/colors.dart';
 
+import '../../../../clinical_dashboard/bloc/health_score_bloc.dart';
+import '../../../../clinical_dashboard/service/overall_data_by_date_service.dart';
+import '../../../../clinical_dashboard/views/clinical_dashboard.dart';
 import '../../../../new_result/data/model/result_profile_data_model.dart';
 
 class BluetoothBreatheTube extends StatefulWidget {
@@ -29,7 +33,6 @@ class _BluetoothBreatheTubeState extends State<BluetoothBreatheTube> {
   Timer? _timer;
 
   final storage = GetStorage();
-  int batteryPercentage = 0;
   final ClinicalBluetoothManager _bleManager = ClinicalBluetoothManager();
   final AudioHelper _audioHelper = AudioHelper();
   bool _isConnected = false;
@@ -135,14 +138,59 @@ class _BluetoothBreatheTubeState extends State<BluetoothBreatheTube> {
     _timer?.cancel();
   }
 
-  Future<void> _showCancelTestDialog() async {
+  Future<bool> _showCancelTestDialog(BuildContext context) async {
+    bool didCancel = false;
+
     showCancelTestBox(
       context: context,
-      cancelTestButtonPressed: () {
+      cancelTestButtonPressed: () async {
+        debugPrint("🛑 Cancel button pressed");
+
+        didCancel = true;
+
         abortProcess();
+        if (mounted) {
+          Navigator.pop(context);
+        }
+
+        await Future.delayed(const Duration(milliseconds: 300));
+
+        await _exitToDashboard();
       },
     );
+
+    return didCancel;
   }
+
+  Future<void> _exitToDashboard() async {
+    _stopProgress();
+    if (mounted) {
+      _navigateToDashboard();
+    }
+  }
+
+  void _stopProgress() {
+    _timer?.cancel();
+  }
+
+
+  void _navigateToDashboard() {
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(
+        builder:
+            (_) => BlocProvider(
+          create: (_) => HealthScoreBloc(OverallDataByDateService()),
+          child: ClinicalDashboardMain(
+            loginId: widget.profileDetails.clinicName!,
+          ),
+        ),
+      ),
+          (route) => false,
+    );
+  }
+
+
 
   void abortProcess() {
     if (_isConnected) {
@@ -158,7 +206,6 @@ class _BluetoothBreatheTubeState extends State<BluetoothBreatheTube> {
         statusBarIconBrightness: Brightness.dark,
       ),
     );
-    batteryPercentage = storage.read('batteryPercentage');
     final height = MediaQuery.of(context).size.height;
 
     return PopScope(
@@ -176,20 +223,20 @@ class _BluetoothBreatheTubeState extends State<BluetoothBreatheTube> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     IconButton(
-                      onPressed: () => _showCancelTestDialog(),
+                      onPressed: () => _showCancelTestDialog(context),
                       icon: SvgPicture.asset("assets/svg_icons/close_icon.svg"),
                     ),
                     const Spacer(),
-                    Text(
-                      "$batteryPercentage%",
-                      style: TextStyle(
-                        color: AppColor.primaryBlackColor,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 8,
-                      ),
-                    ),
-                    const SizedBox(width: 2),
-                    BatteryUtils.batteryIndicatorWidget(batteryPercentage),
+                    // Text(
+                    //   "$batteryPercentage%",
+                    //   style: TextStyle(
+                    //     color: AppColor.primaryBlackColor,
+                    //     fontWeight: FontWeight.w600,
+                    //     fontSize: 8,
+                    //   ),
+                    // ),
+                    // const SizedBox(width: 2),
+                    //BatteryUtils.batteryIndicatorWidget(batteryPercentage),
                     IconButton(
                       onPressed: () {
                         setState(() {

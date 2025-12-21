@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
@@ -15,6 +16,8 @@ import 'package:respyr_clinical/clinical_dashboard/views/clinical_dashboard.dart
 import 'package:respyr_clinical/shared/audio_helper.dart';
 import 'package:respyr_clinical/shared/colors.dart';
 
+import '../../../../clinical_dashboard/bloc/health_score_bloc.dart';
+import '../../../../clinical_dashboard/service/overall_data_by_date_service.dart';
 import '../../../../new_result/data/model/result_profile_data_model.dart';
 
 class BluetoothExhaleScreen extends StatefulWidget {
@@ -45,7 +48,7 @@ class _BluetoothExhaleScreenState extends State<BluetoothExhaleScreen> {
   double? thresholdPercentage;
   Timer? _counterTimeDown;
   int _secondsRemaining = 30;
-  int batteryPercentage = 0;
+
 
   final storage = GetStorage();
 
@@ -188,17 +191,53 @@ class _BluetoothExhaleScreenState extends State<BluetoothExhaleScreen> {
     );
   }
 
-  Future<void> _showCancelTestDialog(context) async {
+
+  Future<bool> _showCancelTestDialog(BuildContext context) async {
+    bool didCancel = false;
+
     showCancelTestBox(
       context: context,
-      cancelTestButtonPressed: () {
-        Navigator.pop(context);
-        _setCancelOrDisconnectFlag();
+      cancelTestButtonPressed: () async {
+        debugPrint("🛑 Cancel button pressed");
+
+        didCancel = true;
+
         abortProcess();
-        _navigateToDashboard();
+        if (mounted) {
+          Navigator.pop(context);
+        }
+
+        await Future.delayed(const Duration(milliseconds: 300));
+        _setCancelOrDisconnectFlag();
+        await _exitToDashboard();
       },
     );
+
+    return didCancel;
   }
+
+
+  Future<void> _exitToDashboard() async {
+    if (mounted) {
+      _navigateToDashboard();
+    }
+  }
+  void _navigateToDashboard() {
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(
+        builder:
+            (_) => BlocProvider(
+          create: (_) => HealthScoreBloc(OverallDataByDateService()),
+          child: ClinicalDashboardMain(
+            loginId: widget.profileDetails.clinicName!,
+          ),
+        ),
+      ),
+          (route) => false,
+    );
+  }
+
 
   void abortProcess() {
     if (_isConnected) {
@@ -206,18 +245,7 @@ class _BluetoothExhaleScreenState extends State<BluetoothExhaleScreen> {
     }
   }
 
-  void _navigateToDashboard() {
-    Navigator.pushAndRemoveUntil(
-      context,
-      MaterialPageRoute(
-        builder:
-            (context) => ClinicalDashboardMain(
-              loginId: '',
-            ), // Replace with your DashboardScreen widget
-      ),
-      (Route<dynamic> route) => false, // Remove all previous screens
-    );
-  }
+
 
   void _handleDisconnection() {
     if (_isDisposed ||
@@ -235,7 +263,7 @@ class _BluetoothExhaleScreenState extends State<BluetoothExhaleScreen> {
     showDeviceDisconnectedBox(
       context: context,
       onButtonPressed: () async {
-        _isDisconnectDialogPop = false; // ✅ Reset BEFORE connecting
+        _isDisconnectDialogPop = false;
         Navigator.pop(context);
         await Future.delayed(const Duration(milliseconds: 300));
         _setCancelOrDisconnectFlag();
@@ -446,7 +474,7 @@ class _BluetoothExhaleScreenState extends State<BluetoothExhaleScreen> {
     double threBaseVal = _blowProcessor.blowThresholdValue!;
 
     thresholdPercentage = Thresholds.calculateThresholdPercentage(threBaseVal);
-    batteryPercentage = storage.read('batteryPercentage');
+
 
     return PopScope(
       canPop: false,
@@ -486,18 +514,18 @@ class _BluetoothExhaleScreenState extends State<BluetoothExhaleScreen> {
                             ),
                           ),
                           const Spacer(),
-                          Text(
-                            "$batteryPercentage%",
-                            style: TextStyle(
-                              color: AppColor.primaryBlackColor,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 8,
-                            ),
-                          ),
-                          const SizedBox(width: 2),
-                          BatteryUtils.batteryIndicatorWidget(
-                            batteryPercentage,
-                          ),
+                          // Text(
+                          //   "$batteryPercentage%",
+                          //   style: TextStyle(
+                          //     color: AppColor.primaryBlackColor,
+                          //     fontWeight: FontWeight.w600,
+                          //     fontSize: 8,
+                          //   ),
+                          // ),
+                          // const SizedBox(width: 2),
+                          // BatteryUtils.batteryIndicatorWidget(
+                          //   batteryPercentage,
+                          // ),
                           IconButton(
                             onPressed: () {
                               setState(() {
@@ -743,6 +771,7 @@ class DummyBluetoothBlowPressure {
   int? diffTStampCurrent;
 
   List<double> blowValuesList = [];
+  List<double> baseBlowValueList = [];
 
   Future<void> _setCancelOrDisconnectFlag() async {
     final storage = GetStorage();
@@ -843,7 +872,7 @@ class DummyBluetoothBlowPressure {
                   context: context,
                   tryAgainButtonClicked: () {
                     _setCancelOrDisconnectFlag();
-                    _navigateToDashboard(context);
+                    _navigateToDashboard(context, profileDetails);
                   },
                   needHelpButtonCancel: () {},
                 );
@@ -859,8 +888,20 @@ class DummyBluetoothBlowPressure {
     }
   }
 
-  void _navigateToDashboard(BuildContext context) async {
-    Get.offAll(() => ClinicalDashboardMain(loginId: ''));
+  void _navigateToDashboard(BuildContext context, ResultProfileDataModel profileDetails) async {
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(
+        builder:
+            (_) => BlocProvider(
+          create: (_) => HealthScoreBloc(OverallDataByDateService()),
+          child: ClinicalDashboardMain(
+            loginId:profileDetails.clinicName!,
+          ),
+        ),
+      ),
+          (route) => false,
+    );
   }
 
   void showAbort() {}
@@ -899,7 +940,7 @@ class DummyBluetoothBlowPressure {
             context: context,
             tryAgainButtonClicked: () {
               _setCancelOrDisconnectFlag();
-              _navigateToDashboard(context);
+              _navigateToDashboard(context, profileDetails);
             },
             needHelpButtonCancel: () {},
           );
@@ -927,6 +968,12 @@ class DummyBluetoothBlowPressure {
         print('Max PR : $maxPR');
       }
 
+      final combinedList = [...baseBlowValueList, ...blowValuesList];
+      if (kDebugMode) {
+        print('✅ combinedList: $combinedList');
+      }
+
+
       if (finalBlowTime >= 1500) {
         moveToResults = true;
         isImproperBlow = false;
@@ -940,6 +987,7 @@ class DummyBluetoothBlowPressure {
                   bestPressure: bestPR,
                   blowDuration: finalBlowTime,
                   profileDetails: profileDetails,
+                  blowValuesList: combinedList,
                 ),
           ),
         );

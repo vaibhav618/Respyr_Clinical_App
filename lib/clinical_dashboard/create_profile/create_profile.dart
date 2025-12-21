@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:respyr_clinical/clinical_app_respyr/screens/bluetooth_test/screens/bluetooth_clinical_device_connectivity.dart';
 import 'package:respyr_clinical/clinical_dashboard/bloc/health_score_bloc.dart';
 import 'package:respyr_clinical/clinical_dashboard/service/overall_data_by_date_service.dart';
 import 'package:respyr_clinical/clinical_dashboard/views/clinical_dashboard.dart';
@@ -277,37 +278,48 @@ class _CreateProfileState extends State<CreateProfile> {
 
             await Future.delayed(const Duration(milliseconds: 200));
             _isNavigating = false;
-            Get.snackbar(
-              "",
-              "",
-              snackPosition: SnackPosition.BOTTOM,
-              snackStyle: SnackStyle.FLOATING,
-              backgroundColor: Colors.white,
-              colorText: Colors.black,
-              margin: const EdgeInsets.symmetric(horizontal: 100, vertical: 20),
-              padding: const EdgeInsets.only(bottom: 8, left: 10, right: 10),
-              borderRadius: 10,
-              boxShadows: [
-                BoxShadow(
-                  color: Colors.black.withAlpha(74),
-                  blurRadius: 10,
-                  spreadRadius: 1,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-              titleText: const SizedBox.shrink(),
-              messageText: Align(
-                alignment: Alignment.center,
-                child: Text(
-                  "Coming soon...",
-                  style: GoogleFonts.poppins(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: AppColor.primaryBlackColor,
-                  ),
-                  textAlign: TextAlign.center,
+            // Get.snackbar(
+            //   "",
+            //   "",
+            //   snackPosition: SnackPosition.BOTTOM,
+            //   snackStyle: SnackStyle.FLOATING,
+            //   backgroundColor: Colors.white,
+            //   colorText: Colors.black,
+            //   margin: const EdgeInsets.symmetric(horizontal: 100, vertical: 20),
+            //   padding: const EdgeInsets.only(bottom: 8, left: 10, right: 10),
+            //   borderRadius: 10,
+            //   boxShadows: [
+            //     BoxShadow(
+            //       color: Colors.black.withAlpha(74),
+            //       blurRadius: 10,
+            //       spreadRadius: 1,
+            //       offset: const Offset(0, 4),
+            //     ),
+            //   ],
+            //   titleText: const SizedBox.shrink(),
+            //   messageText: Align(
+            //     alignment: Alignment.center,
+            //     child: Text(
+            //       "Coming soon...",
+            //       style: GoogleFonts.poppins(
+            //         fontSize: 12,
+            //         fontWeight: FontWeight.w600,
+            //         color: AppColor.primaryBlackColor,
+            //       ),
+            //       textAlign: TextAlign.center,
+            //     ),
+            //   ),
+            // );
+            Navigator.pushAndRemoveUntil(
+              context,
+              MaterialPageRoute(
+                builder:
+                    (_) => BluetoothClinicalDeviceConnectivity(
+                  // isClinicalTest: true,
+                  profileDetails: profileModel,
                 ),
               ),
+                  (route) => false,
             );
           },
           onUsbTap: () {

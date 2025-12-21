@@ -1,0 +1,21 @@
+ť všetko</string>
+    <string name="exo_controls_repeat_off_description">Neopakovať</string>
+    <string name="exo_controls_repeat_one_description">Opakovať jednu</string>
+    <string name="exo_controls_rewind_description">Pretočiť späť</string>
+    <string name="exo_controls_seek_bar_description">Priebeh prehrávania</string>
+    <string name="exo_controls_settings_description">Nastavenia</string>
+    <string name="exo_controls_show">Zobraziť ovládacie prvky prehrávača</string>
+    <string name="exo_controls_shuffle_off_description">Náhodné prehrávanie je vypnuté</string>
+    <string name="exo_controls_shuffle_on_description">Náhodné prehrávanie je zapnuté</string>
+    <string name="exo_controls_stop_description">Zastaviť</string>
+    <string name="exo_controls_vr_description">režim VR</string>
+    <string name="exo_download_completed">Sťahovanie bolo dokončené</string>
+    <string name="exo_download_description">Stiahnuť</string>
+    <string name="exo_download_downloading">Sťahuje sa</string>
+    <string name="exo_download_failed">Nepodarilo sa stiahnuť</string>
+    <string name="exo_download_notification_channel_name">Stiahnuté</string>
+    <string name="exo_download_paused">Sťahovanie je pozastavené</string>
+    <string name="exo_download_paused_for_network">Sťahovanie čaká na sieť</string>
+    <string name="exo_download_paused_for_wifi">Sťahovanie čaká na Wi‑Fi</string>
+    <string name="exo_download_removing">Odstraňuje sa stiahnutý obsah</string>
+    <string name="exo_item_list">%1$s, 

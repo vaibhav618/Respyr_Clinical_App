@@ -1,0 +1,156 @@
+en token) {
+    parser.parseError(
+        token.span, 'unexpected-end-tag-in-select', {'name': token.name});
+  }
+}
+
+class InSelectInTablePhase extends Phase {
+  InSelectInTablePhase(super.parser);
+
+  @override
+  Token? processStartTag(StartTagToken token) {
+    switch (token.name) {
+      case 'caption':
+      case 'table':
+      case 'tbody':
+      case 'tfoot':
+      case 'thead':
+      case 'tr':
+      case 'td':
+      case 'th':
+        return startTagTable(token);
+      default:
+        return startTagOther(token);
+    }
+  }
+
+  @override
+  Token? processEndTag(EndTagToken token) {
+    switch (token.name) {
+      case 'caption':
+      case 'table':
+      case 'tbody':
+      case 'tfoot':
+      case 'thead':
+      case 'tr':
+      case 'td':
+      case 'th':
+        return endTagTable(token);
+      default:
+        return endTagOther(token);
+    }
+  }
+
+  @override
+  bool processEOF() {
+    parser._inSelectPhase.processEOF();
+    return false;
+  }
+
+  @override
+  Token? processCharacters(CharactersToken token) {
+    return parser._inSelectPhase.processCharacters(token);
+  }
+
+  Token startTagTable(StartTagToken token) {
+    parser.parseError(
+        token.span,
+        'unexpected-table-element-start-tag-in-select-in-table',
+        {'name': token.name});
+    endTagOther(EndTagToken('select'));
+    return token;
+  }
+
+  Token? startTagOther(StartTagToken token) {
+    return parser._inSelectPhase.processStartTag(token);
+  }
+
+  Token? endTagTable(EndTagToken token) {
+    parser.parseError(
+        token.span,
+        'unexpected-table-element-end-tag-in-select-in-table',
+        {'name': token.name});
+    if (tree.elementInScope(token.name, variant: 'table')) {
+      endTagOther(EndTagToken('select'));
+      return token;
+    }
+    return null;
+  }
+
+  Token? endTagOther(EndTagToken token) {
+    return parser._inSelectPhase.processEndTag(token);
+  }
+}
+
+class InForeignContentPhase extends Phase {
+  // TODO(jmesserly): this is sorted so we could binary search.
+  static const breakoutElements = [
+    'b',
+    'big',
+    'blockquote',
+    'body',
+    'br',
+    'center',
+    'code',
+    'dd',
+    'div',
+    'dl',
+    'dt',
+    'em',
+    'embed',
+    'h1',
+    'h2',
+    'h3',
+    'h4',
+    'h5',
+    'h6',
+    'head',
+    'hr',
+    'i',
+    'img',
+    'li',
+    'listing',
+    'menu',
+    'meta',
+    'nobr',
+    'ol',
+    'p',
+    'pre',
+    'ruby',
+    's',
+    'small',
+    'span',
+    'strike',
+    'strong',
+    'sub',
+    'sup',
+    'table',
+    'tt',
+    'u',
+    'ul',
+    'var'
+  ];
+
+  InForeignContentPhase(super.parser);
+
+  void adjustSVGTagNames(StartTagToken token) {
+    final replacements = const {
+      'altglyph': 'altGlyph',
+      'altglyphdef': 'altGlyphDef',
+      'altglyphitem': 'altGlyphItem',
+      'animatecolor': 'animateColor',
+      'animatemotion': 'animateMotion',
+      'animatetransform': 'animateTransform',
+      'clippath': 'clipPath',
+      'feblend': 'feBlend',
+      'fecolormatrix': 'feColorMatrix',
+      'fecomponenttransfer': 'feComponentTransfer',
+      'fecomposite': 'feComposite',
+      'feconvolvematrix': 'feConvolveMatrix',
+      'fediffuselighting': 'feDiffuseLighting',
+      'fedisplacementmap': 'feDisplacementMap',
+      'fedistantlight': 'feDistantLight',
+      'feflood': 'feFlood',
+      'fefunca': 'feFuncA',
+      'fefuncb': 'feFuncB',
+      'fefuncg': 

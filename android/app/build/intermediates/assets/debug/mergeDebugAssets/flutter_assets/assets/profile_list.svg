@@ -1,0 +1,34 @@
+, {'name': token.name});
+      }
+      popOpenElementsUntil(token);
+    }
+  }
+
+  void endTagHeading(EndTagToken token) {
+    for (var item in headingElementsList) {
+      if (tree.elementInScope(item)) {
+        tree.generateImpliedEndTags();
+        break;
+      }
+    }
+    if (tree.openElements.last.localName != token.name) {
+      parser.parseError(token.span, 'end-tag-too-early', {'name': token.name});
+    }
+
+    for (var item in headingElementsList) {
+      if (tree.elementInScope(item)) {
+        var node = tree.openElements.removeLast();
+        while (!headingElements.contains(node.localName)) {
+          node = tree.openElements.removeLast();
+        }
+        node.endSourceSpan = token.span;
+        break;
+      }
+    }
+  }
+
+  /// The much-feared adoption agency algorithm.
+  void endTagFormatting(EndTagToken token) {
+    // http://www.whatwg.org/specs/web-apps/current-work/multipage/tree-construction.html#adoptionAgency
+    // TODO(jmesserly): the comments here don't match the numbered steps in the
+    // updated spec. This needs 

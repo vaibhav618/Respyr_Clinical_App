@@ -1,0 +1,82 @@
+Source(token);
+        return null;
+      case 'input':
+        startTagInput(token);
+        return null;
+      case 'hr':
+        startTagHr(token);
+        return null;
+      case 'image':
+        startTagImage(token);
+        return null;
+      case 'isindex':
+        startTagIsIndex(token);
+        return null;
+      case 'textarea':
+        startTagTextarea(token);
+        return null;
+      case 'iframe':
+        startTagIFrame(token);
+        return null;
+      case 'noembed':
+      case 'noscript':
+        startTagRawtext(token);
+        return null;
+      case 'select':
+        startTagSelect(token);
+        return null;
+      case 'rp':
+      case 'rt':
+        startTagRpRt(token);
+        return null;
+      case 'option':
+      case 'optgroup':
+        startTagOpt(token);
+        return null;
+      case 'math':
+        startTagMath(token);
+        return null;
+      case 'svg':
+        startTagSvg(token);
+        return null;
+      case 'caption':
+      case 'col':
+      case 'colgroup':
+      case 'frame':
+      case 'head':
+      case 'tbody':
+      case 'td':
+      case 'tfoot':
+      case 'th':
+      case 'thead':
+      case 'tr':
+        startTagMisplaced(token);
+        return null;
+      default:
+        return startTagOther(token);
+    }
+  }
+
+  @override
+  Token? processEndTag(EndTagToken token) {
+    switch (token.name) {
+      case 'body':
+        endTagBody(token);
+        return null;
+      case 'html':
+        return endTagHtml(token);
+      case 'address':
+      case 'article':
+      case 'aside':
+      case 'blockquote':
+      case 'button':
+      case 'center':
+      case 'details':
+      case 'dir':
+      case 'div':
+      case 'dl':
+      case 'fieldset':
+      case 'figcaption':
+      case 'figure':
+      case 'footer':
+      ca

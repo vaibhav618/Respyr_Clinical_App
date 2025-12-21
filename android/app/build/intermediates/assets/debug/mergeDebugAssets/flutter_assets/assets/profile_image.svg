@@ -1,0 +1,57 @@
+      final clone = node.clone(false);
+        // Replace node with clone
+        tree.activeFormattingElements[
+            tree.activeFormattingElements.indexOf(node)] = clone;
+        tree.openElements[tree.openElements.indexOf(node)] = clone;
+        node = clone;
+
+        // Step 6.6
+        // Remove lastNode from its parents, if any
+        if (lastNode.parentNode != null) {
+          lastNode.parentNode!.nodes.remove(lastNode);
+        }
+        node.nodes.add(lastNode);
+        // Step 7.7
+        lastNode = node;
+        // End of inner loop
+      }
+
+      // Step 7
+      // Foster parent lastNode if commonAncestor is a
+      // table, tbody, tfoot, thead, or tr we need to foster parent the
+      // lastNode
+      if (lastNode.parentNode != null) {
+        lastNode.parentNode!.nodes.remove(lastNode);
+      }
+
+      if (const ['table', 'tbody', 'tfoot', 'thead', 'tr']
+          .contains(commonAncestor.localName)) {
+        final nodePos = tree.getTableMisnestedNodePosition();
+        nodePos[0]!.insertBefore(lastNode, nodePos[1]);
+      } else {
+        commonAncestor.nodes.add(lastNode);
+      }
+
+      // Step 8
+      final clone = formattingElement.clone(false);
+
+      // Step 9
+      furthestBlock.reparentChildren(clone);
+
+      // Step 10
+      furthestBlock.nodes.add(clone);
+
+      // Step 11
+      tree.activeFormattingElements.remove(formattingElement);
+      tree.activeFormattingElements
+          .insert(min(bookmark, tree.activeFormattingElements.length), clone);
+
+      // Step 12
+      tree.openElements.remove(formattingElement);
+      tree.openElements
+          .insert(tree.openElements.indexOf(furthestBlock) + 1, clone);
+    }
+  }
+
+  void endTagAppletMarqueeObject(EndTagToken token) {
+    if (tree.elementInScope(token.name)) {

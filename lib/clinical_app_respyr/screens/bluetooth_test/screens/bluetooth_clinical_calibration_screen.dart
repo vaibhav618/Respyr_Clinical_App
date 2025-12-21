@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -14,6 +15,8 @@ import 'package:respyr_clinical/clinical_dashboard/views/clinical_dashboard.dart
 import 'package:respyr_clinical/shared/audio_helper.dart';
 import 'package:respyr_clinical/shared/colors.dart';
 
+import '../../../../clinical_dashboard/bloc/health_score_bloc.dart';
+import '../../../../clinical_dashboard/service/overall_data_by_date_service.dart';
 import '../../../../new_result/data/model/result_profile_data_model.dart';
 
 class BluetoothCalibrationScreen extends StatefulWidget {
@@ -32,7 +35,7 @@ class _BluetoothCalibrationScreenState extends State<BluetoothCalibrationScreen>
   late StreamSubscription<String> _receivedDataSubscription;
   late AnimationController _animationController;
 
-  int batteryPercentage = 0;
+
   final storage = GetStorage();
   bool _isConnected = false;
   int _completedSteps = 0;
@@ -236,15 +239,15 @@ class _BluetoothCalibrationScreenState extends State<BluetoothCalibrationScreen>
         case 2:
           await _bleManager.sendData("?");
           await _bleManager.sendData("}");
+          await _bleManager.sendData("{");
+          await _bleManager.sendData("+");
           break;
         case 3:
-          await _bleManager.sendData("{");
           _audioHelper.playActivatingSensors();
           break;
         case 4:
           _audioHelper.playStartBreathTest();
           await Future.delayed(const Duration(seconds: 10));
-          await _bleManager.sendData("+");
           break;
       }
     } catch (e, stacktrace) {
@@ -308,13 +311,52 @@ class _BluetoothCalibrationScreenState extends State<BluetoothCalibrationScreen>
     });
   }
 
-  Future<void> _showCancelTestDialog() async {
+  Future<bool> _showCancelTestDialog(BuildContext context) async {
+    bool didCancel = false;
+
     showCancelTestBox(
       context: context,
-      cancelTestButtonPressed: () {
+      cancelTestButtonPressed: () async {
+        debugPrint("🛑 Cancel button pressed");
+
+        didCancel = true;
+
         abortProcess();
-        _navigateToDashboard();
+        if (mounted) {
+          Navigator.pop(context);
+        }
+
+        await Future.delayed(const Duration(milliseconds: 300));
+
+        await _exitToDashboard();
       },
+    );
+
+    return didCancel;
+  }
+
+  Future<void> _exitToDashboard() async {
+    if (mounted) {
+      _navigateToDashboard();
+    }
+  }
+
+
+
+
+  void _navigateToDashboard() {
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(
+        builder:
+            (_) => BlocProvider(
+          create: (_) => HealthScoreBloc(OverallDataByDateService()),
+          child: ClinicalDashboardMain(
+            loginId: widget.profileDetails.clinicName!,
+          ),
+        ),
+      ),
+          (route) => false,
     );
   }
 
@@ -324,18 +366,7 @@ class _BluetoothCalibrationScreenState extends State<BluetoothCalibrationScreen>
     }
   }
 
-  void _navigateToDashboard() {
-    Navigator.pushAndRemoveUntil(
-      context,
-      MaterialPageRoute(
-        builder:
-            (context) => const ClinicalDashboardMain(
-              loginId: '',
-            ), // Replace with your DashboardScreen widget
-      ),
-      (Route<dynamic> route) => false, // Remove all previous screens
-    );
-  }
+
 
   @override
   void dispose() {
@@ -394,7 +425,7 @@ class _BluetoothCalibrationScreenState extends State<BluetoothCalibrationScreen>
         statusBarIconBrightness: Brightness.dark,
       ),
     );
-    batteryPercentage = storage.read('batteryPercentage');
+
 
     return PopScope(
       canPop: false,
@@ -410,20 +441,20 @@ class _BluetoothCalibrationScreenState extends State<BluetoothCalibrationScreen>
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     IconButton(
-                      onPressed: () => _showCancelTestDialog(),
+                      onPressed: () => _showCancelTestDialog(context),
                       icon: SvgPicture.asset("assets/svg_icons/close_icon.svg"),
                     ),
                     const Spacer(),
-                    Text(
-                      "$batteryPercentage%",
-                      style: TextStyle(
-                        color: AppColor.primaryBlackColor,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 8,
-                      ),
-                    ),
-                    const SizedBox(width: 2),
-                    BatteryUtils.batteryIndicatorWidget(batteryPercentage),
+                    // Text(
+                    //   "$batteryPercentage%",
+                    //   style: TextStyle(
+                    //     color: AppColor.primaryBlackColor,
+                    //     fontWeight: FontWeight.w600,
+                    //     fontSize: 8,
+                    //   ),
+                    // ),
+                    // const SizedBox(width: 2),
+                    //BatteryUtils.batteryIndicatorWidget(batteryPercentage),
                     IconButton(
                       onPressed: () {
                         setState(() {

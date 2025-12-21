@@ -67,21 +67,21 @@ Future<void> main() async {
       await flutterLocalNotificationsPlugin.initialize(initSettings);
 
       // UI error widget override
-      ErrorWidget.builder = (FlutterErrorDetails details) {
-        sendErrorToServer(
-          details.exceptionAsString(),
-          details.stack.toString(),
-        );
-        return Material(
-          child: Center(
-            child: Text(
-              'Something went wrong.\nPlease restart the app.',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 18, color: Colors.red),
-            ),
-          ),
-        );
-      };
+      // ErrorWidget.builder = (FlutterErrorDetails details) {
+      //   sendErrorToServer(
+      //     details.exceptionAsString(),
+      //     details.stack.toString(),
+      //   );
+      //   return Material(
+      //     child: Center(
+      //       child: Text(
+      //         'Something went wrong.\nPlease restart the app.',
+      //         textAlign: TextAlign.center,
+      //         style: TextStyle(fontSize: 18, color: Colors.blue),
+      //       ),
+      //     ),
+      //   );
+      // };
 
       // Global Flutter framework errors
       FlutterError.onError = (FlutterErrorDetails details) {

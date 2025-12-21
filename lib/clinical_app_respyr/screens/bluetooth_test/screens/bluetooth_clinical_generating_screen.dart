@@ -7,6 +7,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
 import 'package:respyr_clinical/clinical_app_respyr/screens/bluetooth_test/services/clinical_bluetooth_manager.dart';
 import 'package:respyr_clinical/clinical_app_respyr/screens/result_screen_clinical_app.dart';
 import 'package:respyr_clinical/clinical_app_respyr/services/clinical_score_api.dart';
@@ -16,19 +17,26 @@ import 'package:respyr_clinical/clinical_app_respyr/services/raw_data_service.da
 import 'package:respyr_clinical/clinical_dashboard/views/clinical_dashboard.dart';
 import 'package:respyr_clinical/shared/colors.dart';
 
+import '../../../../new_result/data/model/result_model.dart';
 import '../../../../new_result/data/model/result_profile_data_model.dart';
+import '../../../../new_result/presentation/view/overall_result.dart';
+import '../../../../new_result/presentation/view_model/result_view_model.dart';
+import '../../../../utils/blow_values_helper.dart';
+import '../services/result_service.dart';
 
 class BluetoothGeneratingScreen extends StatefulWidget {
   final double maxPressure;
   final double bestPressure;
   final int blowDuration;
   final ResultProfileDataModel profileDetails;
+  final List<double> blowValuesList;
+
   const BluetoothGeneratingScreen({
     super.key,
     required this.maxPressure,
     required this.bestPressure,
     required this.blowDuration,
-    required this.profileDetails,
+    required this.profileDetails, required this.blowValuesList,
   });
 
   @override
@@ -47,7 +55,7 @@ class _BluetoothGeneratingScreenState extends State<BluetoothGeneratingScreen>
   String maxPressure = '';
   String blowTime = '';
 
-  int batteryPercentage = 0;
+
 
   final storage = GetStorage();
 
@@ -178,10 +186,10 @@ class _BluetoothGeneratingScreenState extends State<BluetoothGeneratingScreen>
       MaterialPageRoute(
         builder:
             (context) => ClinicalDashboardMain(
-              loginId: '',
-            ), // Replace with your DashboardScreen widget
+          loginId: '',
+        ), // Replace with your DashboardScreen widget
       ),
-      (Route<dynamic> route) => false, // Remove all previous screens
+          (Route<dynamic> route) => false, // Remove all previous screens
     );
   }
 
@@ -199,7 +207,7 @@ class _BluetoothGeneratingScreenState extends State<BluetoothGeneratingScreen>
     });
 
     _bleManager.connectionStatusStream.listen(
-      (isConnected) {
+          (isConnected) {
         if (!mounted) return;
 
         setState(() {
@@ -239,13 +247,19 @@ class _BluetoothGeneratingScreenState extends State<BluetoothGeneratingScreen>
     if (_receivedDataSubscription == null ||
         _receivedDataSubscription!.isPaused) {
       _receivedDataSubscription = _bleManager.receivedDataStream.listen(
-        (data) {
+            (data) {
           if (_isDisposed) return;
 
           try {
+
+            final regex =    RegExp(r'\{\d+(\.\d+)?\}');
+            final blowDataPattern = regex.hasMatch(data);
+            final containsAnalise = data.contains("analize");
+
+
             if (data == "120") {
               received120 =
-                  true; // ✅ Ensure this is set BEFORE checking dialogs
+              true; // ✅ Ensure this is set BEFORE checking dialogs
               _isDisconnectPop = false; // Prevent the dialog from showing
 
               if (Get.isOverlaysOpen) {
@@ -253,6 +267,8 @@ class _BluetoothGeneratingScreenState extends State<BluetoothGeneratingScreen>
               }
 
               return; // ✅ STOP further processing
+            }else if(blowDataPattern || containsAnalise){
+              return;
             }
 
             setState(() {
@@ -274,44 +290,73 @@ class _BluetoothGeneratingScreenState extends State<BluetoothGeneratingScreen>
             final containsMaxPressure = accumulatedData.contains("MAXPR");
             final containsBDur = accumulatedData.contains("BDur");
             final containsBestPr = accumulatedData.contains("Best_pr");
+
+
             final containsStar = accumulatedData.contains("*");
+
+
+
 
             if (kDebugMode) {
               print(
                 "🔎 Conditions: containsDollar=$containsDollar, "
-                "containsMaxPressure=$containsMaxPressure, "
-                "containsBDur=$containsBDur, containsBestPr=$containsBestPr, "
-                "containsNumber=$containsNumber, containsStar=$containsStar",
+                    "containsMaxPressure=$containsMaxPressure, "
+                    "containsBDur=$containsBDur, containsBestPr=$containsBestPr, "
+                    "containsNumber=$containsNumber, containsStar=$containsStar",
               );
             }
+
+            if(blowDataPattern){
+              print("blowDataPattern"+ accumulatedData);
+              accumulatedData.replaceAll(regex, "");
+            }
+
+            if(containsAnalise){
+              print("blowDataPattern"+ accumulatedData);
+              accumulatedData.replaceAll("analize", "");
+            }
+
+
 
             if (containsDollar ||
                 containsMaxPressure ||
                 containsBDur ||
                 containsBestPr ||
                 containsNumber ||
-                containsStar) {
+                containsStar ) {
               if (accumulatedData.contains("*")) {
-                if (accumulatedData == rawData) {
-                  if (kDebugMode) {
-                    print(
-                      '✅ Raw Data String: ${rawDataBuffer.toString().trim()}',
-                    );
-                  }
 
-                  final cleanedData = accumulatedData.replaceFirst(
-                    RegExp(r'^analizeanalize'),
-                    '',
-                  );
-                  processFinalData(cleanedData.trim());
-                  rawDataBuffer.clear();
-                  rawData = "";
-                }
+
+
+                print("accumulatedData : " + accumulatedData);
+                print("rawData : f" + rawData);
+
+                processFinalData(accumulatedData.trim());
+                rawDataBuffer.clear();
+                rawData = "";
+
+                // if (accumulatedData == rawData) {
+                //   if (kDebugMode) {
+                //     print(
+                //       '✅ Raw Data String: ${rawDataBuffer.toString().trim()}',
+                //     );
+                //   }
+                //
+                //   final cleanedData = accumulatedData.replaceAll("analize", " ");
+                //
+
+                //
+                // }
 
                 _receivedDataSubscription?.cancel();
                 _receivedDataSubscription = null;
               }
             }
+
+
+
+
+
           } catch (e) {
             if (_isDisposed) return;
             if (kDebugMode) {
@@ -343,10 +388,12 @@ class _BluetoothGeneratingScreenState extends State<BluetoothGeneratingScreen>
     String finalData2 = finalData.replaceAll("MAXPR", maxPressure);
     String finalData3 = finalData2.replaceAll("BDur", blowTime);
 
+    print("finalData3 : " + finalData3);
+
     if (!isDataBeingProcessing) {
-      isDataBeingProcessing = true; // ← Add this
+      isDataBeingProcessing = true;
       completedSteps = 3;
-      processRawData(finalData3);
+      processRawData1(finalData3);
     }
   }
 
@@ -355,22 +402,22 @@ class _BluetoothGeneratingScreenState extends State<BluetoothGeneratingScreen>
       context: context,
       builder:
           (context) => AlertDialog(
-            title: const Text("Error"),
-            content: Text(message),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text("OK"),
-              ),
-            ],
+        title: const Text("Error"),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text("OK"),
           ),
+        ],
+      ),
     );
   }
 
   String? getProfileData(List<Map<String, String>> result, String key) {
     try {
       final entry = result.firstWhere(
-        (map) => map.containsKey(key),
+            (map) => map.containsKey(key),
         orElse: () => {key: 'Not Found'},
       );
       return entry[key];
@@ -433,9 +480,9 @@ class _BluetoothGeneratingScreenState extends State<BluetoothGeneratingScreen>
             width: 3,
             decoration: BoxDecoration(
               color:
-                  completedSteps > step
-                      ? AppColor.buttonGreenColor
-                      : const Color(0xFFE0E0E0),
+              completedSteps > step
+                  ? AppColor.buttonGreenColor
+                  : const Color(0xFFE0E0E0),
             ),
           ),
       ],
@@ -444,7 +491,7 @@ class _BluetoothGeneratingScreenState extends State<BluetoothGeneratingScreen>
 
   @override
   Widget build(BuildContext context) {
-    batteryPercentage = storage.read('batteryPercentage');
+    // batteryPercentage = storage.read('batteryPercentage');
     return PopScope(
       canPop: false,
       child: Scaffold(
@@ -462,16 +509,16 @@ class _BluetoothGeneratingScreenState extends State<BluetoothGeneratingScreen>
                     //   icon: SvgPicture.asset("assets/svg_icons/close_icon.svg"),
                     // ),
                     const Spacer(),
-                    Text(
-                      "$batteryPercentage%",
-                      style: TextStyle(
-                        color: AppColor.primaryBlackColor,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 8,
-                      ),
-                    ),
-                    const SizedBox(width: 2),
-                    BatteryUtils.batteryIndicatorWidget(batteryPercentage),
+                    // Text(
+                    //   "$batteryPercentage%",
+                    //   style: TextStyle(
+                    //     color: AppColor.primaryBlackColor,
+                    //     fontWeight: FontWeight.w600,
+                    //     fontSize: 8,
+                    //   ),
+                    // ),
+                    // const SizedBox(width: 2),
+                    //BatteryUtils.batteryIndicatorWidget(batteryPercentage),
                   ],
                 ),
                 SizedBox(height: MediaQuery.of(context).size.height * 0.1),
@@ -496,7 +543,7 @@ class _BluetoothGeneratingScreenState extends State<BluetoothGeneratingScreen>
     );
   }
 
-  void processRawData(String deviceRawData) async {
+  void processRawData(String deviceRawData) async  {
     deviceRawData = deviceRawData.replaceAll("/analize", "");
     final match = RegExp(r'H(\d{3,5})').firstMatch(deviceRawData);
     final int hardwareId = int.tryParse(match?.group(1) ?? '0') ?? 0;
@@ -575,13 +622,49 @@ class _BluetoothGeneratingScreenState extends State<BluetoothGeneratingScreen>
     }
   }
 
+
+
+  void processRawData1(String deviceRawData) async {
+
+    ResultService resultService = ResultService();
+    final profile = widget.profileDetails;
+    String testdata = deviceRawData;
+    String subId = "${profile.clinicName!}\$${profile.subjectId!}";
+    String gender = profile.gender!;
+    String age = profile.age.toString();
+    String height = profile.height.toString();
+    String region = profile.region.toString();
+
+    try {
+
+      final NewResultModel result = await resultService.fetchResults(
+        testdata: testdata,
+        subjectId: subId,
+        gender: gender,
+        age: age,
+        height: height,
+        region: region,
+        blowData: BlowValuesHelper().getBlowString(widget.blowValuesList),
+      );
+
+      _navigateToResultScreen1(result);
+
+    } catch (e) {
+      print("Error fetching result: $e");
+      _showErrorDialog(e.toString());
+    }
+  }
+
+
+
+
   void processClinicalDiabeticScore(
-    double acetone,
-    double ethanol,
-    double blow,
-    int hardwareId,
-    double h2,
-  ) async {
+      double acetone,
+      double ethanol,
+      double blow,
+      int hardwareId,
+      double h2,
+      ) async {
     final clinicalService = ClinicalDiabeticScore();
     final clinicalResult = await clinicalService.processDiabeticScore(
       acetone: acetone,
@@ -597,15 +680,15 @@ class _BluetoothGeneratingScreenState extends State<BluetoothGeneratingScreen>
 
     double sugarScore =
         double.tryParse(clinicalResult['Dibetic_Score']?.toString() ?? "0") ??
-        0.0;
+            0.0;
     double blowScore =
         double.tryParse(clinicalResult['Blow_Score']?.toString() ?? "0") ?? 0.0;
     double gutScore =
         double.tryParse(clinicalResult['Gut_Score_per']?.toString() ?? "0") ??
-        0.0;
+            0.0;
     double liverScore =
         double.tryParse(clinicalResult['score_liver']?.toString() ?? "0") ??
-        0.0;
+            0.0;
 
     int timestamp =
         int.tryParse(clinicalResult['timestamp']?.toString() ?? '0') ?? 0;
@@ -643,12 +726,44 @@ class _BluetoothGeneratingScreenState extends State<BluetoothGeneratingScreen>
       MaterialPageRoute(
         builder:
             (context) => ResultScreenClinicalApp(
-              lifeStyleJsonResponse: lifestyleJson,
-              profileDetails: widget.profileDetails,
-            ),
+          lifeStyleJsonResponse: lifestyleJson,
+          profileDetails: widget.profileDetails,
+        ),
       ),
     );
   }
+
+
+
+  void _navigateToResultScreen1(NewResultModel lifestyleJson) {
+    if (Get.isOverlaysOpen) {
+      Get.back(); // Close any open overlays/dialogs
+    }
+
+    received120 = true;
+
+    Navigator.of(context).popUntil((route) => route.isFirst);
+    _abortProcess();
+    Get.offAll(
+          () => ChangeNotifierProvider(
+        create: (_) => ResultViewModel()..initialize(widget.profileDetails),
+        child: ResultScreen(
+          userResultData: lifestyleJson,
+          userProfileData: widget.profileDetails,
+          blowValuesList: widget.blowValuesList,
+        ),
+      ),
+    );
+  }
+
+
+
+
+
+
+
+
+
 
   void _abortProcess() {
     if (_isConnected) {
@@ -677,16 +792,16 @@ class _BluetoothGeneratingScreenState extends State<BluetoothGeneratingScreen>
     return 0; // Default to 0 in case of error
   }
 
-  // void _showCancelTestDialog() {
-  //   showCancelTestBox(
-  //       context: context,
-  //       cancelTestButtonPressed: () {
-  //         saveReadingAbortTime().then((_) {
-  //           Get.back();
-  //           _setCancelOrDisconnectFlag();
-  //           abortProcess();
-  //           _navigateToDashboard();
-  //         });
-  //       });
-  // }
+// void _showCancelTestDialog() {
+//   showCancelTestBox(
+//       context: context,
+//       cancelTestButtonPressed: () {
+//         saveReadingAbortTime().then((_) {
+//           Get.back();
+//           _setCancelOrDisconnectFlag();
+//           abortProcess();
+//           _navigateToDashboard();
+//         });
+//       });
+// }
 }

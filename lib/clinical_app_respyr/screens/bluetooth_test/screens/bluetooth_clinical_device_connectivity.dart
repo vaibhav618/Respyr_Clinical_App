@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
@@ -20,8 +21,11 @@ import 'package:respyr_clinical/shared/colors.dart';
 import 'package:respyr_clinical/shared/otg_connection.dart';
 import 'package:respyr_clinical/shared/text_string.dart';
 
+
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../../clinical_dashboard/bloc/health_score_bloc.dart';
+import '../../../../clinical_dashboard/service/overall_data_by_date_service.dart';
 import '../../../../new_result/data/model/result_profile_data_model.dart';
 
 class BluetoothClinicalDeviceConnectivity extends StatefulWidget {
@@ -67,7 +71,7 @@ class _BluetoothClinicalDeviceConnectivityState
   Timer? _batteryCaptureTimeoutTimer;
   String _connectionStatusText = "Not Connected";
   final storage = GetStorage();
-  int batteryPercentage = 0;
+  Key _freshKey = UniqueKey();
 
   @override
   void initState() {
@@ -139,91 +143,166 @@ class _BluetoothClinicalDeviceConnectivityState
     );
   }
 
+  // void _startDataListener() {
+  //   _dataStreamSubscription?.cancel();
+  //
+  //   _dataStreamSubscription = _bleManager.receivedDataStream.listen(
+  //     (data) async {
+  //       if (!mounted || _isDisposed) return;
+  //
+  //       data = data.trim();
+  //       debugPrint("📨 Received: '$data'");
+  //
+  //       // Step 1: Confirm device ON
+  //       if (data == "%" && !_receivedPercentResponse && _hasSentBraceCommand) {
+  //         _receivedPercentResponse = true;
+  //         debugPrint("✅ Device turned ON, requesting battery voltage...");
+  //         // await _sendData("@"); // Start voltage stream
+  //         _voltageStreamActive = true;
+  //         _isBatteryCaptured = true;
+  //         return;
+  //       }
+  //
+  //       // Step 2: Parse voltage data (latest valid value only)
+  //       if (_receivedPercentResponse &&
+  //           !_isBatteryCaptured &&
+  //           data != "%" &&
+  //           data.contains(RegExp(r'[0-9]'))) {
+  //         final cleanedData = data.replaceAll("@", "").trim();
+  //         final voltage = double.tryParse(cleanedData);
+  //
+  //         if (voltage != null) {
+  //           final percentage = BatteryUtils.calculateBatteryPercentage(voltage);
+  //
+  //           setState(() {
+  //             batteryPercentage = percentage;
+  //             _isBatteryCaptured = true;
+  //           });
+  //
+  //           await storage.write('batteryPercentage', percentage);
+  //           debugPrint("🔋 Voltage: $voltage → Battery %: $percentage");
+  //
+  //           // Stop voltage stream
+  //           if (_voltageStreamActive) {
+  //             await _sendData("@");
+  //             _voltageStreamActive = false;
+  //           }
+  //
+  //           // ✅ Immediately enable the button here
+  //           if (mounted && !_isDisposed && !_isButtonEnabled) {
+  //             setState(() {
+  //               _isButtonEnabled = true;
+  //             });
+  //           }
+  //
+  //           return;
+  //         }
+  //
+  //         return;
+  //       }
+  //
+  //       if (_isBatteryCaptured) {
+  //         _isBatteryCaptureDelayCompleted = false; // Reset first
+  //         Future.delayed(const Duration(seconds: 2), () {
+  //           if (mounted) {
+  //             setState(() {
+  //               _isBatteryCaptureDelayCompleted = true;
+  //             });
+  //           }
+  //         });
+  //       }
+  //
+  //       // Step 4: Handle Hardware ID
+  //       if (data.startsWith("H") && !isHardwareIdProcessed) {
+  //         final id = data.replaceAll("H", "").trim();
+  //         final prefs = await SharedPreferences.getInstance();
+  //         await prefs.setString('hardware_id', id);
+  //
+  //         _processHardwareId(id);
+  //         setState(() => isHardwareIdProcessed = true);
+  //
+  //         if (!_navigatedToNext && mounted) {
+  //           setState(() => isHardwareIdProcessed = true);
+  //           await _dataStreamSubscription?.cancel();
+  //           if (!_isDisposed && mounted) {
+  //             _navigatedToNext = true;
+  //             Get.offAll(
+  //               () =>
+  //                   BluetoothBreatheTube(profileDetails: widget.profileDetails),
+  //             );
+  //           }
+  //         }
+  //       }
+  //     },
+  //     onError: (e) => debugPrint("❌ Stream Error: $e"),
+  //     onDone: () => debugPrint("ℹ️ Stream closed"),
+  //   );
+  // }
+
+
   void _startDataListener() {
     _dataStreamSubscription?.cancel();
 
     _dataStreamSubscription = _bleManager.receivedDataStream.listen(
-      (data) async {
+          (data) async {
         if (!mounted || _isDisposed) return;
 
         data = data.trim();
         debugPrint("📨 Received: '$data'");
 
-        // Step 1: Confirm device ON
-        if (data == "%" && !_receivedPercentResponse && _hasSentBraceCommand) {
-          _receivedPercentResponse = true;
-          debugPrint("✅ Device turned ON, requesting battery voltage...");
-          await _sendData("@"); // Start voltage stream
-          _voltageStreamActive = true;
-          return;
-        }
 
-        // Step 2: Parse voltage data (latest valid value only)
-        if (_receivedPercentResponse &&
-            !_isBatteryCaptured &&
-            data != "%" &&
-            data.contains(RegExp(r'[0-9]'))) {
-          final cleanedData = data.replaceAll("@", "").trim();
-          final voltage = double.tryParse(cleanedData);
-
-          if (voltage != null) {
-            final percentage = BatteryUtils.calculateBatteryPercentage(voltage);
-
-            setState(() {
-              batteryPercentage = percentage;
-              _isBatteryCaptured = true;
-            });
-
-            await storage.write('batteryPercentage', percentage);
-            debugPrint("🔋 Voltage: $voltage → Battery %: $percentage");
-
-            // Stop voltage stream
-            if (_voltageStreamActive) {
-              await _sendData("@");
-              _voltageStreamActive = false;
-            }
-
-            // ✅ Immediately enable the button here
-            if (mounted && !_isDisposed && !_isButtonEnabled) {
-              setState(() {
-                _isButtonEnabled = true;
-              });
-            }
-
-            return;
-          }
-
-          return;
-        }
-
-        if (_isBatteryCaptured) {
-          _isBatteryCaptureDelayCompleted = false; // Reset first
-          Future.delayed(const Duration(seconds: 2), () {
-            if (mounted) {
-              setState(() {
-                _isBatteryCaptureDelayCompleted = true;
-              });
-            }
+        if(data.contains("120")){
+          // isHardwareIdProcessed=false;
+          // if (_bleManager.isConnected && !isHardwareIdProcessed) {
+          //   await _sendData("!");
+          // }
+          setState(() {
+            _freshKey = UniqueKey();
           });
         }
 
-        // Step 4: Handle Hardware ID
-        if (data.startsWith("H") && !isHardwareIdProcessed) {
-          final id = data.replaceAll("H", "").trim();
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setString('hardware_id', id);
+        // Step 1: Confirm device ON
+        // We keep this to ensure the handshake is complete before processing IDs
+        if (data == "%" && !_receivedPercentResponse && _hasSentBraceCommand) {
+          _receivedPercentResponse = true;
+          debugPrint("✅ Device turned ON. Skipping battery, waiting for Hardware ID...");
 
-          _processHardwareId(id);
-          setState(() => isHardwareIdProcessed = true);
+          // Immediately enable the button since we aren't waiting for battery data
+          if (mounted && !_isDisposed && !_isButtonEnabled) {
+            setState(() {
+              _isButtonEnabled = true;
+              _isBatteryCaptured = true; // Mark as captured to bypass battery logic
+            });
+          }
 
           if (!_navigatedToNext && mounted) {
             setState(() => isHardwareIdProcessed = true);
             await _dataStreamSubscription?.cancel();
             if (!_isDisposed && mounted) {
               _navigatedToNext = true;
+              Get.offAll(() => BluetoothBreatheTube(profileDetails: widget.profileDetails),);
+            }
+          }
+          return;
+        }
+
+        // Step 2: Handle Hardware ID (Rest of the logic remains the same)
+        if (data.startsWith("H") && !isHardwareIdProcessed) {
+          final id = data.replaceAll("H", "").trim();
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString('hardware_id', id);
+
+          _processHardwareId(id);
+
+          if (!_navigatedToNext && mounted) {
+            setState(() => isHardwareIdProcessed = true);
+            await _dataStreamSubscription?.cancel();
+
+            if (!_isDisposed && mounted) {
+              _navigatedToNext = true;
+              debugPrint("🚀 Hardware ID found: $id. Navigating...");
               Get.offAll(
-                () =>
-                    BluetoothBreatheTube(profileDetails: widget.profileDetails),
+                    () => BluetoothBreatheTube(profileDetails: widget.profileDetails),
               );
             }
           }
@@ -287,18 +366,20 @@ class _BluetoothClinicalDeviceConnectivityState
 
       _connectingTimer?.cancel();
 
-      if (!_hasSentBraceCommand) {
-        await Future.delayed(const Duration(seconds: 1));
-        await _sendData("{");
-        _hasSentBraceCommand = true;
-      }
+      // if (!_hasSentBraceCommand) {
+      //   await Future.delayed(const Duration(seconds: 1));
+      //   await _sendData("{");
+      //   _hasSentBraceCommand = true;
+      // }
 
-      _batteryCaptureTimeoutTimer?.cancel();
-      _batteryCaptureTimeoutTimer = Timer(const Duration(seconds: 90), () {
-        if (!_isBatteryCaptured && mounted && !_isDisposed) {
-          _showTechnicalErrorDialog();
-        }
-      });
+      // _batteryCaptureTimeoutTimer?.cancel();
+      // _batteryCaptureTimeoutTimer = Timer(const Duration(seconds: 90), () {
+      //   if (!_isBatteryCaptured && mounted && !_isDisposed) {
+      //     _showTechnicalErrorDialog();
+      //   }
+      // });
+
+
     } catch (e) {
       if (mounted) {
         setState(() {
@@ -390,6 +471,7 @@ class _BluetoothClinicalDeviceConnectivityState
         }
       },
       child: Scaffold(
+        key: _freshKey,
         backgroundColor: AppColor.whiteColor,
         body: SafeArea(
           child: Padding(
@@ -398,27 +480,27 @@ class _BluetoothClinicalDeviceConnectivityState
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
-                  children: [
-                    const Spacer(),
-                    if (_isBatteryCaptured)
-                      Text(
-                        "$batteryPercentage%",
-                        style: GoogleFonts.mulish(
-                          color: AppColor.primaryBlackColor,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 8,
-                        ),
-                      ),
-                    const SizedBox(width: 2),
-                    if (_isBatteryCaptured)
-                      BatteryUtils.batteryIndicatorWidget(batteryPercentage),
-                    IconButton(
-                      onPressed: () => _handlePop(context),
-                      icon: SvgPicture.asset("assets/svg_icons/close_icon.svg"),
-                    ),
-                  ],
-                ),
+                // Row(
+                //   children: [
+                //     const Spacer(),
+                //     if (_isBatteryCaptured)
+                //       Text(
+                //         "$batteryPercentage%",
+                //         style: GoogleFonts.mulish(
+                //           color: AppColor.primaryBlackColor,
+                //           fontWeight: FontWeight.w600,
+                //           fontSize: 8,
+                //         ),
+                //       ),
+                //     const SizedBox(width: 2),
+                //     if (_isBatteryCaptured)
+                //       BatteryUtils.batteryIndicatorWidget(batteryPercentage),
+                //     IconButton(
+                //       onPressed: () => _handlePop(context),
+                //       icon: SvgPicture.asset("assets/svg_icons/close_icon.svg"),
+                //     ),
+                //   ],
+                // ),
                 Align(
                   alignment: Alignment.topCenter,
                   child: SvgPicture.asset(
@@ -455,7 +537,21 @@ class _BluetoothClinicalDeviceConnectivityState
   Future<bool> _handleCancelTest() async {
     bool confirmed = await showCancelTestDialog(Get.context!);
     if (confirmed) {
-      Get.offAll(() => const ClinicalDashboardMain(loginId: ''));
+
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(
+          builder:
+              (_) => BlocProvider(
+            create: (_) => HealthScoreBloc(OverallDataByDateService()),
+            child: ClinicalDashboardMain(
+              loginId: widget.profileDetails.clinicName!,
+            ),
+          ),
+        ),
+            (route) => false,
+      );
+
     }
     return confirmed;
   }
@@ -577,9 +673,7 @@ class _BluetoothClinicalDeviceConnectivityState
     if (_isConnected) {
       return ElevatedButton(
         onPressed:
-            (isHardwareIdProcessing && !_isButtonEnabled) ||
-                    !_isBatteryCaptured ||
-                    !_isBatteryCaptureDelayCompleted
+            isHardwareIdProcessing && !_isButtonEnabled
                 ? null
                 : () async {
                   setState(() {
