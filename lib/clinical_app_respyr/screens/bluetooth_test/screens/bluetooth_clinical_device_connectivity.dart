@@ -4,28 +4,23 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
 import 'package:respyr_clinical/clinical_app_respyr/screens/bluetooth_test/screens/bluetooth_clinical_breathe_tube.dart';
 import 'package:respyr_clinical/clinical_app_respyr/screens/bluetooth_test/services/clinical_bluetooth_manager.dart';
 import 'package:respyr_clinical/clinical_app_respyr/screens/usb_test/services/clinical_usb_communication_services.dart';
-import 'package:respyr_clinical/clinical_app_respyr/services/device_battery_utils.dart';
 import 'package:respyr_clinical/clinical_app_respyr/services/device_last_reading_time.dart';
 import 'package:respyr_clinical/clinical_app_respyr/services/disconnected_error.dart';
-import 'package:respyr_clinical/clinical_dashboard/views/clinical_dashboard.dart';
 import 'package:respyr_clinical/shared/colors.dart';
 import 'package:respyr_clinical/shared/otg_connection.dart';
 import 'package:respyr_clinical/shared/text_string.dart';
 
-
-import 'package:shared_preferences/shared_preferences.dart';
-
-import '../../../../clinical_dashboard/bloc/health_score_bloc.dart';
-import '../../../../clinical_dashboard/service/overall_data_by_date_service.dart';
+import '../../../../router/app_routers.dart';
 import '../../../../new_result/data/model/result_profile_data_model.dart';
 
 class BluetoothClinicalDeviceConnectivity extends StatefulWidget {
@@ -45,9 +40,10 @@ class _BluetoothClinicalDeviceConnectivityState
     extends State<BluetoothClinicalDeviceConnectivity> {
   final ClinicalBluetoothManager _bleManager = ClinicalBluetoothManager();
   final ClinicalUsbCommunicationServices _usbService =
-      ClinicalUsbCommunicationServices();
+  ClinicalUsbCommunicationServices();
 
   StreamSubscription<String>? _dataStreamSubscription;
+  StreamSubscription<bool>? _connectionSub;
 
   bool _isConnected = false;
   bool isHardwareIdProcessed = false;
@@ -55,66 +51,107 @@ class _BluetoothClinicalDeviceConnectivityState
   bool isHardwareIdProcessing = false;
   bool isScanningDevice = false;
   bool _isButtonEnabled = false;
+
   bool _isDisposed = false;
   bool _isDialogShowing = false;
+
   bool _hasShownDisconnectedDialog = false;
   bool _hasShownRetryDialog = false;
-  bool _isBatteryCaptured = false;
+
   bool _navigatedToNext = false;
   bool _hasSentBraceCommand = false;
   bool _receivedPercentResponse = false;
-  bool _voltageStreamActive = false;
-  bool _isBatteryCaptureDelayCompleted = false;
+
+  bool _isConnectingInProgress = false;
 
   Timer? _connectingTimer;
-  Timer? _connectionCheckTimer;
   Timer? _batteryCaptureTimeoutTimer;
+
   String _connectionStatusText = "Not Connected";
+
   final storage = GetStorage();
   Key _freshKey = UniqueKey();
 
   @override
   void initState() {
     super.initState();
+
     _setupConnectionStatusListener();
     _startDataListener();
+
+    // Sync UI with existing BLE connection
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _syncUiWithExistingConnection();
+    });
+  }
+
+  void _syncUiWithExistingConnection() {
+    if (!mounted || _isDisposed) return;
+
+    final alreadyConnected = _bleManager.isConnected;
+
+    setState(() {
+      _isConnected = alreadyConnected;
+      isScanningDevice = false;
+      _connectionStatusText = alreadyConnected ? "Connected" : "Not Connected";
+      _isButtonEnabled = alreadyConnected;
+    });
   }
 
   @override
   void dispose() {
     _isDisposed = true;
     _isDialogShowing = false;
+
     _dataStreamSubscription?.cancel();
+    _connectionSub?.cancel();
+
     _connectingTimer?.cancel();
-    _connectionCheckTimer?.cancel();
     _batteryCaptureTimeoutTimer?.cancel();
+
     super.dispose();
   }
 
+  // -----------------------------
+  // Connection Listener
+  // -----------------------------
   void _setupConnectionStatusListener() {
-    _bleManager.connectionStatusStream.listen((isConnected) {
-      if (!mounted) return;
+    _connectionSub?.cancel();
+
+    _connectionSub = _bleManager.connectionStatusStream.listen((isConnected) {
+      if (!mounted || _isDisposed) return;
 
       if (isConnected) {
         _hasShownDisconnectedDialog = false;
-      } else if (!_isDisposed &&
-          !_isDialogShowing &&
-          !_hasShownDisconnectedDialog &&
-          !isScanningDevice) {
-        Future.delayed(const Duration(milliseconds: 500)).then((_) {
-          _handleDisconnection();
-        });
+        _hasShownRetryDialog = false;
+        _isConnectingInProgress = false;
+        _connectingTimer?.cancel();
+      } else {
+        // Only show disconnect popup if:
+        // - not scanning
+        // - not disposed
+        // - no dialog already
+        // - not already shown
+        if (!_isDisposed &&
+            !isScanningDevice &&
+            !_isDialogShowing &&
+            !_hasShownDisconnectedDialog) {
+          Future.delayed(const Duration(milliseconds: 350)).then((_) {
+            if (!mounted || _isDisposed) return;
+            _handleDisconnection();
+          });
+        }
       }
 
       setState(() {
         _isConnected = isConnected;
-        isScanningDevice = false;
-        _connectionStatusText = isConnected ? "Connected" : "Not Connected";
+        if (!isConnected && isScanningDevice == false) {
+          _connectionStatusText = "Not Connected";
+        } else if (isConnected) {
+          _connectionStatusText = "Connected";
+        }
       });
     });
-
-    // Prevent false disconnection detections
-    _connectionCheckTimer?.cancel();
   }
 
   void _handleDisconnection() {
@@ -133,113 +170,22 @@ class _BluetoothClinicalDeviceConnectivityState
     showDeviceDisconnectedBox(
       context: context,
       onButtonPressed: () async {
-        if (!_isDisposed) {
-          _isDialogShowing = false;
+        if (_isDisposed) return;
+
+        _isDialogShowing = false;
+        if (Navigator.of(context).canPop()) {
           Navigator.pop(context);
-          await Future.delayed(const Duration(milliseconds: 300));
-          _connect();
         }
+
+        await Future.delayed(const Duration(milliseconds: 250));
+        await _connect();
       },
     );
   }
 
-  // void _startDataListener() {
-  //   _dataStreamSubscription?.cancel();
-  //
-  //   _dataStreamSubscription = _bleManager.receivedDataStream.listen(
-  //     (data) async {
-  //       if (!mounted || _isDisposed) return;
-  //
-  //       data = data.trim();
-  //       debugPrint("📨 Received: '$data'");
-  //
-  //       // Step 1: Confirm device ON
-  //       if (data == "%" && !_receivedPercentResponse && _hasSentBraceCommand) {
-  //         _receivedPercentResponse = true;
-  //         debugPrint("✅ Device turned ON, requesting battery voltage...");
-  //         // await _sendData("@"); // Start voltage stream
-  //         _voltageStreamActive = true;
-  //         _isBatteryCaptured = true;
-  //         return;
-  //       }
-  //
-  //       // Step 2: Parse voltage data (latest valid value only)
-  //       if (_receivedPercentResponse &&
-  //           !_isBatteryCaptured &&
-  //           data != "%" &&
-  //           data.contains(RegExp(r'[0-9]'))) {
-  //         final cleanedData = data.replaceAll("@", "").trim();
-  //         final voltage = double.tryParse(cleanedData);
-  //
-  //         if (voltage != null) {
-  //           final percentage = BatteryUtils.calculateBatteryPercentage(voltage);
-  //
-  //           setState(() {
-  //             batteryPercentage = percentage;
-  //             _isBatteryCaptured = true;
-  //           });
-  //
-  //           await storage.write('batteryPercentage', percentage);
-  //           debugPrint("🔋 Voltage: $voltage → Battery %: $percentage");
-  //
-  //           // Stop voltage stream
-  //           if (_voltageStreamActive) {
-  //             await _sendData("@");
-  //             _voltageStreamActive = false;
-  //           }
-  //
-  //           // ✅ Immediately enable the button here
-  //           if (mounted && !_isDisposed && !_isButtonEnabled) {
-  //             setState(() {
-  //               _isButtonEnabled = true;
-  //             });
-  //           }
-  //
-  //           return;
-  //         }
-  //
-  //         return;
-  //       }
-  //
-  //       if (_isBatteryCaptured) {
-  //         _isBatteryCaptureDelayCompleted = false; // Reset first
-  //         Future.delayed(const Duration(seconds: 2), () {
-  //           if (mounted) {
-  //             setState(() {
-  //               _isBatteryCaptureDelayCompleted = true;
-  //             });
-  //           }
-  //         });
-  //       }
-  //
-  //       // Step 4: Handle Hardware ID
-  //       if (data.startsWith("H") && !isHardwareIdProcessed) {
-  //         final id = data.replaceAll("H", "").trim();
-  //         final prefs = await SharedPreferences.getInstance();
-  //         await prefs.setString('hardware_id', id);
-  //
-  //         _processHardwareId(id);
-  //         setState(() => isHardwareIdProcessed = true);
-  //
-  //         if (!_navigatedToNext && mounted) {
-  //           setState(() => isHardwareIdProcessed = true);
-  //           await _dataStreamSubscription?.cancel();
-  //           if (!_isDisposed && mounted) {
-  //             _navigatedToNext = true;
-  //             Get.offAll(
-  //               () =>
-  //                   BluetoothBreatheTube(profileDetails: widget.profileDetails),
-  //             );
-  //           }
-  //         }
-  //       }
-  //     },
-  //     onError: (e) => debugPrint("❌ Stream Error: $e"),
-  //     onDone: () => debugPrint("ℹ️ Stream closed"),
-  //   );
-  // }
-
-
+  // -----------------------------
+  // Data Listener
+  // -----------------------------
   void _startDataListener() {
     _dataStreamSubscription?.cancel();
 
@@ -250,62 +196,46 @@ class _BluetoothClinicalDeviceConnectivityState
         data = data.trim();
         debugPrint("📨 Received: '$data'");
 
-
-        if(data.contains("120")){
-          // isHardwareIdProcessed=false;
-          // if (_bleManager.isConnected && !isHardwareIdProcessed) {
-          //   await _sendData("!");
-          // }
-          setState(() {
-            _freshKey = UniqueKey();
-          });
+        if (data.contains("120")) {
+          if (mounted) {
+            setState(() {
+              _freshKey = UniqueKey();
+            });
+          }
         }
 
-        // Step 1: Confirm device ON
-        // We keep this to ensure the handshake is complete before processing IDs
+        // Step 1: Confirm device ON (your old logic)
         if (data == "%" && !_receivedPercentResponse && _hasSentBraceCommand) {
           _receivedPercentResponse = true;
-          debugPrint("✅ Device turned ON. Skipping battery, waiting for Hardware ID...");
+          debugPrint(
+              "✅ Device turned ON. Skipping battery, waiting for Hardware ID...");
 
-          // Immediately enable the button since we aren't waiting for battery data
           if (mounted && !_isDisposed && !_isButtonEnabled) {
             setState(() {
               _isButtonEnabled = true;
-              _isBatteryCaptured = true; // Mark as captured to bypass battery logic
             });
           }
 
-          if (!_navigatedToNext && mounted) {
-            setState(() => isHardwareIdProcessed = true);
-            await _dataStreamSubscription?.cancel();
-            if (!_isDisposed && mounted) {
-              _navigatedToNext = true;
-              Get.offAll(() => BluetoothBreatheTube(profileDetails: widget.profileDetails),);
-            }
-          }
+          // Navigate
+          await _navigateToNextIfNeeded();
           return;
         }
 
-        // Step 2: Handle Hardware ID (Rest of the logic remains the same)
+        // Step 2: Hardware ID
         if (data.startsWith("H") && !isHardwareIdProcessed) {
           final id = data.replaceAll("H", "").trim();
+
           final prefs = await SharedPreferences.getInstance();
           await prefs.setString('hardware_id', id);
 
           _processHardwareId(id);
 
-          if (!_navigatedToNext && mounted) {
+          // Mark processed + navigate
+          if (mounted) {
             setState(() => isHardwareIdProcessed = true);
-            await _dataStreamSubscription?.cancel();
-
-            if (!_isDisposed && mounted) {
-              _navigatedToNext = true;
-              debugPrint("🚀 Hardware ID found: $id. Navigating...");
-              Get.offAll(
-                    () => BluetoothBreatheTube(profileDetails: widget.profileDetails),
-              );
-            }
           }
+
+          await _navigateToNextIfNeeded();
         }
       },
       onError: (e) => debugPrint("❌ Stream Error: $e"),
@@ -313,39 +243,87 @@ class _BluetoothClinicalDeviceConnectivityState
     );
   }
 
+  Future<void> _navigateToNextIfNeeded() async {
+    if (_navigatedToNext) return;
+    if (!mounted || _isDisposed) return;
+
+    _navigatedToNext = true;
+
+    // stop listening so old screen doesn't react
+    await _dataStreamSubscription?.cancel();
+    _dataStreamSubscription = null;
+
+    if (!mounted || _isDisposed) return;
+
+    Get.offAll(
+          () => BluetoothBreatheTube(
+        profileDetails: widget.profileDetails,
+      ),
+    );
+  }
+
+  // -----------------------------
+  // Connect Flow
+  // -----------------------------
   Future<void> _connect() async {
-    if (_isDisposed) return;
+    if (_isDisposed || !mounted) return;
+    if (_isConnectingInProgress) return;
+
+    _isConnectingInProgress = true;
 
     try {
-      await checkAndRequestPermissions();
+      final isPermissionGranted = await checkAndRequestPermissions();
+      if (!isPermissionGranted) {
+        _isConnectingInProgress = false;
+        _handleError("Permissions are required to connect to the device.");
+        return;
+      }
 
+      // Check USB already connected
       try {
         final usbDevices = await _usbService.listDevices();
         if (usbDevices.isNotEmpty) {
-          if (!mounted) return;
+          if (!mounted || _isDisposed) return;
+          _isConnectingInProgress = false;
           _showUsbAlreadyConnectedDialog();
           return;
         }
-      } catch (e) {
-        // Optionally handle USB service failure here
+      } catch (_) {
+        // ignore
       }
 
-      if (_isConnected) {
+      // Reset flags for fresh attempt
+      _hasShownRetryDialog = false;
+      _hasShownDisconnectedDialog = false;
+
+      _hasSentBraceCommand = false;
+      _receivedPercentResponse = false;
+
+      if (mounted) {
+        setState(() {
+          isScanningDevice = true;
+          _connectionStatusText = "Scanning...";
+          _isButtonEnabled = false;
+          isHardwareIdProcessing = false;
+          isHardwareIdProcessed = false;
+          isHardwareIdProcessedErrorOccurred = false;
+        });
+      }
+
+      // Stop any existing connection cleanly (only if connected)
+      if (_bleManager.isConnected) {
         await _bleManager.disconnect();
-        await Future.delayed(const Duration(seconds: 2));
+        await Future.delayed(const Duration(milliseconds: 600));
         _bleManager.reset();
       }
 
-      setState(() {
-        isScanningDevice = true;
-        _isConnected = false;
-        _connectionStatusText = "Scanning...";
-        _hasSentBraceCommand = false;
-      });
-
+      // Scanning timeout -> show retry dialog
       _connectingTimer?.cancel();
       _connectingTimer = Timer(const Duration(seconds: 30), () {
-        if (!_isConnected && mounted) {
+        if (_isDisposed || !mounted) return;
+
+        // If still not connected after 30 seconds, show retry dialog
+        if (!_bleManager.isConnected && !_hasShownRetryDialog) {
           setState(() {
             isScanningDevice = false;
             _connectionStatusText = "Not Connected";
@@ -355,44 +333,40 @@ class _BluetoothClinicalDeviceConnectivityState
         }
       });
 
+      // IMPORTANT: do NOT set connected here manually.
+      // Let BLE manager stream update UI.
       await _bleManager.scanAndConnect();
 
+      // After scan attempt completes:
+      if (_isDisposed || !mounted) return;
+
+      // If connected, update UI (stream should do it, but safe fallback)
+      final connectedNow = _bleManager.isConnected;
       setState(() {
-        _isConnected = true;
-        _connectionStatusText = "Connected";
-        _isButtonEnabled = true;
+        _isConnected = connectedNow;
         isScanningDevice = false;
+        _connectionStatusText = connectedNow ? "Connected" : "Not Connected";
+        _isButtonEnabled = connectedNow;
       });
 
       _connectingTimer?.cancel();
-
-      // if (!_hasSentBraceCommand) {
-      //   await Future.delayed(const Duration(seconds: 1));
-      //   await _sendData("{");
-      //   _hasSentBraceCommand = true;
-      // }
-
-      // _batteryCaptureTimeoutTimer?.cancel();
-      // _batteryCaptureTimeoutTimer = Timer(const Duration(seconds: 90), () {
-      //   if (!_isBatteryCaptured && mounted && !_isDisposed) {
-      //     _showTechnicalErrorDialog();
-      //   }
-      // });
-
-
     } catch (e) {
-      if (mounted) {
+      if (kDebugMode) print("❌ _connect() error: $e");
+      if (mounted && !_isDisposed) {
         setState(() {
           isScanningDevice = false;
           _connectionStatusText = "Not Connected";
+          _isButtonEnabled = false;
         });
       }
       _handleError("Failed to connect to the device.");
+    } finally {
+      _isConnectingInProgress = false;
     }
   }
 
   Future<void> _sendData(String data) async {
-    if (_isDisposed) return;
+    if (_isDisposed || !mounted) return;
     debugPrint("📤 Sending: $data");
     await _bleManager.sendData(data);
     debugPrint("📤 Sent: $data");
@@ -400,12 +374,15 @@ class _BluetoothClinicalDeviceConnectivityState
 
   Future<void> _processHardwareId(String hardwareId) async {
     try {
-      if (!mounted) return;
+      if (!mounted || _isDisposed) return;
+
       setState(() => isHardwareIdProcessing = true);
 
-      String response = await fetchDeviceLastDataTime(hardwareId);
+      final response = await fetchDeviceLastDataTime(hardwareId);
+
+      if (!mounted || _isDisposed) return;
+
       if (response.contains("Error")) {
-        if (!mounted) return;
         setState(() {
           isHardwareIdProcessed = false;
           isHardwareIdProcessedErrorOccurred = true;
@@ -413,41 +390,53 @@ class _BluetoothClinicalDeviceConnectivityState
           _isButtonEnabled = true;
         });
       } else {
+        // Send start signal
         await _sendData(getDeviceStartSignal(response));
-        if (!mounted) return;
+
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString("isFirstReading", getDeviceStartSignal(response));
+
+        if (!mounted || _isDisposed) return;
+
         setState(() {
           isHardwareIdProcessed = true;
+          isHardwareIdProcessing = false;
           _isButtonEnabled = false;
         });
       }
     } catch (e) {
-      if (kDebugMode) {
-        print("Error processing hardware ID: $e");
-      }
-      if (!mounted) return;
+      if (kDebugMode) print("Error processing hardware ID: $e");
+      if (!mounted || _isDisposed) return;
+
       setState(() {
         isHardwareIdProcessing = false;
         isHardwareIdProcessed = false;
         isHardwareIdProcessedErrorOccurred = true;
+        _isButtonEnabled = true;
       });
+
       _handleError("Failed to process hardware ID.");
     }
   }
 
+  // -----------------------------
+  // UI + Dialog Helpers
+  // -----------------------------
   void _handleError(String message) {
+    if (!mounted || _isDisposed) return;
+
     showDialog(
       context: context,
-      builder:
-          (context) => AlertDialog(
-            title: const Text("Error"),
-            content: Text(message),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text("OK"),
-              ),
-            ],
+      builder: (context) => AlertDialog(
+        title: const Text("Error"),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text("OK"),
           ),
+        ],
+      ),
     );
   }
 
@@ -480,27 +469,6 @@ class _BluetoothClinicalDeviceConnectivityState
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                // Row(
-                //   children: [
-                //     const Spacer(),
-                //     if (_isBatteryCaptured)
-                //       Text(
-                //         "$batteryPercentage%",
-                //         style: GoogleFonts.mulish(
-                //           color: AppColor.primaryBlackColor,
-                //           fontWeight: FontWeight.w600,
-                //           fontSize: 8,
-                //         ),
-                //       ),
-                //     const SizedBox(width: 2),
-                //     if (_isBatteryCaptured)
-                //       BatteryUtils.batteryIndicatorWidget(batteryPercentage),
-                //     IconButton(
-                //       onPressed: () => _handlePop(context),
-                //       icon: SvgPicture.asset("assets/svg_icons/close_icon.svg"),
-                //     ),
-                //   ],
-                // ),
                 Align(
                   alignment: Alignment.topCenter,
                   child: SvgPicture.asset(
@@ -520,7 +488,8 @@ class _BluetoothClinicalDeviceConnectivityState
             ),
           ),
         ),
-        bottomNavigationBar: SafeArea(child: _buildBottomNavigationBar(height, width)),
+        bottomNavigationBar:
+        SafeArea(child: _buildBottomNavigationBar(height, width)),
       ),
     );
   }
@@ -528,30 +497,24 @@ class _BluetoothClinicalDeviceConnectivityState
   void _handlePop(BuildContext context) async {
     bool shouldExit = await _handleCancelTest();
     if (shouldExit) {
-      // Using GetX for both levels of pop if desired:
-      if (Get.isOverlaysOpen) Get.back(); // Close dialog if still open
-      Get.back(result: true); // Pop the screen
+      if (Get.isOverlaysOpen) Get.back();
+      Get.back(result: true);
     }
   }
 
   Future<bool> _handleCancelTest() async {
     bool confirmed = await showCancelTestDialog(Get.context!);
     if (confirmed) {
+      if (Get.isOverlaysOpen) {
+        Get.back(); // close any dialog/bottomsheet if open
+      }
 
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(
-          builder:
-              (_) => BlocProvider(
-            create: (_) => HealthScoreBloc(OverallDataByDateService()),
-            child: ClinicalDashboardMain(
-              loginId: widget.profileDetails.clinicName!,
-            ),
-          ),
-        ),
-            (route) => false,
+      Get.offAllNamed(
+        AppRoutes.mainDashboard,
+        arguments: {
+          'profile_details': widget.profileDetails,
+        },
       );
-
     }
     return confirmed;
   }
@@ -587,52 +550,49 @@ class _BluetoothClinicalDeviceConnectivityState
   }
 
   Widget _buildOtgButton(double width) {
-    return !_isConnected && isScanningDevice
-        ? Visibility(
-          visible: true,
-          child: Center(
-            child: SizedBox(
-              width: width * 0.5,
-              child: TextButton(
-                onPressed:
-                    () => Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const OtgConnection()),
-                    ),
-                style: ButtonStyle(
-                  side: WidgetStateProperty.all(
-                    BorderSide(color: AppColor.primaryBlueColor),
-                  ),
-                  backgroundColor: WidgetStateProperty.all(Colors.transparent),
-                  overlayColor: WidgetStateProperty.resolveWith<Color?>((
-                    Set<WidgetState> states,
-                  ) {
-                    if (states.contains(WidgetState.pressed)) {
-                      return Colors.blue.withAlpha(47);
-                    } else if (states.contains(WidgetState.hovered)) {
-                      return Colors.blue.withAlpha(26);
-                    }
-                    return null;
-                  }),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    Text(
-                      ResString.issuewithDevice,
-                      style: GoogleFonts.mulish(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: AppColor.primaryBlueColor,
-                      ),
-                    ),
-                    SvgPicture.asset("assets/svg_icons/right_arrow_button.svg"),
-                  ],
-                ),
-              ),
+    return (!_isConnected && isScanningDevice)
+        ? Center(
+      child: SizedBox(
+        width: width * 0.5,
+        child: TextButton(
+          onPressed: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const OtgConnection()),
+          ),
+          style: ButtonStyle(
+            side: WidgetStateProperty.all(
+              BorderSide(color: AppColor.primaryBlueColor),
+            ),
+            backgroundColor: WidgetStateProperty.all(Colors.transparent),
+            overlayColor: WidgetStateProperty.resolveWith<Color?>(
+                  (Set<WidgetState> states) {
+                if (states.contains(WidgetState.pressed)) {
+                  return Colors.blue.withAlpha(47);
+                } else if (states.contains(WidgetState.hovered)) {
+                  return Colors.blue.withAlpha(26);
+                }
+                return null;
+              },
             ),
           ),
-        )
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              Text(
+                ResString.issuewithDevice,
+                style: GoogleFonts.mulish(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: AppColor.primaryBlueColor,
+                ),
+              ),
+              SvgPicture.asset(
+                  "assets/svg_icons/right_arrow_button.svg"),
+            ],
+          ),
+        ),
+      ),
+    )
         : const SizedBox.shrink();
   }
 
@@ -670,223 +630,165 @@ class _BluetoothClinicalDeviceConnectivityState
   }
 
   Widget _buildConnectOrProceedButton() {
-    if (_isConnected) {
+    // Connected state -> "Next" behavior
+    if (_bleManager.isConnected) {
       return ElevatedButton(
-        onPressed:
-            isHardwareIdProcessing && !_isButtonEnabled
-                ? null
-                : () async {
-                  setState(() {
-                    _isButtonEnabled = false;
-                    isHardwareIdProcessing = true;
-                  });
+        onPressed: (isHardwareIdProcessing && !_isButtonEnabled)
+            ? null
+            : () async {
+          if (!mounted || _isDisposed) return;
 
-                  try {
-                    if (_bleManager.isConnected && !isHardwareIdProcessed) {
-                      await _sendData("!");
-                    }
-                  } catch (e) {
-                    if (mounted) {
-                      setState(() {
-                        isHardwareIdProcessing = false;
-                        _isButtonEnabled = true;
-                      });
-                    }
-                  }
-                },
+          setState(() {
+            _isButtonEnabled = false;
+            isHardwareIdProcessing = true;
+          });
+
+          try {
+            if (_bleManager.isConnected && !isHardwareIdProcessed) {
+              _hasSentBraceCommand = true;
+              await _sendData("!");
+            }
+          } catch (_) {
+            if (!mounted || _isDisposed) return;
+            setState(() {
+              isHardwareIdProcessing = false;
+              _isButtonEnabled = true;
+            });
+          }
+        },
         style: ElevatedButton.styleFrom(
           foregroundColor: Colors.white,
-          backgroundColor:
-              isHardwareIdProcessing && !_isButtonEnabled
-                  ? AppColor.textLightColor.withAlpha(74)
-                  : AppColor.primaryBlueColor,
+          backgroundColor: isHardwareIdProcessing && !_isButtonEnabled
+              ? AppColor.textLightColor.withAlpha(74)
+              : AppColor.primaryBlueColor,
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             isHardwareIdProcessing
                 ? Text(
-                  "Device getting ready!! Please wait",
-                  style: GoogleFonts.roboto(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w400,
-                  ),
-                )
+              "Device getting ready!! Please wait",
+              style: GoogleFonts.roboto(
+                fontSize: 12,
+                fontWeight: FontWeight.w400,
+              ),
+            )
                 : Text(
-                  ResString.next,
-                  style: GoogleFonts.mulish(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
+              ResString.next,
+              style: GoogleFonts.mulish(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
             Icon(
               Icons.chevron_right_outlined,
               size: 24,
-              color:
-                  isHardwareIdProcessed && !_isButtonEnabled
-                      ? AppColor.textLightColor.withAlpha(74)
-                      : AppColor.whiteColor,
+              color: isHardwareIdProcessed && !_isButtonEnabled
+                  ? AppColor.textLightColor.withAlpha(74)
+                  : AppColor.whiteColor,
             ),
           ],
         ),
       );
     }
 
+    // Not connected -> "Connect Device"
     return ElevatedButton(
-      onPressed:
-          isScanningDevice
-              ? null
-              : () async {
-                bool isPermissionGranted = await checkAndRequestPermissions();
-                if (isPermissionGranted) {
-                  await _connect();
-                } else {
-                  _handleError(
-                    "Permissions are required to connect to the device.",
-                  );
-                }
-              },
+      onPressed: isScanningDevice
+          ? null
+          : () async {
+        final ok = await checkAndRequestPermissions();
+        if (ok) {
+          await _connect();
+        } else {
+          _handleError("Permissions are required to connect to the device.");
+        }
+      },
       style: ElevatedButton.styleFrom(
         elevation: 0,
         shadowColor: Colors.transparent,
         backgroundColor:
-            isScanningDevice
-                ? const Color(0xFFD9D9D9)
-                : AppColor.primaryBlueColor,
+        isScanningDevice ? const Color(0xFFD9D9D9) : AppColor.primaryBlueColor,
       ),
-      child:
-          isScanningDevice
-              ? Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    "Connecting...",
-                    style: GoogleFonts.mulish(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                      color: AppColor.textLightColor,
-                    ),
-                  ),
-                  Icon(Icons.bluetooth, color: AppColor.textLightColor),
-                ],
-              )
-              : Text(
-                "Connect Device",
-                style: GoogleFonts.mulish(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  color: AppColor.whiteColor,
-                ),
-              ),
+      child: isScanningDevice
+          ? Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            "Connecting...",
+            style: GoogleFonts.mulish(
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              color: AppColor.textLightColor,
+            ),
+          ),
+          Icon(Icons.bluetooth, color: AppColor.textLightColor),
+        ],
+      )
+          : Text(
+        "Connect Device",
+        style: GoogleFonts.mulish(
+          fontSize: 15,
+          fontWeight: FontWeight.w600,
+          color: AppColor.whiteColor,
+        ),
+      ),
     );
   }
 
-  void _showTechnicalErrorDialog() {
-    if (!_isDialogShowing && mounted) {
-      _isDialogShowing = true;
-
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder:
-            (_) => Dialog(
-              backgroundColor: AppColor.whiteColor,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(20.0),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Text(
-                      "Technical Error",
-                      textAlign: TextAlign.center,
-                      style: GoogleFonts.poppins(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        color: const Color(0xFFEA5455),
-                      ),
-                    ),
-                    SizedBox(height: MediaQuery.of(context).size.height * 0.02),
-                    Text(
-                      "The device could not respond properly. Please try again or check the device.",
-                      textAlign: TextAlign.center,
-                      style: GoogleFonts.poppins(
-                        color: AppColor.textLightColor,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w400,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    _buildHelpLink(),
-                    SizedBox(height: MediaQuery.of(context).size.height * 0.01),
-                    const Divider(),
-                    _buildRetryButton(),
-                  ],
-                ),
-              ),
-            ),
-      );
-    }
-  }
-
   void _showUsbAlreadyConnectedDialog() {
-    if (!_isDialogShowing && mounted) {
-      _isDialogShowing = true;
+    if (_isDialogShowing || !mounted || _isDisposed) return;
+    _isDialogShowing = true;
 
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder:
-            (_) => Dialog(
-              backgroundColor: AppColor.whiteColor,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(20.0),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Text(
-                      "Device Connected via USB",
-                      textAlign: TextAlign.center,
-                      style: GoogleFonts.poppins(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        color: const Color(0xFFEA5455),
-                      ),
-                    ),
-                    SizedBox(height: MediaQuery.of(context).size.height * 0.02),
-                    Text(
-                      "The device could not respond properly. Please try again or check the device.",
-                      textAlign: TextAlign.center,
-                      style: GoogleFonts.poppins(
-                        color: AppColor.textLightColor,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w400,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    _buildHelpLink(),
-                    SizedBox(height: MediaQuery.of(context).size.height * 0.01),
-                    const Divider(),
-                    _buildRetryButton(),
-                  ],
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => Dialog(
+        backgroundColor: AppColor.whiteColor,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Text(
+                "Device Connected via USB",
+                textAlign: TextAlign.center,
+                style: GoogleFonts.poppins(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFFEA5455),
                 ),
               ),
-            ),
-      ).then((_) {
-        _isDialogShowing = false; // Reset flag after dialog closes
-      });
-    }
+              SizedBox(height: MediaQuery.of(context).size.height * 0.02),
+              Text(
+                "Please disconnect USB cable and try Bluetooth again.",
+                textAlign: TextAlign.center,
+                style: GoogleFonts.poppins(
+                  color: AppColor.textLightColor,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w400,
+                ),
+              ),
+              const SizedBox(height: 10),
+              _buildHelpLink(),
+              SizedBox(height: MediaQuery.of(context).size.height * 0.01),
+              const Divider(),
+              _buildOkButtonCloseDialog(),
+            ],
+          ),
+        ),
+      ),
+    ).then((_) {
+      _isDialogShowing = false;
+    });
   }
 
   void _showRetryDialog() {
-    if (_isDisposed || _isConnected || isScanningDevice || _isDialogShowing) {
+    if (_isDisposed || _bleManager.isConnected || isScanningDevice || _isDialogShowing) {
       return;
     }
 
@@ -895,47 +797,48 @@ class _BluetoothClinicalDeviceConnectivityState
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder:
-          (_) => Dialog(
-            backgroundColor: AppColor.whiteColor,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(20.0),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Text(
-                    'Scanning Timeout',
-                    textAlign: TextAlign.center,
-                    style: GoogleFonts.poppins(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                      color: const Color(0xFFEA5455),
-                    ),
-                  ),
-                  SizedBox(height: MediaQuery.of(context).size.height * 0.02),
-                  Text(
-                    'Please re-try the Device Scanning',
-                    textAlign: TextAlign.center,
-                    style: GoogleFonts.poppins(
-                      color: AppColor.textLightColor,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w400,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  _buildHelpLink(),
-                  SizedBox(height: MediaQuery.of(context).size.height * 0.01),
-                  const Divider(),
-                  _buildRetryButton(),
-                ],
+      builder: (_) => Dialog(
+        backgroundColor: AppColor.whiteColor,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Text(
+                'Scanning Timeout',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.poppins(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFFEA5455),
+                ),
               ),
-            ),
+              SizedBox(height: MediaQuery.of(context).size.height * 0.02),
+              Text(
+                'Please re-try the Device Scanning',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.poppins(
+                  color: AppColor.textLightColor,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w400,
+                ),
+              ),
+              const SizedBox(height: 10),
+              _buildHelpLink(),
+              SizedBox(height: MediaQuery.of(context).size.height * 0.01),
+              const Divider(),
+              _buildOkButtonCloseDialog(),
+            ],
           ),
-    );
+        ),
+      ),
+    ).then((_) {
+      _isDialogShowing = false;
+    });
   }
 
   Widget _buildHelpLink() {
@@ -960,23 +863,22 @@ class _BluetoothClinicalDeviceConnectivityState
     );
   }
 
-  Widget _buildRetryButton() {
+  // Your previous OK button was navigating away always.
+  // This one just closes the dialog. You can keep navigation if you want.
+  Widget _buildOkButtonCloseDialog() {
     return SizedBox(
       height: MediaQuery.of(context).size.height * 0.045,
       width: double.infinity,
       child: TextButton(
-        onPressed: () async {
-          Navigator.of(context).pop();
-          Get.offAll(() => ClinicalDashboardMain(loginId: ''));
+        onPressed: () {
+          if (Navigator.of(context).canPop()) Navigator.pop(context);
         },
         style: ButtonStyle(
           backgroundColor: WidgetStateProperty.all(Colors.transparent),
           foregroundColor: WidgetStateProperty.all(AppColor.primaryBlackColor),
           overlayColor: WidgetStateProperty.resolveWith((states) {
-            if (states.contains(WidgetState.pressed)) {
-              return AppColor.primaryBlueColor.withAlpha(47);
-            }
-            if (states.contains(WidgetState.hovered)) {
+            if (states.contains(WidgetState.pressed) ||
+                states.contains(WidgetState.hovered)) {
               return AppColor.primaryBlueColor.withAlpha(47);
             }
             return null;
@@ -994,54 +896,49 @@ class _BluetoothClinicalDeviceConnectivityState
     );
   }
 
+  // -----------------------------
+  // Permissions
+  // -----------------------------
   Future<bool> checkAndRequestPermissions() async {
-    if (Platform.isAndroid) {
-      if (kDebugMode) print("Checking Android permissions...");
+    if (!Platform.isAndroid) return true;
 
-      // Request Location permission
-      var locationStatus = await Permission.location.status;
+    if (kDebugMode) print("Checking Android permissions...");
+
+    // Location (still required on many devices for BLE scan)
+    var locationStatus = await Permission.location.status;
+    if (!locationStatus.isGranted) {
+      final consent = await _showCustomLocationDialog();
+      if (consent != true) return false;
+
+      locationStatus = await Permission.location.request();
       if (!locationStatus.isGranted) {
-        // Show custom dialog first
-        bool? userConsent = await _showCustomLocationDialog();
-        if (userConsent != true) {
-          if (kDebugMode) print('User declined location permission.');
-          return false;
+        if (locationStatus.isPermanentlyDenied) {
+          openAppSettings();
         }
-        locationStatus = await Permission.location.request();
-        if (!locationStatus.isGranted) {
-          if (kDebugMode) print('Location permission denied');
-          if (locationStatus.isPermanentlyDenied) {
-            openAppSettings();
-          }
-          return false;
-        }
-      } else {
-        if (kDebugMode) print("Location permission already granted");
+        return false;
       }
-
-      // Bluetooth Scan permission (Android 12+)
-      var bluetoothScanStatus = await Permission.bluetoothScan.status;
-      if (!bluetoothScanStatus.isGranted) {
-        bluetoothScanStatus = await Permission.bluetoothScan.request();
-        if (!bluetoothScanStatus.isGranted) return false;
-      }
-
-      // Bluetooth Connect permission (Android 12+)
-      var bluetoothConnectStatus = await Permission.bluetoothConnect.status;
-      if (!bluetoothConnectStatus.isGranted) {
-        bluetoothConnectStatus = await Permission.bluetoothConnect.request();
-        if (!bluetoothConnectStatus.isGranted) return false;
-      }
-
-      if (kDebugMode) print('All required Android permissions granted.');
-      return true; // ✅ All permissions granted
-    } else {
-      if (kDebugMode) print("Not Android, skipping permission checks.");
-      return true; // iOS or other platforms
     }
+
+    // Android 12+
+    var bluetoothScanStatus = await Permission.bluetoothScan.status;
+    if (!bluetoothScanStatus.isGranted) {
+      bluetoothScanStatus = await Permission.bluetoothScan.request();
+      if (!bluetoothScanStatus.isGranted) return false;
+    }
+
+    var bluetoothConnectStatus = await Permission.bluetoothConnect.status;
+    if (!bluetoothConnectStatus.isGranted) {
+      bluetoothConnectStatus = await Permission.bluetoothConnect.request();
+      if (!bluetoothConnectStatus.isGranted) return false;
+    }
+
+    if (kDebugMode) print("✅ All permissions granted.");
+    return true;
   }
 
   Future<bool?> _showCustomLocationDialog() async {
+    if (!mounted || _isDisposed) return false;
+
     return showDialog<bool>(
       context: context,
       barrierDismissible: false,
@@ -1053,20 +950,16 @@ class _BluetoothClinicalDeviceConnectivityState
           title: const Text("Location Permission Needed"),
           content: const Text(
             "To connect to nearby devices, we need access to your location. "
-            "This is required for Bluetooth device scanning. Please grant permission.",
+                "This is required for Bluetooth device scanning. Please grant permission.",
           ),
           actions: [
             TextButton(
               child: const Text("Cancel"),
-              onPressed: () {
-                Navigator.of(context).pop(false); // return false
-              },
+              onPressed: () => Navigator.of(context).pop(false),
             ),
             ElevatedButton(
               child: const Text("Continue"),
-              onPressed: () {
-                Navigator.of(context).pop(true); // return true
-              },
+              onPressed: () => Navigator.of(context).pop(true),
             ),
           ],
         );

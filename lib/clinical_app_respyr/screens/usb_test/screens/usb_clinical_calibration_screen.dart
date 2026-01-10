@@ -21,6 +21,7 @@ import '../../../../clinical_dashboard/bloc/health_score_bloc.dart';
 import '../../../../clinical_dashboard/service/overall_data_by_date_service.dart';
 import '../../../../clinical_dashboard/views/clinical_dashboard.dart';
 import '../../../../new_result/data/model/result_profile_data_model.dart';
+import '../../../../router/app_routers.dart';
 
 class UsbClinicalCalibrationScreen extends StatefulWidget {
   final bool isDeveloper;
@@ -147,18 +148,14 @@ class _UsbClinicalCalibrationScreenState
   }
 
   void _navigateToDashboard() {
-    Navigator.pushAndRemoveUntil(
-      context,
-      MaterialPageRoute(
-        builder:
-            (_) => BlocProvider(
-              create: (_) => HealthScoreBloc(OverallDataByDateService()),
-              child: ClinicalDashboardMain(
-                loginId: widget.profileDetails.clinicName!,
-              ),
-            ),
-      ),
-      (route) => false,
+    if (Get.isOverlaysOpen) {
+      Get.back();
+    }
+    Get.offAllNamed(
+      AppRoutes.mainDashboard,
+      arguments: {
+        'profile_details': widget.profileDetails,
+      },
     );
   }
 
@@ -365,19 +362,12 @@ class _UsbClinicalCalibrationScreenState
     return didCancel;
   }
 
-  Future<void> _setCancelOrDisconnectFlag({bool isCancel = false}) async {
+  Future<void> _setCancelOrDisconnectFlag() async {
     final storage = GetStorage();
     final DateTime now = DateTime.now();
-
-    final Duration offset =
-        isCancel ? const Duration(minutes: 1) : const Duration(minutes: 1);
-
-    final DateTime futureTime = now.add(offset);
-    await storage.write(
-      'cancel_or_disconnect_time',
-      futureTime.toIso8601String(),
-    );
+    await storage.write('cancel_or_disconnect_time', now.toIso8601String());
   }
+
 
   void _abortProcess() {
     if (_isDisposed) return;

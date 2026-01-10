@@ -11,6 +11,10 @@ import 'package:respyr_clinical/widgets/internet_connectivity_check.dart';
 import 'package:respyr_clinical/device_connectivity/presentation/pages/device_connectivity_screen.dart';
 import 'package:respyr_clinical/shared/colors.dart';
 
+import 'dart:async'; // ✅ added
+import 'package:shared_preferences/shared_preferences.dart'; // ✅ added
+
+import '../../common/floating_message.dart';
 import '../../log_manager/log_manager.dart';
 import '../../new_result/data/model/result_profile_data_model.dart';
 import '../utils/user_region_manager.dart';
@@ -18,6 +22,8 @@ import '../widgets/account_creation_success.dart';
 import '../widgets/connection_option_sheet.dart';
 import '../widgets/region_selector.dart';
 import 'create_profile_service.dart';
+
+
 
 class CreateProfile extends StatefulWidget {
   final String loginId;
@@ -55,12 +61,16 @@ class _CreateProfileState extends State<CreateProfile> {
 
   final FocusNode bottomButtonFocusNode = FocusNode();
 
+  // ✅ added (cooldown toast timer)
+  Timer? _cooldownToastTimer;
+
   @override
   void dispose() {
     nameController.dispose();
     ageController.dispose();
     heightController.dispose();
     weightController.dispose();
+    _cooldownToastTimer?.cancel(); // ✅ added
     super.dispose();
   }
 
@@ -107,6 +117,56 @@ class _CreateProfileState extends State<CreateProfile> {
         borderRadius: BorderRadius.circular(10),
       ),
     );
+  }
+
+  // ✅ added
+  Future<int> getRemainingCooldownSeconds({int cooldownSeconds = 40}) async {
+    final prefs = await SharedPreferences.getInstance();
+    final last = prefs.getInt('last_reading_time');
+    if (last == null) return 0;
+
+    final diff = DateTime.now()
+        .difference(DateTime.fromMillisecondsSinceEpoch(last))
+        .inSeconds;
+
+    final remaining = cooldownSeconds - diff;
+    return remaining > 0 ? remaining : 0;
+  }
+
+  // ✅ added
+  Future<void> showCooldownToast(int seconds) async {
+    _cooldownToastTimer?.cancel();
+
+    int remaining = seconds;
+
+    if (!mounted) return;
+    FloatingMessage.show(
+      context,
+      message: 'Please wait $remaining seconds before next test',
+      type: FloatingMessageType.warning,
+      duration: Duration(seconds: remaining + 1),
+      fromTop: false,
+    );
+
+    _cooldownToastTimer = Timer.periodic(const Duration(seconds: 1), (t) {
+      if (!mounted) {
+        t.cancel();
+        return;
+      }
+
+      remaining--;
+
+      if (remaining <= 0) {
+        t.cancel();
+        FloatingMessage.hide();
+        return;
+      }
+
+      FloatingMessage.update(
+        'Please wait $remaining seconds before next test',
+        duration: Duration(seconds: remaining + 1),
+      );
+    });
   }
 
   Future<void> handleSubmit() async {
@@ -171,7 +231,7 @@ class _CreateProfileState extends State<CreateProfile> {
         return;
       }
       final heightInCm =
-          selectedHeightType == 'feet' ? rawHeight * 30.48 : rawHeight;
+      selectedHeightType == 'feet' ? rawHeight * 30.48 : rawHeight;
 
       final rawWeight = double.tryParse(weight);
       if (rawWeight == null) {
@@ -195,7 +255,7 @@ class _CreateProfileState extends State<CreateProfile> {
         event: 'CREATE_PROFILE_ATTEMPT',
         status: 'ATTEMPT',
         details:
-            'User attempting to create profile: $name, gender: $selectedGender, region: $selectedRegionKey',
+        'User attempting to create profile: $name, gender: $selectedGender, region: $selectedRegionKey',
       );
 
       final createProfileService = CreateProfileService();
@@ -237,6 +297,9 @@ class _CreateProfileState extends State<CreateProfile> {
                 _showConnectionOption(profileDetails, context);
               }
             },
+            onClosed: () {
+              _navigateToDashboard();
+            },
           );
         }
       } else {
@@ -258,10 +321,25 @@ class _CreateProfileState extends State<CreateProfile> {
     }
   }
 
+  void _navigateToDashboard() {
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(
+        builder: (_) => BlocProvider(
+          create: (_) => HealthScoreBloc(OverallDataByDateService()),
+          child: ClinicalDashboardMain(
+            loginId: widget.loginId,
+          ),
+        ),
+      ),
+          (route) => false,
+    );
+  }
+
   void _showConnectionOption(
-    ResultProfileDataModel profileModel,
-    BuildContext context,
-  ) {
+      ResultProfileDataModel profileModel,
+      BuildContext context,
+      ) {
     // ... your bottom sheet code (unchanged)
     showModalBottomSheet(
       context: context,
@@ -274,47 +352,24 @@ class _CreateProfileState extends State<CreateProfile> {
             isTakeTestWindowOpen = true;
             _isNavigating = true;
 
-            Navigator.pop(context); // Close the bottom sheet
+            // ✅ added: cooldown check before navigating
+            final remaining =
+            await getRemainingCooldownSeconds(cooldownSeconds: 40);
+            if (remaining > 0) {
+              _isNavigating = false;
+              await showCooldownToast(remaining);
+              return;
+            }
+
+            // Navigator.pop(context); // Close the bottom sheet
 
             await Future.delayed(const Duration(milliseconds: 200));
             _isNavigating = false;
-            // Get.snackbar(
-            //   "",
-            //   "",
-            //   snackPosition: SnackPosition.BOTTOM,
-            //   snackStyle: SnackStyle.FLOATING,
-            //   backgroundColor: Colors.white,
-            //   colorText: Colors.black,
-            //   margin: const EdgeInsets.symmetric(horizontal: 100, vertical: 20),
-            //   padding: const EdgeInsets.only(bottom: 8, left: 10, right: 10),
-            //   borderRadius: 10,
-            //   boxShadows: [
-            //     BoxShadow(
-            //       color: Colors.black.withAlpha(74),
-            //       blurRadius: 10,
-            //       spreadRadius: 1,
-            //       offset: const Offset(0, 4),
-            //     ),
-            //   ],
-            //   titleText: const SizedBox.shrink(),
-            //   messageText: Align(
-            //     alignment: Alignment.center,
-            //     child: Text(
-            //       "Coming soon...",
-            //       style: GoogleFonts.poppins(
-            //         fontSize: 12,
-            //         fontWeight: FontWeight.w600,
-            //         color: AppColor.primaryBlackColor,
-            //       ),
-            //       textAlign: TextAlign.center,
-            //     ),
-            //   ),
-            // );
+
             Navigator.pushAndRemoveUntil(
               context,
               MaterialPageRoute(
-                builder:
-                    (_) => BluetoothClinicalDeviceConnectivity(
+                builder: (_) => BluetoothClinicalDeviceConnectivity(
                   // isClinicalTest: true,
                   profileDetails: profileModel,
                 ),
@@ -328,13 +383,12 @@ class _CreateProfileState extends State<CreateProfile> {
             Navigator.pushAndRemoveUntil(
               context,
               MaterialPageRoute(
-                builder:
-                    (_) => UsbDeviceConnectivity(
-                      isClinicalTest: true,
-                      profileDetails: profileModel,
-                    ),
+                builder: (_) => UsbDeviceConnectivity(
+                  isClinicalTest: true,
+                  profileDetails: profileModel,
+                ),
               ),
-              (route) => false,
+                  (route) => false,
             );
           },
         );
@@ -371,12 +425,7 @@ class _CreateProfileState extends State<CreateProfile> {
           if (_isNavigating) return;
           setState(() {
             _hasInternet = hasInternet;
-            Navigator.of(context).pushAndRemoveUntil(
-              MaterialPageRoute(
-                builder: (_) => ClinicalDashboardMain(loginId: widget.loginId),
-              ),
-              (route) => false,
-            );
+            _navigateToDashboard();
           });
         },
         child: SafeArea(
@@ -472,10 +521,10 @@ class _CreateProfileState extends State<CreateProfile> {
                           onPressed: () async {
                             FocusScope.of(context).unfocus();
                             final result =
-                                await RegionSelector.showRegionPicker(
-                                  context,
-                                  selectedRegionKey,
-                                );
+                            await RegionSelector.showRegionPicker(
+                              context,
+                              selectedRegionKey,
+                            );
                             if (result != null) {
                               setState(() {
                                 selectedRegionKey = result;
@@ -538,7 +587,7 @@ class _CreateProfileState extends State<CreateProfile> {
               selectedRegionKey == null
                   ? "Select Region *"
                   : getRegionLabelFromValue(selectedRegionKey) ??
-                      "Select Region *",
+                  "Select Region *",
               textAlign: TextAlign.left,
               style: GoogleFonts.poppins(
                 color: const Color(0xFF252525),
@@ -581,7 +630,7 @@ class _CreateProfileState extends State<CreateProfile> {
 
   static String? getRegionLabelFromValue(String? value) {
     final match = UserRegionManager().regionMap.entries.firstWhere(
-      (entry) => entry.value == value,
+          (entry) => entry.value == value,
       orElse: () => const MapEntry('', ''),
     );
     return match.key.isNotEmpty ? match.key : null;
@@ -594,37 +643,34 @@ class _CreateProfileState extends State<CreateProfile> {
         Text("Select your gender", style: GoogleFonts.poppins(fontSize: 12)),
         const SizedBox(height: 10),
         Row(
-          children:
-              ["Male", "Female"].map((gender) {
-                return Padding(
-                  padding: const EdgeInsets.only(right: 15),
-                  child: ElevatedButton(
-                    onPressed: () => selectGender(gender),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor:
-                          selectedGender == gender
-                              ? const Color(0xFF252525)
-                              : Colors.transparent,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        side: const BorderSide(color: Color(0xFF252525)),
-                      ),
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      elevation: 0,
-                    ),
-                    child: Text(
-                      gender,
-                      style: GoogleFonts.poppins(
-                        color:
-                            selectedGender == gender
-                                ? Colors.white
-                                : const Color(0xFF252525),
-                        fontSize: 12,
-                      ),
-                    ),
+          children: ["Male", "Female"].map((gender) {
+            return Padding(
+              padding: const EdgeInsets.only(right: 15),
+              child: ElevatedButton(
+                onPressed: () => selectGender(gender),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: selectedGender == gender
+                      ? const Color(0xFF252525)
+                      : Colors.transparent,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    side: const BorderSide(color: Color(0xFF252525)),
                   ),
-                );
-              }).toList(),
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  elevation: 0,
+                ),
+                child: Text(
+                  gender,
+                  style: GoogleFonts.poppins(
+                    color: selectedGender == gender
+                        ? Colors.white
+                        : const Color(0xFF252525),
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+            );
+          }).toList(),
         ),
       ],
     );
@@ -670,34 +716,32 @@ class _CreateProfileState extends State<CreateProfile> {
         ...["cm", "feet"]
             .map(
               (unit) => Padding(
-                padding: const EdgeInsets.only(right: 10),
-                child: ElevatedButton(
-                  onPressed: () => selectHeightType(unit),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor:
-                        selectedHeightType == unit
-                            ? const Color(0xFF252525)
-                            : Colors.transparent,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                      side: const BorderSide(color: Color(0xFF252525)),
-                    ),
-                    elevation: 0,
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
-                  ),
-                  child: Text(
-                    unit,
-                    style: GoogleFonts.poppins(
-                      color:
-                          selectedHeightType == unit
-                              ? Colors.white
-                              : const Color(0xFF252525),
-                      fontSize: 12,
-                    ),
-                  ),
+            padding: const EdgeInsets.only(right: 10),
+            child: ElevatedButton(
+              onPressed: () => selectHeightType(unit),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: selectedHeightType == unit
+                    ? const Color(0xFF252525)
+                    : Colors.transparent,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  side: const BorderSide(color: Color(0xFF252525)),
+                ),
+                elevation: 0,
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+              ),
+              child: Text(
+                unit,
+                style: GoogleFonts.poppins(
+                  color: selectedHeightType == unit
+                      ? Colors.white
+                      : const Color(0xFF252525),
+                  fontSize: 12,
                 ),
               ),
-            )
+            ),
+          ),
+        )
             .toList(),
       ],
     );
@@ -721,23 +765,22 @@ class _CreateProfileState extends State<CreateProfile> {
             ),
             padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 5),
           ),
-          child:
-              isLoading
-                  ? const SizedBox(
-                    height: 18,
-                    width: 18,
-                    child: CircularProgressIndicator(
-                      color: Colors.white,
-                      strokeWidth: 2,
-                    ),
-                  )
-                  : Text(
-                    "Continue",
-                    style: GoogleFonts.poppins(
-                      fontSize: 14,
-                      color: Colors.white,
-                    ),
-                  ),
+          child: isLoading
+              ? const SizedBox(
+            height: 18,
+            width: 18,
+            child: CircularProgressIndicator(
+              color: Colors.white,
+              strokeWidth: 2,
+            ),
+          )
+              : Text(
+            "Continue",
+            style: GoogleFonts.poppins(
+              fontSize: 14,
+              color: Colors.white,
+            ),
+          ),
         ),
       ),
     );

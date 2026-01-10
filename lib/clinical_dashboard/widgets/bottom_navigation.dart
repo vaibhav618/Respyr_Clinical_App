@@ -8,13 +8,15 @@ class BottomNavigationBarWidget extends StatelessWidget {
   final VoidCallback onTakeTestTap;
   final VoidCallback onProfileTap;
   final int activeIndex;
+   String label3;
 
-  const BottomNavigationBarWidget({
+   BottomNavigationBarWidget({
     super.key,
     required this.onDashboardTap,
     required this.onTakeTestTap,
     required this.onProfileTap,
     required this.activeIndex,
+    this.label3 ="Test History"
   });
 
   @override
@@ -52,7 +54,7 @@ class BottomNavigationBarWidget extends StatelessWidget {
             ),
             _buildTakeTestButton(onTakeTestTap),
             _buildNavItem(
-              label: 'Test History',
+              label: label3,
               iconPath: 'assets/sagar/icon-park-outline_peoples-two.svg',
               isActive: activeIndex == 2,
               onClick: onProfileTap,

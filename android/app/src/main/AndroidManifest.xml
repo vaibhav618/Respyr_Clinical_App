@@ -41,7 +41,7 @@
 
     <application
         android:name="${applicationName}"
-        android:label="Respyr Clinical"
+        android:label="Respyr Business"
         android:icon="@mipmap/ic_launcher">
         
         <activity

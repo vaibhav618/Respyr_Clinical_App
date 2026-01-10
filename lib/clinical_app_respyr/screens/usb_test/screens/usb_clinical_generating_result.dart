@@ -21,6 +21,7 @@ import '../../../../new_result/data/model/result_model.dart';
 import '../../../../new_result/data/model/result_profile_data_model.dart';
 import '../../../../new_result/presentation/view/overall_result.dart';
 import '../../../../new_result/presentation/view_model/result_view_model.dart';
+import '../../../../router/app_routers.dart';
 import '../../../../utils/blow_values_helper.dart';
 
 class UsbClinicalGeneratingResult extends StatefulWidget {
@@ -148,20 +149,18 @@ class _UsbClinicalGeneratingResultState
   }
 
   void _navigateToDashboard() {
-    Navigator.pushAndRemoveUntil(
-      context,
-      MaterialPageRoute(
-        builder:
-            (_) => BlocProvider(
-              create: (_) => HealthScoreBloc(OverallDataByDateService()),
-              child: ClinicalDashboardMain(
-                loginId: widget.profileDetails.clinicName!,
-              ),
-            ),
-      ),
-      (route) => false,
+    if (Get.isOverlaysOpen) {
+      Get.back(); // close any dialog/bottomsheet if open
+    }
+
+    Get.offAllNamed(
+      AppRoutes.mainDashboard,
+      arguments: {
+        'profile_details': widget.profileDetails, // full ResultProfileDataModel
+      },
     );
   }
+
 
   Future<void> _setCancelOrDisconnectFlag() async {
     final storage = GetStorage();
@@ -469,9 +468,7 @@ class _UsbClinicalGeneratingResultState
                   responseTimer?.cancel();
 
                   if (state is NewResultFailure) {
-                    final isProfileError = state.error.contains(
-                      "Profile data is incomplete.",
-                    );
+                    final isProfileError = state.error.contains("Profile data is incomplete.",);
                     final iconAsset =
                         isProfileError
                             ? "assets/sagar/undraw_warning_tl76.svg"
@@ -502,6 +499,7 @@ class _UsbClinicalGeneratingResultState
                             ),
                           ),
                           const SizedBox(height: 15),
+                          Text(state.error),
                           Visibility(
                             visible: state.error != "Error in breath sample",
                             replacement: Text(
@@ -560,23 +558,6 @@ class _UsbClinicalGeneratingResultState
                             ),
                           ),
                           const Spacer(),
-                          GestureDetector(
-                            onTap: () {
-                              // _setCancelOrDisconnectFlag();
-                              // _navigateToDashboard();
-                            },
-                            child: Text(
-                              "Contact support team",
-                              style: GoogleFonts.poppins(
-                                color: const Color(0xFF308BF9),
-                                fontSize: 12,
-                                fontWeight: FontWeight.w400,
-                                decoration: TextDecoration.underline,
-                                decorationColor: const Color(0xFF308BF9),
-                                decorationThickness: 2,
-                              ),
-                            ),
-                          ),
                         ],
                       ),
                     );
@@ -672,24 +653,24 @@ class _UsbClinicalGeneratingResultState
 
   void _navigateToResultScreen(NewResultModel lifestyleJson) {
     if (Get.isOverlaysOpen) {
-      Get.back(); // Close any open overlays/dialogs
+      Get.back();
     }
 
     received120 = true;
 
     Navigator.of(context).popUntil((route) => route.isFirst);
     _abortProcess();
-    Get.offAll(
-      () => ChangeNotifierProvider(
-        create: (_) => ResultViewModel()..initialize(widget.profileDetails),
-        child: ResultScreen(
-          userResultData: lifestyleJson,
-          userProfileData: widget.profileDetails,
-          blowValuesList: widget.blowValuesList,
-        ),
-      ),
+
+    Get.offAllNamed(
+      AppRoutes.finalResultPage,
+      arguments: {
+        'lifestyle_json': lifestyleJson,
+        'profile_details': widget.profileDetails,
+        'blow_values_list': widget.blowValuesList,
+      },
     );
   }
+
 
   Future<bool> _showCancelTestDialog(context) async {
     bool didCancel = false;

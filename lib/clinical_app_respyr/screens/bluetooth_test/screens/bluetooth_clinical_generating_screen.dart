@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
@@ -16,11 +17,15 @@ import 'package:respyr_clinical/clinical_app_respyr/services/disconnected_error.
 import 'package:respyr_clinical/clinical_app_respyr/services/raw_data_service.dart';
 import 'package:respyr_clinical/clinical_dashboard/views/clinical_dashboard.dart';
 import 'package:respyr_clinical/shared/colors.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../../clinical_dashboard/bloc/health_score_bloc.dart';
+import '../../../../clinical_dashboard/service/overall_data_by_date_service.dart';
 import '../../../../new_result/data/model/result_model.dart';
 import '../../../../new_result/data/model/result_profile_data_model.dart';
 import '../../../../new_result/presentation/view/overall_result.dart';
 import '../../../../new_result/presentation/view_model/result_view_model.dart';
+import '../../../../router/app_routers.dart';
 import '../../../../utils/blow_values_helper.dart';
 import '../services/result_service.dart';
 
@@ -181,17 +186,17 @@ class _BluetoothGeneratingScreenState extends State<BluetoothGeneratingScreen>
   }
 
   void _navigateToDashboard() {
-    Navigator.pushAndRemoveUntil(
-      context,
-      MaterialPageRoute(
-        builder:
-            (context) => ClinicalDashboardMain(
-          loginId: '',
-        ), // Replace with your DashboardScreen widget
-      ),
-          (Route<dynamic> route) => false, // Remove all previous screens
+    if (Get.isOverlaysOpen) {
+      Get.back();
+    }
+    Get.offAllNamed(
+      AppRoutes.mainDashboard,
+      arguments: {
+        'profile_details': widget.profileDetails,
+      },
     );
   }
+
 
   Future<void> _setCancelOrDisconnectFlag() async {
     final storage = GetStorage();
@@ -406,7 +411,9 @@ class _BluetoothGeneratingScreenState extends State<BluetoothGeneratingScreen>
         content: Text(message),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(context).pop(),
+            onPressed: () => {
+              _navigateToDashboard()
+            },
             child: const Text("OK"),
           ),
         ],
@@ -637,7 +644,7 @@ class _BluetoothGeneratingScreenState extends State<BluetoothGeneratingScreen>
 
     try {
 
-      final NewResultModel result = await resultService.fetchResults(
+      final NewResultModel result = await resultService.fetchResults1(
         testdata: testdata,
         subjectId: subId,
         gender: gender,
@@ -650,7 +657,11 @@ class _BluetoothGeneratingScreenState extends State<BluetoothGeneratingScreen>
       _navigateToResultScreen1(result);
 
     } catch (e) {
-      print("Error fetching result: $e");
+
+      if(e.toString().contains("Error in breath sample")){
+        _showErrorDialog("Error in breath sample");
+      }
+
       _showErrorDialog(e.toString());
     }
   }
@@ -739,7 +750,7 @@ class _BluetoothGeneratingScreenState extends State<BluetoothGeneratingScreen>
     if (Get.isOverlaysOpen) {
       Get.back(); // Close any open overlays/dialogs
     }
-
+    saveCurrentTime();
     received120 = true;
 
     Navigator.of(context).popUntil((route) => route.isFirst);
@@ -758,7 +769,12 @@ class _BluetoothGeneratingScreenState extends State<BluetoothGeneratingScreen>
 
 
 
+  Future<void> saveCurrentTime() async {
+    final prefs = await SharedPreferences.getInstance();
+    final now = DateTime.now().millisecondsSinceEpoch;
 
+    await prefs.setInt('last_reading_time', now);
+  }
 
 
 

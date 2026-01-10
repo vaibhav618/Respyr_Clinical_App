@@ -69,7 +69,7 @@ class _SplashState extends State<Splash> with WidgetsBindingObserver {
       }
     });
 
-    _checkUserAndNavigate();
+   _checkUserAndNavigate();
   }
 
   @override
@@ -103,15 +103,15 @@ class _SplashState extends State<Splash> with WidgetsBindingObserver {
     }
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Color(0xFF308BF9),
       body: SafeArea(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             const Spacer(),
             SvgPicture.asset(
-              "assets/sagar/clinical_logo.svg",
-              height: 40,
+              "assets/business_logo.svg",
+              height: 160,
             ),
             const Spacer(),
             Padding(

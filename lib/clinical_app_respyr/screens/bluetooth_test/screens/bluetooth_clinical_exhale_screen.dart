@@ -3,22 +3,17 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:respyr_clinical/clinical_app_respyr/screens/bluetooth_test/screens/bluetooth_clinical_generating_screen.dart';
 import 'package:respyr_clinical/clinical_app_respyr/screens/bluetooth_test/services/clinical_bluetooth_manager.dart';
-import 'package:respyr_clinical/clinical_app_respyr/services/device_battery_utils.dart';
 import 'package:respyr_clinical/clinical_app_respyr/services/disconnected_error.dart';
-import 'package:respyr_clinical/clinical_dashboard/views/clinical_dashboard.dart';
 import 'package:respyr_clinical/shared/audio_helper.dart';
 import 'package:respyr_clinical/shared/colors.dart';
-
-import '../../../../clinical_dashboard/bloc/health_score_bloc.dart';
-import '../../../../clinical_dashboard/service/overall_data_by_date_service.dart';
 import '../../../../new_result/data/model/result_profile_data_model.dart';
+import '../../../../router/app_routers.dart';
 
 class BluetoothExhaleScreen extends StatefulWidget {
   final String baseValue;
@@ -222,19 +217,17 @@ class _BluetoothExhaleScreenState extends State<BluetoothExhaleScreen> {
       _navigateToDashboard();
     }
   }
+
+
   void _navigateToDashboard() {
-    Navigator.pushAndRemoveUntil(
-      context,
-      MaterialPageRoute(
-        builder:
-            (_) => BlocProvider(
-          create: (_) => HealthScoreBloc(OverallDataByDateService()),
-          child: ClinicalDashboardMain(
-            loginId: widget.profileDetails.clinicName!,
-          ),
-        ),
-      ),
-          (route) => false,
+    if (Get.isOverlaysOpen) {
+      Get.back();
+    }
+    Get.offAllNamed(
+      AppRoutes.mainDashboard,
+      arguments: {
+        'profile_details': widget.profileDetails,
+      },
     );
   }
 
@@ -872,7 +865,7 @@ class DummyBluetoothBlowPressure {
                   context: context,
                   tryAgainButtonClicked: () {
                     _setCancelOrDisconnectFlag();
-                    _navigateToDashboard(context, profileDetails);
+                    _navigateToDashboard(profileDetails);
                   },
                   needHelpButtonCancel: () {},
                 );
@@ -888,21 +881,19 @@ class DummyBluetoothBlowPressure {
     }
   }
 
-  void _navigateToDashboard(BuildContext context, ResultProfileDataModel profileDetails) async {
-    Navigator.pushAndRemoveUntil(
-      context,
-      MaterialPageRoute(
-        builder:
-            (_) => BlocProvider(
-          create: (_) => HealthScoreBloc(OverallDataByDateService()),
-          child: ClinicalDashboardMain(
-            loginId:profileDetails.clinicName!,
-          ),
-        ),
-      ),
-          (route) => false,
+
+  void _navigateToDashboard(ResultProfileDataModel profileDetails) {
+    if (Get.isOverlaysOpen) {
+      Get.back();
+    }
+    Get.offAllNamed(
+      AppRoutes.mainDashboard,
+      arguments: {
+        'profile_details': profileDetails,
+      },
     );
   }
+
 
   void showAbort() {}
 
@@ -940,7 +931,7 @@ class DummyBluetoothBlowPressure {
             context: context,
             tryAgainButtonClicked: () {
               _setCancelOrDisconnectFlag();
-              _navigateToDashboard(context, profileDetails);
+              _navigateToDashboard(profileDetails);
             },
             needHelpButtonCancel: () {},
           );

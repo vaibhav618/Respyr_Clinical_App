@@ -60,6 +60,9 @@ class NewResultCubit extends Cubit<NewResultState> {
         },
       );
 
+
+      print(response.body);
+
       if (response.statusCode == 200) {
         final json = jsonDecode(response.body);
 

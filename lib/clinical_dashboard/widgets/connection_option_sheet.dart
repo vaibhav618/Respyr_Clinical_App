@@ -65,16 +65,16 @@ class _ConnectionOptionSheetState extends State<ConnectionOptionSheet> {
               ),
             ],
           ),
-          const SizedBox(height: 10),
-          if (isBluetoothClicked)
-            Text(
-              "Coming soon",
-              style: GoogleFonts.mulish(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-                color: Colors.green,
-              ),
-            ),
+          // const SizedBox(height: 10),
+          // if (isBluetoothClicked)
+          //   Text(
+          //     "Coming soon",
+          //     style: GoogleFonts.mulish(
+          //       fontSize: 18,
+          //       fontWeight: FontWeight.w600,
+          //       color: Colors.green,
+          //     ),
+          //   ),
           const SizedBox(height: 16),
         ],
       ),

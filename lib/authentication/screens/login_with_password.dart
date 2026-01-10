@@ -224,11 +224,13 @@ class _LoginWithPasswordState extends State<LoginWithPassword> {
     final storage = GetStorage();
     await storage.write('isOtpVerified', true);
     await storage.write('loginClinicalName', clinicName);
+    await storage.write('role', "clinical");
 
     final isOtpSaved = storage.read('isOtpVerified') == true;
     final isNameSaved = storage.read('loginClinicalName') == clinicName;
+    final isRoleSaved = storage.read('role') == "clinical";
 
-    if (isOtpSaved && isNameSaved) {
+    if (isOtpSaved && isNameSaved && isRoleSaved) {
       final clinicController = Get.put(ClinicalController());
       clinicController.setClinicData(name: clinicName, number: phoneNo);
 

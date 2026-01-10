@@ -9,6 +9,8 @@ class ResultProfileDataModel {
   double? weight;
   String? region;
   String? dttm;
+  String? role;   // NON-MANDATORY
+  String? email;  // NON-MANDATORY
 
   ResultProfileDataModel({
     this.id,
@@ -21,6 +23,8 @@ class ResultProfileDataModel {
     this.weight,
     this.region,
     this.dttm,
+    this.role = 'clinical', // DEFAULT
+    this.email = 'NA',      // DEFAULT
   });
 
   ResultProfileDataModel.fromJson(Map<String, dynamic> json) {
@@ -29,11 +33,23 @@ class ResultProfileDataModel {
     clinicName = json['clinic_name'];
     profileName = json['profile_name'];
     gender = json['gender'];
-    age =
-        json['age'] is int ? json['age'] : int.tryParse(json['age'].toString());
+    age = json['age'] is int
+        ? json['age']
+        : int.tryParse(json['age'].toString());
     height = _parseDouble(json['height']);
     weight = _parseDouble(json['weight']);
+    region = json['region'];
     dttm = json['dttm'];
+
+    // ROLE (default = clinical)
+    role = (json['role'] == null || json['role'].toString().isEmpty)
+        ? 'clinical'
+        : json['role'];
+
+    // EMAIL (default = NA)
+    email = (json['email'] == null || json['email'].toString().isEmpty)
+        ? 'NA'
+        : json['email'];
   }
 
   Map<String, dynamic> toJson() {
@@ -48,6 +64,8 @@ class ResultProfileDataModel {
     data['weight'] = weight;
     data['region'] = region;
     data['dttm'] = dttm;
+    data['role'] = role ?? 'clinical';
+    data['email'] = email ?? 'NA';
     return data;
   }
 

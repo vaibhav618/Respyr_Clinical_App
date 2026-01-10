@@ -1,11 +1,14 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class AccountCreationSuccess {
-  void showMessage(BuildContext context, {required VoidCallback onContinue}) {
-    showModalBottomSheet(
+  Future<void> showMessage(
+      BuildContext context, {
+        required VoidCallback onContinue,
+        VoidCallback? onClosed,
+      }) async {
+    final result = await showModalBottomSheet<bool>(
       context: context,
       backgroundColor: Colors.white,
       isDismissible: false,
@@ -43,7 +46,8 @@ class AccountCreationSuccess {
                   height: 52,
                   child: ElevatedButton(
                     onPressed: () {
-                      Navigator.pop(context);
+                      // ✅ mark closed by Continue
+                      Navigator.pop(context, true);
                       onContinue();
                     },
                     style: ElevatedButton.styleFrom(
@@ -70,5 +74,13 @@ class AccountCreationSuccess {
         );
       },
     );
+
+    // result == true  => closed by Continue
+    // result == null/false => closed by back / system / Navigator.pop without value
+    final closedByContinue = (result == true);
+
+    if (!closedByContinue) {
+      if (onClosed != null) onClosed();
+    }
   }
 }

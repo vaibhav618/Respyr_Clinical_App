@@ -32,6 +32,8 @@ class ClinicalDiabeticScore {
       final uri = Uri.parse(baseUrl).replace(queryParameters: params);
       final response = await http.get(uri);
 
+      print(response.body.toString());
+
       if (response.statusCode == 200) {
         final decoded = json.decode(response.body);
 

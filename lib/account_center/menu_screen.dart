@@ -17,6 +17,7 @@ import '../clinical_dashboard/clinic_details/model/clinical_details_model.dart';
 import '../clinical_dashboard/utils/urls.dart';
 import '../clinical_dashboard/widgets/clinical_logo_widget.dart';
 import '../clinical_dashboard/widgets/test_details_widget.dart';
+import '../common/auth_logout.dart';
 import '../help_support/screens/help_center.dart';
 import '../utils/logout.dart';
 import '../widgets/logout_bpx.dart';
@@ -324,25 +325,29 @@ class _MenuScreenState extends State<MenuScreen> {
                             LogoutBox().showDialogBox(
                               context: context,
                               clinicName: widget.loginId,
-                              onLogoutClick: () async {
-                                bool success = await clearAllAppData();
-                                if (success && mounted) {
-                                  Navigator.pushReplacement(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) => LoginScreen(),
-                                    ),
-                                  );
-                                } else {
-                                  if (mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text('Failed to clear data'),
-                                      ),
-                                    );
-                                  }
-                                }
+                              onLogoutClick: () {
+
+                                AuthLogout.logout(context);
                               },
+                              // onLogoutClick: () async {
+                              //   bool success = await clearAllAppData();
+                              //   if (success && mounted) {
+                              //     Navigator.pushReplacement(
+                              //       context,
+                              //       MaterialPageRoute(
+                              //         builder: (context) => LoginScreen(),
+                              //       ),
+                              //     );
+                              //   } else {
+                              //     if (mounted) {
+                              //       ScaffoldMessenger.of(context).showSnackBar(
+                              //         const SnackBar(
+                              //           content: Text('Failed to clear data'),
+                              //         ),
+                              //       );
+                              //     }
+                              //   }
+                              // },
                             );
                           },
                           style: ElevatedButton.styleFrom(

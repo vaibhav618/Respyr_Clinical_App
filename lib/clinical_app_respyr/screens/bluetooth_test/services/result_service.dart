@@ -152,4 +152,61 @@ class ResultService {
       throw Exception('Exception: ${e.toString()}');
     }
   }
+
+
+  Future<NewResultModel> fetchResults1({
+    required String testdata,
+    required String subjectId,
+    required String gender,
+    required String age,
+    required String height,
+    required String region,
+    required String blowData,
+  }) async {
+
+    // 1. CLEAN THE DATA
+    // This removes actual newlines (\n), carriage returns (\r), and tabs (\t)
+    // ensuring the string is one continuous line exactly like Postman.
+    final String sanitizedTestData = testdata.replaceAll(RegExp(r'\s+'), '').trim();
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('jwt_token') ?? '';
+
+      final response = await http.post(
+        Uri.parse("https://humorstech.com/humors_app/app_final/clinical/api/fetch/result_analysis2.php"),
+        headers: {
+          "Authorization": "Bearer $token",
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: {
+          'testdata': sanitizedTestData, // Use the cleaned string here
+          'subid': subjectId,
+          'gender': gender,
+          'age': age,
+          'height': height,
+          'blow_region': region,
+          'blow_raw_values': blowData,
+        },
+      );
+
+      // DEBUG: Verify the outgoing string matches Postman exactly
+      print("SENDING TESTDATA: $sanitizedTestData");
+      print("SERVER RESPONSE: ${response.body}");
+
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body);
+        if (json['status'] == 'success') {
+          return NewResultModel.fromJson(json['data']);
+        } else {
+          throw Exception(json['message'] ?? 'API Error');
+        }
+      } else {
+        throw Exception('Server Error: ${response.statusCode}');
+      }
+    } catch (e) {
+      throw Exception('Request failed: $e');
+    }
+  }
+
 }

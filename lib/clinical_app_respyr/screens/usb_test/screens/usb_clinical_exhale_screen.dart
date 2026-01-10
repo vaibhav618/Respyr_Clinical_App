@@ -22,6 +22,7 @@ import '../../../../clinical_dashboard/service/overall_data_by_date_service.dart
 import '../../../../clinical_dashboard/views/clinical_dashboard.dart';
 import '../../../../new_result/bloc/new_result_cubit.dart';
 import '../../../../new_result/data/model/result_profile_data_model.dart';
+import '../../../../router/app_routers.dart';
 
 class UsbClinicalExhaleScreen extends StatefulWidget {
   final String baseValue;
@@ -195,12 +196,11 @@ class _UsbClinicalExhaleScreenState extends State<UsbClinicalExhaleScreen> {
 
   Future<bool> _showCancelTestDialog(context) async {
     bool didCancel = false;
-
     showCancelTestBox(
       context: context,
       cancelTestButtonPressed: () async {
-        Navigator.pop(context);
         _exitToDashboard();
+        Navigator.pop(context);
       },
     );
     return didCancel;
@@ -222,19 +222,19 @@ class _UsbClinicalExhaleScreenState extends State<UsbClinicalExhaleScreen> {
     if (_hasNavigatedToDashboard) return;
     _hasNavigatedToDashboard = true;
 
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(
-        builder:
-            (_) => BlocProvider(
-              create: (_) => HealthScoreBloc(OverallDataByDateService()),
-              child: ClinicalDashboardMain(
-                loginId: widget.profileDetails.clinicName!,
-              ),
-            ),
-      ),
-      (route) => false,
+    if (Get.isOverlaysOpen) {
+      Get.back();
+    }
+    Get.offAllNamed(
+      AppRoutes.mainDashboard,
+      arguments: {
+        'profile_details': widget.profileDetails,
+      },
     );
   }
+
+
+
 
   Future<void> _getUserId() async {
     final prefs = await SharedPreferences.getInstance();
@@ -339,6 +339,7 @@ class _UsbClinicalExhaleScreenState extends State<UsbClinicalExhaleScreen> {
     final storage = GetStorage();
     final DateTime now = DateTime.now();
     await storage.write('cancel_or_disconnect_time', now.toIso8601String());
+
   }
 
   @override

@@ -19,6 +19,7 @@ import 'package:respyr_clinical/shared/colors.dart';
 import '../../../../clinical_dashboard/bloc/health_score_bloc.dart';
 import '../../../../clinical_dashboard/service/overall_data_by_date_service.dart';
 import '../../../../new_result/data/model/result_profile_data_model.dart';
+import '../../../../router/app_routers.dart';
 
 class BluetoothInhaleScreen extends StatefulWidget {
   final bool isDeveloper;
@@ -204,7 +205,6 @@ class _BluetoothInhaleScreenState extends State<BluetoothInhaleScreen> {
     showCancelTestBox(
       context: context,
       cancelTestButtonPressed: () async {
-        debugPrint("🛑 Cancel button pressed");
 
         didCancel = true;
 
@@ -222,24 +222,27 @@ class _BluetoothInhaleScreenState extends State<BluetoothInhaleScreen> {
     return didCancel;
   }
 
+
   Future<void> _exitToDashboard() async {
+    _stopAllProcesses();
+    _setCancelOrDisconnectFlag();
     if (mounted) {
       _navigateToDashboard();
     }
   }
+
+
+
+
   void _navigateToDashboard() {
-    Navigator.pushAndRemoveUntil(
-      context,
-      MaterialPageRoute(
-        builder:
-            (_) => BlocProvider(
-          create: (_) => HealthScoreBloc(OverallDataByDateService()),
-          child: ClinicalDashboardMain(
-            loginId: widget.profileDetails.clinicName!,
-          ),
-        ),
-      ),
-          (route) => false,
+    if (Get.isOverlaysOpen) {
+      Get.back();
+    }
+    Get.offAllNamed(
+      AppRoutes.mainDashboard,
+      arguments: {
+        'profile_details': widget.profileDetails,
+      },
     );
   }
 

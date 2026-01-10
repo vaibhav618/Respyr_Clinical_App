@@ -8,12 +8,17 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
+import 'package:respyr_clinical/authentication/screens/login_screen.dart';
+import 'package:respyr_clinical/authentication/sign_in/presentation/screens/sign_in.dart';
 import 'package:respyr_clinical/clinical_app_respyr/screens/usb_test/services/clinical_usb_communication_services.dart';
 import 'package:respyr_clinical/device_connectivity/data/usb_repository_impl.dart';
 import 'package:respyr_clinical/device_connectivity/presentation/cubit/usb_connection_cubit.dart';
+import 'package:respyr_clinical/router/app_pages.dart';
+import 'package:respyr_clinical/router/app_routers.dart';
 import 'package:upgrader/upgrader.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
+import 'authentication/corporate/corporate_login/presentation/screens/corporate_login.dart';
 import 'splash/splash.dart';
 import 'authentication/services/clinical_name_getx_controller.dart';
 import 'log_manager/device_info.dart';
@@ -153,7 +158,8 @@ class MyApp extends StatelessWidget {
     return GetMaterialApp(
       debugShowCheckedModeBanner: false,
       theme: ThemeData(useMaterial3: true),
-      home: UpgradeAlert(upgrader: Upgrader(), child: const Splash()),
+      initialRoute: AppRoutes.splash,
+      getPages: AppPages.routes,
     );
   }
 }

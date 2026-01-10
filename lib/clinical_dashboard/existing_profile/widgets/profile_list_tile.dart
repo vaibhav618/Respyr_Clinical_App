@@ -1,17 +1,19 @@
+import 'dart:async'; // ✅ added
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:respyr_clinical/device_connectivity/presentation/pages/device_connectivity_screen.dart';
-import 'package:respyr_clinical/shared/colors.dart';
-
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../clinical_app_respyr/screens/bluetooth_test/screens/bluetooth_clinical_device_connectivity.dart';
+import '../../../common/floating_message.dart';
 import '../../../new_result/data/model/result_profile_data_model.dart';
 import '../../views/subject_profile.dart';
 import '../../widgets/connection_option_sheet.dart';
 import '../../widgets/update_region_sheet.dart';
 import '../models/profile_model.dart';
+
+// ✅ added (update path if your FloatingMessage file is elsewhere)
 
 class ProfileListTile extends StatelessWidget {
   final ProfileModel profile;
@@ -26,10 +28,58 @@ class ProfileListTile extends StatelessWidget {
     super.key,
   });
 
+  // ✅ added (single timer for this widget type)
+  static Timer? _cooldownToastTimer;
+
+  // ✅ added
+  Future<int> getRemainingCooldownSeconds({int cooldownSeconds = 40}) async {
+    final prefs = await SharedPreferences.getInstance();
+    final last = prefs.getInt('last_reading_time');
+    if (last == null) return 0;
+
+    final diff = DateTime.now()
+        .difference(DateTime.fromMillisecondsSinceEpoch(last))
+        .inSeconds;
+
+    final remaining = cooldownSeconds - diff;
+    return remaining > 0 ? remaining : 0;
+  }
+
+  // ✅ added
+  Future<void> showCooldownToast(BuildContext context, int seconds) async {
+    _cooldownToastTimer?.cancel();
+
+    int remaining = seconds;
+
+    FloatingMessage.show(
+      context,
+      message: 'Please wait $remaining seconds before next test',
+      type: FloatingMessageType.warning,
+      duration: Duration(seconds: remaining + 1),
+      fromTop: false,
+    );
+
+    _cooldownToastTimer = Timer.periodic(const Duration(seconds: 1), (t) {
+      remaining--;
+
+      // StatelessWidget has no mounted, so just close when time ends
+      if (remaining <= 0) {
+        t.cancel();
+        FloatingMessage.hide();
+        return;
+      }
+
+      FloatingMessage.update(
+        'Please wait $remaining seconds before next test',
+        duration: Duration(seconds: remaining + 1),
+      );
+    });
+  }
+
   void _showConnectionOption(
-    ResultProfileDataModel profileModel,
-    BuildContext context,
-  ) {
+      ResultProfileDataModel profileModel,
+      BuildContext context,
+      ) {
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -40,6 +90,14 @@ class ProfileListTile extends StatelessWidget {
           onBluetoothTap: () async {
             Navigator.pop(context); // ✅ Close the bottom sheet
 
+            // ✅ added: cooldown check before navigating
+            final remaining =
+            await getRemainingCooldownSeconds(cooldownSeconds: 40);
+
+            if (remaining > 0) {
+              await showCooldownToast(context, remaining);
+              return;
+            }
 
             Navigator.pop(context);
             Get.to(
@@ -48,12 +106,11 @@ class ProfileListTile extends StatelessWidget {
                 profileDetails: profileModel,
               ),
             );
-
           },
           onUsbTap: () {
             Navigator.pop(context);
             Get.to(
-              () => UsbDeviceConnectivity(
+                  () => UsbDeviceConnectivity(
                 isClinicalTest: true,
                 profileDetails: profileModel,
               ),
@@ -142,11 +199,10 @@ class ProfileListTile extends StatelessWidget {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder:
-                  (_) => SubjectProfileScreen(
-                    clinicName: profile.clinicName,
-                    profileName: profile.subjectId,
-                  ),
+              builder: (_) => SubjectProfileScreen(
+                clinicName: profile.clinicName,
+                profileName: profile.subjectId,
+              ),
             ),
           );
         }

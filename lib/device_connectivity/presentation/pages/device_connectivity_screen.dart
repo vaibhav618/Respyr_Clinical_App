@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:respyr_clinical/clinical_app_respyr/services/disconnected_error.dart';
 import 'package:respyr_clinical/clinical_dashboard/bloc/health_score_bloc.dart';
@@ -14,6 +15,8 @@ import 'package:respyr_clinical/new_result/data/model/result_profile_data_model.
 import 'package:respyr_clinical/shared/colors.dart';
 import 'package:respyr_clinical/shared/otg_connection.dart';
 import 'package:respyr_clinical/shared/text_string.dart';
+
+import '../../../router/app_routers.dart';
 
 class UsbDeviceConnectivity extends StatefulWidget {
   final int stepCompleted;
@@ -71,19 +74,17 @@ class _UsbDeviceConnectivityState extends State<UsbDeviceConnectivity> {
 
         await Future.delayed(const Duration(milliseconds: 300));
 
-        await Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(
-            builder:
-                (context) => BlocProvider(
-                  create: (_) => HealthScoreBloc(OverallDataByDateService()),
-                  child: ClinicalDashboardMain(
-                    loginId: widget.profileDetails.clinicName!,
-                  ),
-                ),
-          ),
-          (Route<dynamic> route) => false,
+        if (Get.isOverlaysOpen) {
+          Get.back();
+        }
+
+        Get.offAllNamed(
+          AppRoutes.mainDashboard,
+          arguments: {
+            'profile_details': widget.profileDetails, // full ResultProfileDataModel
+          },
         );
+
       },
     );
 
@@ -308,7 +309,19 @@ class _UsbDeviceConnectivityState extends State<UsbDeviceConnectivity> {
                         color: Colors.black,
                       ),
                       onPressed: () {
-                        Navigator.pop(context);
+                        // Navigatoa
+
+                        if (Get.isOverlaysOpen) {
+                          Get.back();
+                        }
+
+                        Get.offAllNamed(
+                          AppRoutes.mainDashboard,
+                          arguments: {
+                            'profile_details': widget.profileDetails, // full ResultProfileDataModel
+                          },
+                        );
+
                       },
                     ),
                     SizedBox(

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:respyr_clinical/clinical_app_respyr/screens/bluetooth_test/screens/bluetooth_clinical_inhale_screen.dart';
@@ -14,10 +15,12 @@ import 'package:respyr_clinical/clinical_app_respyr/services/disconnected_error.
 import 'package:respyr_clinical/clinical_dashboard/views/clinical_dashboard.dart';
 import 'package:respyr_clinical/shared/audio_helper.dart';
 import 'package:respyr_clinical/shared/colors.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../../clinical_dashboard/bloc/health_score_bloc.dart';
 import '../../../../clinical_dashboard/service/overall_data_by_date_service.dart';
 import '../../../../new_result/data/model/result_profile_data_model.dart';
+import '../../../../router/app_routers.dart';
 
 class BluetoothCalibrationScreen extends StatefulWidget {
   final ResultProfileDataModel profileDetails;
@@ -235,11 +238,13 @@ class _BluetoothCalibrationScreenState extends State<BluetoothCalibrationScreen>
         print("Sending step-specific data for step $step");
       }
 
+      final prefs = await SharedPreferences.getInstance();
+
       switch (step) {
         case 2:
           await _bleManager.sendData("?");
           await _bleManager.sendData("}");
-          await _bleManager.sendData("{");
+          await _bleManager.sendData( prefs.getString("isFirstReading") ?? "{");
           await _bleManager.sendData("+");
           break;
         case 3:
@@ -336,27 +341,29 @@ class _BluetoothCalibrationScreenState extends State<BluetoothCalibrationScreen>
   }
 
   Future<void> _exitToDashboard() async {
+    _stopAllProcesses();
+    _setCancelOrDisconnectFlag();
     if (mounted) {
       _navigateToDashboard();
     }
   }
-
+  Future<void> _setCancelOrDisconnectFlag() async {
+    final storage = GetStorage();
+    final DateTime now = DateTime.now();
+    await storage.write('cancel_or_disconnect_time', now.toIso8601String());
+  }
 
 
 
   void _navigateToDashboard() {
-    Navigator.pushAndRemoveUntil(
-      context,
-      MaterialPageRoute(
-        builder:
-            (_) => BlocProvider(
-          create: (_) => HealthScoreBloc(OverallDataByDateService()),
-          child: ClinicalDashboardMain(
-            loginId: widget.profileDetails.clinicName!,
-          ),
-        ),
-      ),
-          (route) => false,
+    if (Get.isOverlaysOpen) {
+      Get.back();
+    }
+    Get.offAllNamed(
+      AppRoutes.mainDashboard,
+      arguments: {
+        'profile_details': widget.profileDetails,
+      },
     );
   }
 

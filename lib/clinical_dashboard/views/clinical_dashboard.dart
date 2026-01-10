@@ -1,4 +1,6 @@
+import 'dart:async'; // ✅ ADDED
 import 'dart:convert';
+
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -6,12 +8,13 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:respyr_clinical/account_center/menu_screen.dart';
-import 'package:respyr_clinical/clinical_dashboard/existing_profile/bloc/profile_bloc.dart';
 import 'package:respyr_clinical/widgets/internet_connectivity_check.dart';
 import 'package:respyr_clinical/shared/colors.dart';
 import 'package:respyr_clinical/widgets/in_app_update.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:table_calendar/table_calendar.dart';
+
+import '../../common/floating_message.dart';
 import '../../fcm/save_fcm_token.dart';
 import '../bloc/health_score_bloc.dart';
 import '../bloc/overall_data_by_date_event.dart';
@@ -34,6 +37,8 @@ import '../widgets/take_test_sheet.dart';
 import '../widgets/test_details_widget.dart';
 import '../widgets/test_limit_completed_sheet.dart';
 import 'complete_test_log.dart';
+
+// ✅ ADDED (update path if needed)
 
 class ClinicalDashboardMain extends StatefulWidget {
   final String loginId;
@@ -59,6 +64,9 @@ class _ClinicalDashboardMainState extends State<ClinicalDashboardMain>
   static const String scoreCountKey = 'clinical_score_count';
   static const String statusKey = 'status';
   static const String successValue = 'success';
+
+  // ✅ ADDED (cooldown toast timer)
+  Timer? _cooldownToastTimer;
 
   String get formattedDate {
     return "${selectedDate.month.toString().padLeft(2, '0')}/"
@@ -120,6 +128,7 @@ class _ClinicalDashboardMainState extends State<ClinicalDashboardMain>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _cooldownToastTimer?.cancel(); // ✅ ADDED
     super.dispose();
   }
 
@@ -161,6 +170,55 @@ class _ClinicalDashboardMainState extends State<ClinicalDashboardMain>
     scaffoldKey.currentState?.openEndDrawer();
   }
 
+  // ✅ ADDED: cooldown seconds checker (uses last_reading_time from SharedPrefs)
+  Future<int> getRemainingCooldownSeconds({int cooldownSeconds = 40}) async {
+    final prefs = await SharedPreferences.getInstance();
+    final last = prefs.getInt('last_reading_time');
+    if (last == null) return 0;
+
+    final diff = DateTime.now()
+        .difference(DateTime.fromMillisecondsSinceEpoch(last))
+        .inSeconds;
+
+    final remaining = cooldownSeconds - diff;
+    return remaining > 0 ? remaining : 0;
+  }
+
+  // ✅ ADDED: FloatingMessage toast countdown
+  Future<void> showCooldownToast(BuildContext context, int seconds) async {
+    _cooldownToastTimer?.cancel();
+
+    int remaining = seconds;
+
+    FloatingMessage.show(
+      context,
+      message: 'Please wait $remaining seconds before next test',
+      type: FloatingMessageType.warning,
+      duration: Duration(seconds: remaining + 1),
+      fromTop: false,
+    );
+
+    _cooldownToastTimer = Timer.periodic(const Duration(seconds: 1), (t) {
+      remaining--;
+
+      if (!mounted) {
+        t.cancel();
+        return;
+      }
+
+      if (remaining <= 0) {
+        t.cancel();
+        FloatingMessage.hide();
+        return;
+      }
+
+      FloatingMessage.update(
+        'Please wait $remaining seconds before next test',
+        duration: Duration(seconds: remaining + 1),
+      );
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     if (widget.loginId.isEmpty) {
@@ -182,7 +240,6 @@ class _ClinicalDashboardMainState extends State<ClinicalDashboardMain>
             _initData();
           }
         },
-
         child: SingleChildScrollView(
           controller: _scrollController,
           child: Column(
@@ -245,31 +302,31 @@ class _ClinicalDashboardMainState extends State<ClinicalDashboardMain>
                                         .genderDistribution
                                         .map(
                                           (gender, data) => MapEntry(
-                                            gender,
-                                            ScoreTypesForGender(
-                                              dbScore: ScoreBreakdown(
-                                                good: data.dbScore.good,
-                                                fair: data.dbScore.fair,
-                                                poor: data.dbScore.poor,
-                                              ),
-                                              liverScore: ScoreBreakdown(
-                                                good: data.liverScore.good,
-                                                fair: data.liverScore.fair,
-                                                poor: data.liverScore.poor,
-                                              ),
-                                              gutScorePer: ScoreBreakdown(
-                                                good: data.gutScorePer.good,
-                                                fair: data.gutScorePer.fair,
-                                                poor: data.gutScorePer.poor,
-                                              ),
-                                              blowScore: ScoreBreakdown(
-                                                good: data.blowScore.good,
-                                                fair: data.blowScore.fair,
-                                                poor: data.blowScore.poor,
-                                              ),
-                                            ),
+                                        gender,
+                                        ScoreTypesForGender(
+                                          dbScore: ScoreBreakdown(
+                                            good: data.dbScore.good,
+                                            fair: data.dbScore.fair,
+                                            poor: data.dbScore.poor,
+                                          ),
+                                          liverScore: ScoreBreakdown(
+                                            good: data.liverScore.good,
+                                            fair: data.liverScore.fair,
+                                            poor: data.liverScore.poor,
+                                          ),
+                                          gutScorePer: ScoreBreakdown(
+                                            good: data.gutScorePer.good,
+                                            fair: data.gutScorePer.fair,
+                                            poor: data.gutScorePer.poor,
+                                          ),
+                                          blowScore: ScoreBreakdown(
+                                            good: data.blowScore.good,
+                                            fair: data.blowScore.fair,
+                                            poor: data.blowScore.poor,
                                           ),
                                         ),
+                                      ),
+                                    ),
                                     date: formattedDate,
                                     scoreData: scores,
                                     loginId: widget.loginId,
@@ -278,8 +335,7 @@ class _ClinicalDashboardMainState extends State<ClinicalDashboardMain>
                                 const SizedBox(height: 24),
                                 TestDetailsWidget(
                                   clinicalTestCountData: snapshot.data,
-                                  totalSubjectsOnboarded:
-                                      totalSubjectsOnboarded1,
+                                  totalSubjectsOnboarded: totalSubjectsOnboarded1,
                                 ),
                                 const SizedBox(height: 24),
                               ],
@@ -296,8 +352,8 @@ class _ClinicalDashboardMainState extends State<ClinicalDashboardMain>
                     final now = DateTime.now();
                     final isToday =
                         selectedDate.year == now.year &&
-                        selectedDate.month == now.month &&
-                        selectedDate.day == now.day;
+                            selectedDate.month == now.month &&
+                            selectedDate.day == now.day;
 
                     if (isToday) {
                       return const Center(
@@ -343,8 +399,19 @@ class _ClinicalDashboardMainState extends State<ClinicalDashboardMain>
       bottomNavigationBar: BottomNavigationBarWidget(
         activeIndex: 0,
         onDashboardTap: () => _initData(),
-        onTakeTestTap: () {
+        onTakeTestTap: () async {
           if (_hasInternet) {
+            // ✅ ADDED: Bluetooth cooldown check here
+            final remaining =
+            await getRemainingCooldownSeconds(cooldownSeconds: 40);
+
+            if (!mounted) return;
+
+            if (remaining > 0) {
+              await showCooldownToast(context, remaining);
+              return;
+            }
+
             checkDeviceAbortStatus();
           } else {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -356,13 +423,11 @@ class _ClinicalDashboardMainState extends State<ClinicalDashboardMain>
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder:
-                  (_) => BlocProvider(
-                    create:
-                        (_) =>
-                            TestLogBloc()..add(FetchTestLogs(widget.loginId)),
-                    child: CompleteTestLog(loginId: widget.loginId),
-                  ),
+              builder: (_) => BlocProvider(
+                create: (_) =>
+                TestLogBloc()..add(FetchTestLogs(widget.loginId)),
+                child: CompleteTestLog(loginId: widget.loginId),
+              ),
             ),
           );
         },
@@ -404,8 +469,8 @@ class _ClinicalDashboardMainState extends State<ClinicalDashboardMain>
     if (isTestAllowed == "true") {
       final isLimitReached =
           testTokenCount != null &&
-          testLimitCount != null &&
-          testTokenCount > testLimitCount;
+              testLimitCount != null &&
+              testTokenCount > testLimitCount;
 
       if (isLimitReached) {
         TestLimitReached.showBottomSheet(context);
@@ -442,11 +507,10 @@ class _ClinicalDashboardMainState extends State<ClinicalDashboardMain>
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder:
-            (_) => ExistingProfilesListScreen(
-              clinicName: widget.loginId,
-              isCreateAccountButtonShow: isCreateAccountButtonShow,
-            ),
+        builder: (_) => ExistingProfilesListScreen(
+          clinicName: widget.loginId,
+          isCreateAccountButtonShow: isCreateAccountButtonShow,
+        ),
       ),
     );
   }
@@ -469,26 +533,18 @@ class _ClinicalDashboardMainState extends State<ClinicalDashboardMain>
         Navigator.push(
           context,
           PageRouteBuilder(
-            pageBuilder:
-                (context, animation, secondaryAnimation) => MenuScreen(
-                  loginId: widget.loginId,
-                  totalSubjectsOnboarded: totalSubjectsOnboarded1,
-                  clinicalTestCountData: clinicalTestCountData,
-                ),
-            transitionsBuilder: (
-              context,
-              animation,
-              secondaryAnimation,
-              child,
-            ) {
+            pageBuilder: (context, animation, secondaryAnimation) => MenuScreen(
+              loginId: widget.loginId,
+              totalSubjectsOnboarded: totalSubjectsOnboarded1,
+              clinicalTestCountData: clinicalTestCountData,
+            ),
+            transitionsBuilder: (context, animation, secondaryAnimation, child) {
               const begin = Offset(1.0, 0.0); // Start from right
               const end = Offset.zero;
               const curve = Curves.ease;
 
-              final tween = Tween(
-                begin: begin,
-                end: end,
-              ).chain(CurveTween(curve: curve));
+              final tween =
+              Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
               final offsetAnimation = animation.drive(tween);
 
               return SlideTransition(position: offsetAnimation, child: child);
@@ -531,13 +587,12 @@ class _ClinicalDashboardMainState extends State<ClinicalDashboardMain>
       firstDay: DateTime(2020),
       lastDay: DateTime.now(),
       focusedDay: selectedDate,
-      selectedDayPredicate:
-          (day) => _markedEvents.any(
+      selectedDayPredicate: (day) => _markedEvents.any(
             (markedDay) =>
-                markedDay.year == day.year &&
-                markedDay.month == day.month &&
-                markedDay.day == day.day,
-          ),
+        markedDay.year == day.year &&
+            markedDay.month == day.month &&
+            markedDay.day == day.day,
+      ),
       onDaySelected: _onDaySelected,
       daysOfWeekHeight: 20,
       daysOfWeekStyle: DaysOfWeekStyle(
@@ -596,9 +651,7 @@ class _ClinicalDashboardMainState extends State<ClinicalDashboardMain>
     if (selectedDay != selectedDate) {
       setState(() {
         selectedDate = selectedDay;
-        selectedDateNotifier.value = DateFormat(
-          'yyyy-MM-dd',
-        ).format(selectedDay);
+        selectedDateNotifier.value = DateFormat('yyyy-MM-dd').format(selectedDay);
         _isCalendarVisible = false;
       });
       fetchOverallData(); // 🔥 Fetch data for selected date
@@ -606,13 +659,13 @@ class _ClinicalDashboardMainState extends State<ClinicalDashboardMain>
   }
 
   Widget? _markerBuilder(
-    BuildContext context,
-    DateTime day,
-    List<dynamic> events,
-  ) {
+      BuildContext context,
+      DateTime day,
+      List<dynamic> events,
+      ) {
     bool isMarked = _markedEvents.any(
-      (markedDate) =>
-          markedDate.year == day.year &&
+          (markedDate) =>
+      markedDate.year == day.year &&
           markedDate.month == day.month &&
           markedDate.day == day.day,
     );

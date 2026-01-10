@@ -48,26 +48,49 @@ class _CoolingDownContentState extends State<_CoolingDownContent> {
     final storage = GetStorage();
     final storedTimeStr = storage.read('cancel_or_disconnect_time');
 
-    if (storedTimeStr != null) {
-      final storedTime = DateTime.tryParse(storedTimeStr);
-      if (storedTime != null) {
-        final now = DateTime.now();
-        final diff = now.difference(storedTime).inSeconds;
-        final remaining = 60 - diff;
-        if (remaining > 0) {
-          _remainingSeconds = remaining;
-        } else {
-          _remainingSeconds = 0;
-          _isButtonEnabled = true;
-        }
-      }
+    // If nothing stored -> allow immediately
+    if (storedTimeStr == null) {
+      _remainingSeconds = 0;
+      _isButtonEnabled = true;
+      return;
+    }
+
+    final storedTime = DateTime.tryParse(storedTimeStr);
+    if (storedTime == null) {
+      _remainingSeconds = 0;
+      _isButtonEnabled = true;
+      return;
+    }
+
+    final now = DateTime.now();
+
+    // ✅ FIX: If storedTime is in the future (device wrote time twice / lifecycle),
+    // clamp diff to 0 so remaining never becomes > 60.
+    final diffSeconds = now.isBefore(storedTime)
+        ? 0
+        : now.difference(storedTime).inSeconds;
+
+    final remaining = 60 - diffSeconds;
+
+    if (remaining > 0 && remaining <= 60) {
+      _remainingSeconds = remaining;
+      _isButtonEnabled = false;
+    } else {
+      _remainingSeconds = 0;
+      _isButtonEnabled = true;
     }
   }
 
   void _startTimer() {
     if (_remainingSeconds <= 0) return;
 
+    _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+
       if (_remainingSeconds <= 1) {
         timer.cancel();
         setState(() {
@@ -148,14 +171,12 @@ class _CoolingDownContentState extends State<_CoolingDownContent> {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed:
-                    _isButtonEnabled
-                        ? () {
-                          Navigator.of(context).pop();
-                          widget.onTakeTextClick
-                              ?.call(); // Safely call callback
-                        }
-                        : null,
+                onPressed: _isButtonEnabled
+                    ? () {
+                  Navigator.of(context).pop();
+                  widget.onTakeTextClick?.call();
+                }
+                    : null,
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(

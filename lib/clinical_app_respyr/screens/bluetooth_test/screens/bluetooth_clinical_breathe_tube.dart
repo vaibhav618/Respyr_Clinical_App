@@ -19,6 +19,7 @@ import '../../../../clinical_dashboard/bloc/health_score_bloc.dart';
 import '../../../../clinical_dashboard/service/overall_data_by_date_service.dart';
 import '../../../../clinical_dashboard/views/clinical_dashboard.dart';
 import '../../../../new_result/data/model/result_profile_data_model.dart';
+import '../../../../router/app_routers.dart';
 
 class BluetoothBreatheTube extends StatefulWidget {
   final ResultProfileDataModel profileDetails;
@@ -175,18 +176,14 @@ class _BluetoothBreatheTubeState extends State<BluetoothBreatheTube> {
 
 
   void _navigateToDashboard() {
-    Navigator.pushAndRemoveUntil(
-      context,
-      MaterialPageRoute(
-        builder:
-            (_) => BlocProvider(
-          create: (_) => HealthScoreBloc(OverallDataByDateService()),
-          child: ClinicalDashboardMain(
-            loginId: widget.profileDetails.clinicName!,
-          ),
-        ),
-      ),
-          (route) => false,
+    if (Get.isOverlaysOpen) {
+      Get.back();
+    }
+    Get.offAllNamed(
+      AppRoutes.mainDashboard,
+      arguments: {
+        'profile_details': widget.profileDetails,
+      },
     );
   }
 
