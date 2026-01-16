@@ -168,7 +168,7 @@ class _CorporateDashboardState extends State<CorporateDashboard>
                 return Scaffold(
                   backgroundColor: Colors.white,
                   body: SafeArea(
-                    bottom: false,
+                    bottom: true,
                     child: Stack(
                       children: [
                         _buildScrollableContent(
@@ -490,6 +490,7 @@ class _FloatingBottomNav extends StatelessWidget {
       bottom: 0,
       child: SafeArea(
         top: false,
+        bottom: true,
         child: AnimatedSlide(
           duration: slideDuration,
           curve: curve,

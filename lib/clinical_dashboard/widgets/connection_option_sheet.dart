@@ -1,3 +1,4 @@
+import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -21,6 +22,8 @@ class _ConnectionOptionSheetState extends State<ConnectionOptionSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final bool isIOS = Platform.isIOS;
+
     return Container(
       height: MediaQuery.of(context).size.height * 0.32,
       padding: const EdgeInsets.all(16.0),
@@ -43,8 +46,10 @@ class _ConnectionOptionSheetState extends State<ConnectionOptionSheet> {
             ),
           ),
           const SizedBox(height: 20),
+
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            mainAxisAlignment:
+            isIOS ? MainAxisAlignment.center : MainAxisAlignment.spaceEvenly,
             children: [
               _buildConnectionOption(
                 context: context,
@@ -57,24 +62,18 @@ class _ConnectionOptionSheetState extends State<ConnectionOptionSheet> {
                   widget.onBluetoothTap();
                 },
               ),
-              _buildConnectionOption(
-                context: context,
-                iconPath: 'assets/carbon_usb.svg',
-                label: 'Cable',
-                onTap: widget.onUsbTap,
-              ),
+
+              // ✅ Show USB only on Android
+              if (!isIOS)
+                _buildConnectionOption(
+                  context: context,
+                  iconPath: 'assets/carbon_usb.svg',
+                  label: 'Cable',
+                  onTap: widget.onUsbTap,
+                ),
             ],
           ),
-          // const SizedBox(height: 10),
-          // if (isBluetoothClicked)
-          //   Text(
-          //     "Coming soon",
-          //     style: GoogleFonts.mulish(
-          //       fontSize: 18,
-          //       fontWeight: FontWeight.w600,
-          //       color: Colors.green,
-          //     ),
-          //   ),
+
           const SizedBox(height: 16),
         ],
       ),

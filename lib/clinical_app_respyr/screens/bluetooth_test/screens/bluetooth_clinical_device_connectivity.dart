@@ -462,6 +462,15 @@ class _BluetoothClinicalDeviceConnectivityState
       child: Scaffold(
         key: _freshKey,
         backgroundColor: AppColor.whiteColor,
+        appBar: AppBar(
+          backgroundColor: Colors.white,
+          leading: IconButton(
+              onPressed: (){
+                _showCancelTestDialog(context);
+              },
+              icon: Icon(Icons.close),)
+
+        ),
         body: SafeArea(
           child: Padding(
             padding: const EdgeInsets.all(10.0),
@@ -548,6 +557,61 @@ class _BluetoothClinicalDeviceConnectivityState
       ),
     );
   }
+
+  Future<bool> _showCancelTestDialog(BuildContext context) async {
+    bool didCancel = false;
+
+    showCancelTestBox(
+      context: context,
+      cancelTestButtonPressed: () async {
+        debugPrint("🛑 Cancel button pressed");
+
+        didCancel = true;
+
+        abortProcess();
+        if (mounted) {
+          Navigator.pop(context);
+        }
+
+        await Future.delayed(const Duration(milliseconds: 300));
+
+        await _exitToDashboard();
+      },
+    );
+
+    return didCancel;
+  }
+
+  void abortProcess() {
+    if (_isConnected) {
+      _bleManager.sendData("&");
+    }
+  }
+
+  Future<void> _exitToDashboard() async {
+    _stopAllProcesses();
+    if (mounted) {
+      _navigateToDashboard();
+    }
+  }
+
+
+  void _stopAllProcesses() {
+    _isDisposed = true;
+  }
+
+  void _navigateToDashboard() {
+    if (Get.isOverlaysOpen) {
+      Get.back();
+    }
+    Get.offAllNamed(
+      AppRoutes.mainDashboard,
+      arguments: {
+        'profile_details': widget.profileDetails,
+      },
+    );
+  }
+
 
   Widget _buildOtgButton(double width) {
     return (!_isConnected && isScanningDevice)
