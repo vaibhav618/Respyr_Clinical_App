@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
@@ -12,13 +11,11 @@ import 'package:respyr_clinical/clinical_app_respyr/screens/bluetooth_test/scree
 import 'package:respyr_clinical/clinical_app_respyr/screens/bluetooth_test/services/clinical_bluetooth_manager.dart';
 import 'package:respyr_clinical/clinical_app_respyr/services/device_battery_utils.dart';
 import 'package:respyr_clinical/clinical_app_respyr/services/disconnected_error.dart';
-import 'package:respyr_clinical/clinical_dashboard/views/clinical_dashboard.dart';
 import 'package:respyr_clinical/shared/audio_helper.dart';
 import 'package:respyr_clinical/shared/colors.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../../../clinical_dashboard/bloc/health_score_bloc.dart';
-import '../../../../clinical_dashboard/service/overall_data_by_date_service.dart';
+import '../../../../common/floating_message.dart';
 import '../../../../new_result/data/model/result_profile_data_model.dart';
 import '../../../../router/app_routers.dart';
 
@@ -34,19 +31,23 @@ class BluetoothCalibrationScreen extends StatefulWidget {
 class _BluetoothCalibrationScreenState extends State<BluetoothCalibrationScreen>
     with SingleTickerProviderStateMixin {
   final ClinicalBluetoothManager _bleManager = ClinicalBluetoothManager();
-  late StreamSubscription<bool> _connectionStatusSubscription;
-  late StreamSubscription<String> _receivedDataSubscription;
+
+  StreamSubscription<bool>? _connectionStatusSubscription;
+  StreamSubscription<String>? _receivedDataSubscription;
   late AnimationController _animationController;
 
-
   final storage = GetStorage();
+
   bool _isConnected = false;
   int _completedSteps = 0;
   bool _navigatedToInhaleScreen = false;
   bool _isDisposed = false;
   bool _isDisconnectDialogPop = false;
   bool _hasShownDisconnectedDialog = false;
+
   final AudioHelper _audioHelper = AudioHelper();
+
+  bool allSignalSent = false;
 
   final List<String> progressMessage = [
     "Cleaning inner\nChamber of Device",
@@ -67,13 +68,17 @@ class _BluetoothCalibrationScreenState extends State<BluetoothCalibrationScreen>
   @override
   void initState() {
     super.initState();
-    setState(() {
-      _isConnected = _bleManager.isConnected;
-    });
+
+    _isConnected = _bleManager.isConnected;
 
     _initializeAnimationController();
     _checkBluetoothDeviceConnectivity();
-    _startProgress();
+
+    // Start progress after first frame so context is safe for dialogs/snackbars
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _startProgress();
+    });
   }
 
   void _initializeAnimationController() {
@@ -91,69 +96,74 @@ class _BluetoothCalibrationScreenState extends State<BluetoothCalibrationScreen>
       return;
     }
 
-    _isDisconnectDialogPop = true; // Prevent multiple dialogs
+    _isDisconnectDialogPop = true;
     _hasShownDisconnectedDialog = true;
 
     showDeviceDisconnectedBox(
       context: context,
       onButtonPressed: () async {
         if (!_isDisconnectDialogPop) return;
-        _isDisconnectDialogPop = false; // ✅ Reset BEFORE connecting
+
+        _isDisconnectDialogPop = false;
         Navigator.pop(context);
+
         await Future.delayed(const Duration(milliseconds: 300));
+
         abortProcess();
-        _navigateToDashboard(); // Attempt reconnect
+        _navigateToDashboard();
       },
     );
   }
 
   void _checkBluetoothDeviceConnectivity() {
-    // Update connection status
-    _connectionStatusSubscription = _bleManager.connectionStatusStream.listen((
-      isConnected,
-    ) {
-      if (!_isDisposed) {
-        setState(() => _isConnected = isConnected);
-        if (isConnected) {
-          _hasShownDisconnectedDialog = false;
-          _isDisconnectDialogPop = false;
-        }
+    _connectionStatusSubscription =
+        _bleManager.connectionStatusStream.listen((isConnected) {
+          if (_isDisposed) return;
 
-        if (!isConnected &&
-            !_isDisposed &&
-            !_isDisconnectDialogPop &&
-            !_hasShownDisconnectedDialog) {
-          Future.delayed(const Duration(milliseconds: 500)).then((_) {
-            if (!_isConnected) {
-              // Double-check before showing the dialog
-              if (!mounted || _isDisposed || _isConnected) return;
+          if (mounted) {
+            setState(() => _isConnected = isConnected);
+          } else {
+            _isConnected = isConnected;
+          }
+
+          if (isConnected) {
+            _hasShownDisconnectedDialog = false;
+            _isDisconnectDialogPop = false;
+          }
+
+          if (!isConnected &&
+              !_isDisposed &&
+              !_isDisconnectDialogPop &&
+              !_hasShownDisconnectedDialog) {
+            Future.delayed(const Duration(milliseconds: 500)).then((_) {
+              if (_isDisposed) return;
+              if (_isConnected) return;
+              if (!mounted) return;
+
               _animationController.stop();
               _audioHelper.stopAudio();
               _handleDisconnection();
-            }
-          });
-        }
-        _isDisconnectDialogPop = false;
-      }
-    }, onError: (error) => _showErrorDialog("Connection status error."));
+            });
+          }
+        }, onError: (_) => _showErrorDialog("Connection status error."));
 
-    // Handle received data
     _receivedDataSubscription = _bleManager.receivedDataStream.listen(
-      (data) {
-        // if (kDebugMode) {
-        //   print("New Data Received CalibrationScreen: $data");
-        // }
+          (data) {
+        if (_isDisposed) return;
+
         if (data.contains("inhale") && !_navigatedToInhaleScreen) {
           if (mounted) {
             _stopAllProcesses();
             _navigateToInhaleScreen();
           }
-        } else if (batteryVoltageReceived(data)) {
+          return;
+        }
+
+        if (batteryVoltageReceived(data)) {
           final pattern = RegExp(r'^@(.+)@$');
           final match = pattern.firstMatch(data);
-
           if (match != null) {
-            int batteryPercentage = BatteryUtils.calculateBatteryPercentage(
+            final batteryPercentage = BatteryUtils.calculateBatteryPercentage(
               extractBatteryVoltage(data),
             );
             if (kDebugMode) {
@@ -162,7 +172,7 @@ class _BluetoothCalibrationScreenState extends State<BluetoothCalibrationScreen>
           }
         }
       },
-      onError: (error) => _showErrorDialog("Error receiving data from device."),
+      onError: (_) => _showErrorDialog("Error receiving data from device."),
     );
   }
 
@@ -178,78 +188,85 @@ class _BluetoothCalibrationScreenState extends State<BluetoothCalibrationScreen>
     if (match != null) {
       return double.tryParse(match.group(1)!) ?? 0.0;
     }
-    return 0.0; // default if no match
+    return 0.0;
   }
 
   Future<void> _startProgress() async {
+    // ✅ Send signal immediately when timer starts
+    await _sendInitialSignal();
+
     for (int i = 1; i <= 5; i++) {
+      if (_isDisposed || _navigatedToInhaleScreen) return;
+
+      // Step timers
       if (i < 5) {
-        // Steps 0 to 4: Process normally for 20 seconds
         for (int seconds = 20; seconds > 0; seconds--) {
           if (_isDisposed || _navigatedToInhaleScreen) return;
-
-          if (kDebugMode) {
-            print("Step $i: $seconds seconds remaining");
-          }
           await Future.delayed(const Duration(seconds: 1));
-          if (!mounted || _navigatedToInhaleScreen) return;
+          if (!mounted || _navigatedToInhaleScreen || _isDisposed) return;
         }
       } else {
-        // Step 5: Keep checking until "inhale" is received
-        if (kDebugMode) {
-          print("Step 5 started: Waiting for 'inhale' data...");
-        }
-
+        // Step 5: wait until inhale comes
         while (!_navigatedToInhaleScreen) {
+          if (_isDisposed) return;
           await Future.delayed(const Duration(seconds: 1));
-
-          if (_isDisposed || _navigatedToInhaleScreen) return;
-
-          if (kDebugMode) {
-            print("Still waiting for 'inhale'");
-          }
         }
       }
 
-      if (!_isDisposed) {
+      if (_isDisposed) return;
+
+      if (mounted) {
         setState(() => _completedSteps = i);
-        _restartAnimation();
-        await _sendStepSpecificData(i);
-
-        if (i == 5) {
-          if (kDebugMode) {
-            print("Final Step: Waiting for 'inhale' completed!");
-          }
-        }
+      } else {
+        _completedSteps = i;
       }
+
+      _restartAnimation();
+      await _sendStepSpecificData(i);
     }
+  }
+
+  /// Sends the initial calibration signal once.
+  /// If device is not connected at start, it will be retried in step 1 and 2.
+  Future<void> _sendInitialSignal() async {
+    if (allSignalSent) return;
+    if (!_bleManager.isConnected) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    final String signal = prefs.getString("isFirstReading") ?? "{";
+
+    if (_isDisposed) return;
+
+    if (kDebugMode) {
+      print("🚀 Sending initial signal at timer start: $signal");
+    }
+
+    if (mounted) {
+      FloatingMessage.show(context, message: signal);
+    }
+
+    await _bleManager.sendData("?");
+    await _bleManager.sendData("}");
+    await _bleManager.sendData(signal);
+    await _bleManager.sendData("+");
+
+    allSignalSent = true;
   }
 
   Future<void> _sendStepSpecificData(int step) async {
     try {
-      if (!_bleManager.isConnected) {
-        if (kDebugMode) {
-          print("⚠️ BLE device not connected. Skipping send for step $step.");
-        }
-        return;
-      }
+      if (_isDisposed) return;
 
-      if (kDebugMode) {
-        print("Sending step-specific data for step $step");
+      // ✅ Retry signal only for step 1 & 2 if not sent at timer start
+      if (!allSignalSent && (step == 1 || step == 2)) {
+        await _sendInitialSignal();
       }
-
-      final prefs = await SharedPreferences.getInstance();
 
       switch (step) {
-        case 2:
-          await _bleManager.sendData("?");
-          await _bleManager.sendData("}");
-          await _bleManager.sendData( prefs.getString("isFirstReading") ?? "{");
-          await _bleManager.sendData("+");
-          break;
         case 3:
           _audioHelper.playActivatingSensors();
           break;
+
         case 4:
           _audioHelper.playStartBreathTest();
           await Future.delayed(const Duration(seconds: 10));
@@ -260,59 +277,57 @@ class _BluetoothCalibrationScreenState extends State<BluetoothCalibrationScreen>
         print("❌ Error sending data: $e");
         print(stacktrace);
       }
-
-      _showErrorDialog("Failed to send data to the device.");
+      if (!_isDisposed) {
+        _showErrorDialog("Failed to send data to the device.");
+      }
     }
   }
 
   void _restartAnimation() {
-    if (!_isDisposed) {
-      _animationController.reset();
-      _animationController.repeat();
-    }
+    if (_isDisposed) return;
+    _animationController
+      ..reset()
+      ..repeat();
   }
 
   void _showErrorDialog(String message) {
-    if (!_isDisposed) {
-      showDialog(
-        context: context,
-        builder:
-            (context) => AlertDialog(
-              title: const Text("Error"),
-              content: Text(message),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text("OK"),
-                ),
-              ],
-            ),
-      );
-    }
+    if (_isDisposed || !mounted) return;
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Error"),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text("OK"),
+          ),
+        ],
+      ),
+    );
   }
 
   void _stopAllProcesses() {
     _isDisposed = true;
-    _connectionStatusSubscription.cancel();
-    _receivedDataSubscription.cancel();
+    _connectionStatusSubscription?.cancel();
+    _receivedDataSubscription?.cancel();
     _animationController.stop();
+    _audioHelper.stopAudio();
   }
 
   void _navigateToInhaleScreen() {
     _navigatedToInhaleScreen = true;
+
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder:
-            (context) =>
-                BluetoothInhaleScreen(profileDetails: widget.profileDetails),
+        builder: (context) =>
+            BluetoothInhaleScreen(profileDetails: widget.profileDetails),
       ),
     ).then((_) {
-      if (mounted) {
-        setState(() {
-          _navigatedToInhaleScreen = false;
-        });
-      }
+      if (!mounted) return;
+      setState(() => _navigatedToInhaleScreen = false);
     });
   }
 
@@ -323,16 +338,15 @@ class _BluetoothCalibrationScreenState extends State<BluetoothCalibrationScreen>
       context: context,
       cancelTestButtonPressed: () async {
         debugPrint("🛑 Cancel button pressed");
-
         didCancel = true;
 
         abortProcess();
+
         if (mounted) {
           Navigator.pop(context);
         }
 
         await Future.delayed(const Duration(milliseconds: 300));
-
         await _exitToDashboard();
       },
     );
@@ -342,23 +356,23 @@ class _BluetoothCalibrationScreenState extends State<BluetoothCalibrationScreen>
 
   Future<void> _exitToDashboard() async {
     _stopAllProcesses();
-    _setCancelOrDisconnectFlag();
+    await _setCancelOrDisconnectFlag();
+
     if (mounted) {
       _navigateToDashboard();
     }
   }
+
   Future<void> _setCancelOrDisconnectFlag() async {
-    final storage = GetStorage();
     final DateTime now = DateTime.now();
     await storage.write('cancel_or_disconnect_time', now.toIso8601String());
   }
-
-
 
   void _navigateToDashboard() {
     if (Get.isOverlaysOpen) {
       Get.back();
     }
+
     Get.offAllNamed(
       AppRoutes.mainDashboard,
       arguments: {
@@ -372,8 +386,6 @@ class _BluetoothCalibrationScreenState extends State<BluetoothCalibrationScreen>
       _bleManager.sendData("&");
     }
   }
-
-
 
   @override
   void dispose() {
@@ -396,9 +408,8 @@ class _BluetoothCalibrationScreenState extends State<BluetoothCalibrationScreen>
                 height: 25,
                 width: 25,
                 child: CircularProgressIndicator(
-                  valueColor: AlwaysStoppedAnimation<Color>(
-                    AppColor.textLightColor,
-                  ),
+                  valueColor:
+                  AlwaysStoppedAnimation<Color>(AppColor.textLightColor),
                   strokeWidth: 3.0,
                 ),
               ),
@@ -414,10 +425,9 @@ class _BluetoothCalibrationScreenState extends State<BluetoothCalibrationScreen>
             height: 5,
             width: 50,
             decoration: BoxDecoration(
-              color:
-                  isCompleted
-                      ? AppColor.buttonGreenColor
-                      : const Color(0xFFE0E0E0),
+              color: isCompleted
+                  ? AppColor.buttonGreenColor
+                  : const Color(0xFFE0E0E0),
             ),
           ),
       ],
@@ -432,7 +442,6 @@ class _BluetoothCalibrationScreenState extends State<BluetoothCalibrationScreen>
         statusBarIconBrightness: Brightness.dark,
       ),
     );
-
 
     return PopScope(
       canPop: false,
@@ -452,16 +461,6 @@ class _BluetoothCalibrationScreenState extends State<BluetoothCalibrationScreen>
                       icon: SvgPicture.asset("assets/svg_icons/close_icon.svg"),
                     ),
                     const Spacer(),
-                    // Text(
-                    //   "$batteryPercentage%",
-                    //   style: TextStyle(
-                    //     color: AppColor.primaryBlackColor,
-                    //     fontWeight: FontWeight.w600,
-                    //     fontSize: 8,
-                    //   ),
-                    // ),
-                    // const SizedBox(width: 2),
-                    //BatteryUtils.batteryIndicatorWidget(batteryPercentage),
                     IconButton(
                       onPressed: () {
                         setState(() {
@@ -478,9 +477,8 @@ class _BluetoothCalibrationScreenState extends State<BluetoothCalibrationScreen>
                 ),
                 Image(
                   image: AssetImage(
-                    _completedSteps >
-                            4 // Ensure index doesn't go out of bounds
-                        ? calibrationGifs[4] // Use the last available GIF
+                    _completedSteps > 4
+                        ? calibrationGifs[4]
                         : calibrationGifs[_completedSteps],
                   ),
                 ),
@@ -499,7 +497,7 @@ class _BluetoothCalibrationScreenState extends State<BluetoothCalibrationScreen>
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: List.generate(
                     5,
-                    (index) => _buildProgressIndicator(index),
+                        (index) => _buildProgressIndicator(index),
                   ),
                 ),
                 SizedBox(height: MediaQuery.of(context).size.height * 0.06),

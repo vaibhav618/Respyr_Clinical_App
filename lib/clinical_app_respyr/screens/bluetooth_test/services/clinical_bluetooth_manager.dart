@@ -51,20 +51,13 @@ class ClinicalBluetoothManager {
     _isScanning = true;
     _shouldStopAllProcesses = false;
 
-    // Always cleanup previous scan subscriptions/timers
     await _stopScanInternal();
-
-    // Optional: if previous device exists, force full cleanup
-    // (Do NOT call disconnect if already null; do not spam)
     await disconnect(force: true);
 
     try {
-      // Ensure Bluetooth is ON
       final state = await FlutterBluePlus.adapterState.first;
       if (state != BluetoothAdapterState.on) {
-        if (kDebugMode) {
-          print("❌ Bluetooth is not ON: $state");
-        }
+        if (kDebugMode) print("❌ Bluetooth is not ON: $state");
         _connectionStatusController.add(false);
         return;
       }
@@ -74,11 +67,10 @@ class ClinicalBluetoothManager {
       // Start scan
       await FlutterBluePlus.startScan(
         timeout: scanTimeout,
-        // These help on Android
         androidScanMode: AndroidScanMode.lowLatency,
       );
 
-      // Hard timeout (your old behavior, but implemented safely)
+      // Hard timeout safety
       _scanHardTimeoutTimer = Timer(hardTimeout, () async {
         if (_isScanning) {
           if (kDebugMode) print("⏰ Scan hard-timeout. Resetting.");
@@ -117,9 +109,12 @@ class ClinicalBluetoothManager {
         }
       });
 
-      final found = await completer.future;
+      // Guarantee scan completion (never hang)
+      final found = await Future.any<ScanResult?>([
+        completer.future,
+        Future.delayed(scanTimeout + const Duration(seconds: 1), () => null),
+      ]);
 
-      // Stop scan once we got something (or timed out)
       await _stopScanInternal();
 
       if (found == null) {
@@ -181,7 +176,6 @@ class ClinicalBluetoothManager {
   }
 
   Future<void> disconnect({bool force = false}) async {
-    // force=true means: cleanup even if flags think disconnected
     final device = _targetDevice;
     if (device == null) {
       _handleDisconnection();
@@ -200,7 +194,6 @@ class ClinicalBluetoothManager {
       await _connectionSubscription?.cancel();
       _connectionSubscription = null;
 
-      // Try disconnect safely
       await device.disconnect();
     } catch (e) {
       if (kDebugMode) print("Disconnect error: $e");
@@ -257,7 +250,6 @@ class ClinicalBluetoothManager {
         final ok = await _connectToDeviceOnce(device);
         if (ok) return;
 
-        // Backoff
         await Future.delayed(Duration(milliseconds: 300 * attempt));
       }
 
@@ -276,21 +268,34 @@ class ClinicalBluetoothManager {
     _targetDevice = device;
 
     try {
-      // Connect with timeout
       await _targetDevice!
           .connect(autoConnect: false, timeout: const Duration(seconds: 12));
 
-      // small settle time (very important on some phones)
-      await Future.delayed(const Duration(milliseconds: 250));
+      await Future.delayed(const Duration(milliseconds: 300));
 
-      // Request MTU on Android to stabilize transfers/CCCD writes
       if (!kIsWeb && Platform.isAndroid) {
+        // MTU helps CCCD/write stability on many Android phones
         try {
           await _targetDevice!.requestMtu(247);
           await Future.delayed(const Duration(milliseconds: 150));
         } catch (e) {
           if (kDebugMode) print("MTU request failed (ok): $e");
         }
+
+        // Optional: some devices require bonding for notifications
+        // If your device is not bonded, uncomment below.
+        /*
+        try {
+          final bondState = await _targetDevice!.bondState.first;
+          if (bondState == BluetoothBondState.none) {
+            if (kDebugMode) print("🔐 Creating bond...");
+            await _targetDevice!.createBond();
+            await Future.delayed(const Duration(milliseconds: 500));
+          }
+        } catch (e) {
+          if (kDebugMode) print("Bond attempt failed (maybe not required): $e");
+        }
+        */
       }
 
       _isConnected = true;
@@ -311,7 +316,7 @@ class ClinicalBluetoothManager {
           });
 
       await _discoverServices();
-      return _isReadyForWrite; // success when write is ready
+      return _isReadyForWrite;
     } catch (e) {
       if (kDebugMode) print("Connection error: $e");
       await disconnect(force: true);
@@ -320,7 +325,6 @@ class ClinicalBluetoothManager {
   }
 
   Future<void> _discoverServices() async {
-    _Reminder: {}
     _isReadyForWrite = false;
 
     final device = _targetDevice;
@@ -331,73 +335,132 @@ class ClinicalBluetoothManager {
 
       final services = await device.discoverServices();
 
-      BluetoothCharacteristic? notifyChar;
-      BluetoothCharacteristic? writeChar;
+      BluetoothCharacteristic? bestNotify;
+      BluetoothCharacteristic? bestWrite;
 
+      // 1) First pass: pick notify+write from SAME service (best for UART style)
       for (final service in services) {
-        for (final char in service.characteristics) {
-          if (kDebugMode) print("Characteristic: ${char.uuid}");
+        BluetoothCharacteristic? localNotify;
+        BluetoothCharacteristic? localWrite;
 
-          // Prefer NOTIFY/INDICATE
-          if ((char.properties.notify || char.properties.indicate) &&
-              notifyChar == null) {
-            notifyChar = char;
+        for (final char in service.characteristics) {
+          if (kDebugMode) {
+            print("Service ${service.uuid} -> Char ${char.uuid} "
+                "notify=${char.properties.notify} "
+                "indicate=${char.properties.indicate} "
+                "write=${char.properties.write} "
+                "wwr=${char.properties.writeWithoutResponse}");
           }
 
-          // Prefer WRITE (with response), then WRITE WITHOUT RESPONSE
-          if (writeChar == null) {
+          if (localNotify == null &&
+              (char.properties.notify || char.properties.indicate)) {
+            localNotify = char;
+          }
+
+          if (localWrite == null) {
             if (char.properties.write) {
-              writeChar = char;
+              localWrite = char;
             } else if (char.properties.writeWithoutResponse) {
-              writeChar = char;
+              localWrite = char;
+            }
+          }
+        }
+
+        if (localNotify != null && localWrite != null) {
+          bestNotify = localNotify;
+          bestWrite = localWrite;
+          break;
+        }
+      }
+
+      // 2) Fallback: any notify + any write
+      if (bestNotify == null || bestWrite == null) {
+        for (final service in services) {
+          for (final char in service.characteristics) {
+            if (bestNotify == null &&
+                (char.properties.notify || char.properties.indicate)) {
+              bestNotify = char;
+            }
+            if (bestWrite == null) {
+              if (char.properties.write) {
+                bestWrite = char;
+              } else if (char.properties.writeWithoutResponse) {
+                bestWrite = char;
+              }
             }
           }
         }
       }
 
-      // Enable notifications (with settle delay)
-      if (notifyChar != null) {
-        _notifyCharacteristic = notifyChar;
+      _notifyCharacteristic = bestNotify;
+      _writeCharacteristic = bestWrite;
 
-        await Future.delayed(const Duration(milliseconds: 200));
-        try {
-          await _notifyCharacteristic!.setNotifyValue(true);
-          if (kDebugMode) print("✅ Notify enabled: ${notifyChar.uuid}");
-        } catch (e) {
-          if (kDebugMode) print("❌ setNotifyValue failed: $e");
-        }
-
-        await _notificationSubscription?.cancel();
-        _notificationSubscription =
-            _notifyCharacteristic!.onValueReceived.listen((value) {
-              if (value.isEmpty) return;
-
-              final received = String.fromCharCodes(value);
-              if (kDebugMode) print("📨 Received: $received");
-              _receivedDataController.add(received);
-
-              // Your special-case handling
-              if (received.trim() == '120') {
-                if (kDebugMode) {
-                  print("⚠️ Received 120 – ignoring disconnect trigger here");
-                }
-              }
-            });
+      if (_notifyCharacteristic == null) {
+        if (kDebugMode) print("❌ No notify/indicate characteristic found.");
       } else {
-        if (kDebugMode) print("❌ No notify characteristic found.");
+        await _enableNotify(_notifyCharacteristic!);
       }
 
-      if (writeChar != null) {
-        _writeCharacteristic = writeChar;
-        _isReadyForWrite = true;
-        if (kDebugMode) print("✅ Write ready: ${writeChar.uuid}");
-      } else {
+      if (_writeCharacteristic == null) {
         _isReadyForWrite = false;
         if (kDebugMode) print("❌ No valid write characteristic found.");
+      } else {
+        _isReadyForWrite = true;
+        if (kDebugMode) print("✅ Write ready: ${_writeCharacteristic!.uuid}");
       }
     } catch (e) {
       if (kDebugMode) print("Service discovery error: $e");
       _isReadyForWrite = false;
+    }
+  }
+
+  Future<void> _enableNotify(BluetoothCharacteristic c) async {
+    // Clean old sub
+    await _notificationSubscription?.cancel();
+    _notificationSubscription = null;
+
+    try {
+      // Some stacks behave better if we disable then enable
+      try {
+        await c.setNotifyValue(false);
+        await Future.delayed(const Duration(milliseconds: 120));
+      } catch (_) {}
+
+      await c.setNotifyValue(true);
+      await Future.delayed(const Duration(milliseconds: 200));
+
+      // Extra safety: write CCCD 0x2902 explicitly (helps some Android devices)
+      try {
+        for (final d in c.descriptors) {
+          // CCCD = 00002902-0000-1000-8000-00805f9b34fb
+          if (d.uuid.toString().toLowerCase().contains("2902")) {
+            final isIndicate = c.properties.indicate && !c.properties.notify;
+            final value = isIndicate ? [0x02, 0x00] : [0x01, 0x00];
+            await d.write(value);
+            break;
+          }
+        }
+      } catch (e) {
+        if (kDebugMode) print("CCCD write failed (maybe ok): $e");
+      }
+
+      if (kDebugMode) print("✅ Notify enabled: ${c.uuid}");
+
+      _notificationSubscription = c.onValueReceived.listen((value) {
+        if (value.isEmpty) return;
+
+        final received = String.fromCharCodes(value);
+        if (kDebugMode) print("📨 Received: $received");
+        _receivedDataController.add(received);
+
+        if (received.trim() == '120') {
+          if (kDebugMode) {
+            print("⚠️ Received 120 – ignoring disconnect trigger here");
+          }
+        }
+      });
+    } catch (e) {
+      if (kDebugMode) print("❌ Enable notify failed: $e");
     }
   }
 

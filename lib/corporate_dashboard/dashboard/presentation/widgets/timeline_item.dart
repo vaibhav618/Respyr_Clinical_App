@@ -95,136 +95,168 @@ class TimelineItem extends StatelessWidget {
     final dttmLabel = _formatDttmLabel(corporateProfileTestItem.dttm);
     final sugarScore = _safeDouble(corporateProfileTestItem.dbScore);
 
-    return IntrinsicHeight(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          SizedBox(
-            width: 20,
-            child: Stack(
-              fit: StackFit.expand,
-              alignment: Alignment.topCenter,
-              children: [
-                Align(
-                  alignment: Alignment.topCenter,
-                  child: Container(
-                    width: 3,
-                    height: double.infinity,
-                    color: const Color(0xFFE4F0FF),
+    return InkWell(
+      onTap: () async{
+        try {
+          final result =
+              await CorporateResultHistoryService().fetchSingleResult(
+            id: corporateProfileTestItem.id,
+            loginId: corporateProfileTestItem.loginId,
+            profileId: corporateProfileTestItem.profileId,
+          );
+
+          final profileDetails = ResultProfileDataModel(
+            email: corporateUserData.email,
+            subjectId: corporateUserData.subjectId,
+            clinicName: corporateUserData.clinicName,
+            profileName: corporateUserData.profileName,
+            gender: corporateUserData.gender,
+            age: int.tryParse(corporateUserData.age) ?? 0,
+            height: double.tryParse(corporateUserData.height) ?? 0,
+            weight: double.tryParse(corporateUserData.weight) ?? 0,
+            region: corporateUserData.region,
+            dttm: corporateUserData.dttm,
+            role: "corporate",
+          );
+
+          _navigateToResultScreen(result, profileDetails);
+        } catch (e) {
+          if (context.mounted) {
+            FloatingMessage.show(context, message: "Failed to load result. Please try again.", type: FloatingMessageType.error);
+          }
+        }
+      },
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SizedBox(
+              width: 20,
+              child: Stack(
+                fit: StackFit.expand,
+                alignment: Alignment.topCenter,
+                children: [
+                  Align(
+                    alignment: Alignment.topCenter,
+                    child: Container(
+                      width: 3,
+                      height: double.infinity,
+                      color: const Color(0xFFE4F0FF),
+                    ),
                   ),
-                ),
-                const Positioned(
-                  top: 20,
-                  child: SizedBox(
-                    width: 12,
-                    height: 12,
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Color(0xFFC7C6CE),
+                  const Positioned(
+                    top: 20,
+                    child: SizedBox(
+                      width: 12,
+                      height: 12,
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Color(0xFFC7C6CE),
+                        ),
                       ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: 10),
-                    Text(
-                      dttmLabel,
-                      style: GoogleFonts.poppins(
-                        color: const Color(0xFFA1A1A1),
-                        fontSize: 10,
-                        fontWeight: FontWeight.w400,
-                        height: 1.10,
+            const SizedBox(width: 12),
+            Expanded(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 10),
+                      Text(
+                        dttmLabel,
+                        style: GoogleFonts.poppins(
+                          color: const Color(0xFFA1A1A1),
+                          fontSize: 10,
+                          fontWeight: FontWeight.w400,
+                          height: 1.10,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        Text(
-                          "${sugarScore.toStringAsFixed(0)}%",
-                          style: GoogleFonts.poppins(
-                            color: const Color(0xFF252525),
-                            fontSize: 25,
-                            fontWeight: FontWeight.w400,
-                            height: 1.10,
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          Text(
+                            "${sugarScore.toStringAsFixed(0)}%",
+                            style: GoogleFonts.poppins(
+                              color: const Color(0xFF252525),
+                              fontSize: 25,
+                              fontWeight: FontWeight.w400,
+                              height: 1.10,
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 8),
-                        Container(
-                          width: 5,
-                          height: 5,
-                          decoration: const BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: Color(0xFF535359),
+                          const SizedBox(width: 8),
+                          Container(
+                            width: 5,
+                            height: 5,
+                            decoration: const BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: Color(0xFF535359),
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          "${ScoreStatusHelper.getScoreTitle(sugarScore)}!",
-                          style: GoogleFonts.poppins(
-                            color: ScoreColorHelper.getScoreColor(sugarScore),
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
+                          const SizedBox(width: 8),
+                          Text(
+                            "${ScoreStatusHelper.getScoreTitle(sugarScore)}!",
+                            style: GoogleFonts.poppins(
+                              color: ScoreColorHelper.getScoreColor(sugarScore),
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 20),
-                  ],
-                ),
-                IconButton(
-                  onPressed: () async {
-                    try {
-                      final result =
-                      await CorporateResultHistoryService().fetchSingleResult(
-                        id: corporateProfileTestItem.id,
-                        loginId: corporateProfileTestItem.loginId,
-                        profileId: corporateProfileTestItem.profileId,
-                      );
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+                    ],
+                  ),
+                  IconButton(
+                    onPressed: () async {
+                      try {
+                        final result =
+                        await CorporateResultHistoryService().fetchSingleResult(
+                          id: corporateProfileTestItem.id,
+                          loginId: corporateProfileTestItem.loginId,
+                          profileId: corporateProfileTestItem.profileId,
+                        );
 
-                      final profileDetails = ResultProfileDataModel(
-                        email: corporateUserData.email,
-                        subjectId: corporateUserData.subjectId,
-                        clinicName: corporateUserData.clinicName,
-                        profileName: corporateUserData.profileName,
-                        gender: corporateUserData.gender,
-                        age: int.tryParse(corporateUserData.age) ?? 0,
-                        height: double.tryParse(corporateUserData.height) ?? 0,
-                        weight: double.tryParse(corporateUserData.weight) ?? 0,
-                        region: corporateUserData.region,
-                        dttm: corporateUserData.dttm,
-                        role: "corporate",
-                      );
+                        final profileDetails = ResultProfileDataModel(
+                          email: corporateUserData.email,
+                          subjectId: corporateUserData.subjectId,
+                          clinicName: corporateUserData.clinicName,
+                          profileName: corporateUserData.profileName,
+                          gender: corporateUserData.gender,
+                          age: int.tryParse(corporateUserData.age) ?? 0,
+                          height: double.tryParse(corporateUserData.height) ?? 0,
+                          weight: double.tryParse(corporateUserData.weight) ?? 0,
+                          region: corporateUserData.region,
+                          dttm: corporateUserData.dttm,
+                          role: "corporate",
+                        );
 
-                      _navigateToResultScreen(result, profileDetails);
-                    } catch (e) {
-                      if (context.mounted) {
-                        FloatingMessage.show(context, message: "Failed to load result. Please try again.", type: FloatingMessageType.error);
+                        _navigateToResultScreen(result, profileDetails);
+                      } catch (e) {
+                        if (context.mounted) {
+                          FloatingMessage.show(context, message: "Failed to load result. Please try again.", type: FloatingMessageType.error);
+                        }
                       }
-                    }
-                  },
-                  style: IconButton.styleFrom(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(11),
+                    },
+                    style: IconButton.styleFrom(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(11),
+                      ),
+                      backgroundColor: const Color(0xFFE4F0FF),
                     ),
-                    backgroundColor: const Color(0xFFE4F0FF),
+                    icon: const Icon(Icons.keyboard_arrow_right_rounded),
                   ),
-                  icon: const Icon(Icons.keyboard_arrow_right_rounded),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

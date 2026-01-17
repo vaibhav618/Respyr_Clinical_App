@@ -45,6 +45,9 @@ String getDeviceStartSignal(String response) {
       // Calculate time difference in seconds
       int timeDifferenceSeconds = currentTimestamp - lastDataTime;
 
+
+      print("timeDifferenceSeconds :$timeDifferenceSeconds");
+
       // Determine the signal based on the time difference
       if (timeDifferenceSeconds <= (10 * 60)) {
         signal = "#"; // Less than or equal to 10 minutes
@@ -53,6 +56,10 @@ String getDeviceStartSignal(String response) {
       } else {
         signal = "{"; // Greater than or equal to 1 hour
       }
+
+
+
+
     }
 
     return signal;

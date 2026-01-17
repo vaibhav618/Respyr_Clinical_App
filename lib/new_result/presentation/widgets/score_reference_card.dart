@@ -2,7 +2,8 @@ import 'package:flutter/cupertino.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class ScoreReferenceCard extends StatelessWidget {
-  const ScoreReferenceCard({super.key});
+  final bool isCorporate;
+  const ScoreReferenceCard({super.key, required this.isCorporate});
 
   @override
   Widget build(BuildContext context) {

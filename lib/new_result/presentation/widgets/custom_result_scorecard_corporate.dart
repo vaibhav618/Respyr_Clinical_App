@@ -218,47 +218,50 @@ class CustomResultScorecardCorporate extends StatelessWidget {
 
                   const SizedBox(height: 8),
 
-                  Container(
-                    width: double.infinity,
-                    decoration: ShapeDecoration(
-                      color: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        side: const BorderSide(
-                          width: 0.50,
-                          color: Color(0xFFC7C6CE),
+                  Visibility(
+                    visible: false,
+                    child: Container(
+                      width: double.infinity,
+                      decoration: ShapeDecoration(
+                        color: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          side: const BorderSide(
+                            width: 0.50,
+                            color: Color(0xFFC7C6CE),
+                          ),
+                          borderRadius: BorderRadius.circular(15),
                         ),
-                        borderRadius: BorderRadius.circular(15),
                       ),
-                    ),
-                    padding:
-                    const EdgeInsets.symmetric(vertical: 24, horizontal: 13),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Lung Performance',
-                          style: GoogleFonts.poppins(
-                            color: const Color(0xFF252525),
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
+                      padding:
+                      const EdgeInsets.symmetric(vertical: 24, horizontal: 13),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Lung Performance',
+                            style: GoogleFonts.poppins(
+                              color: const Color(0xFF252525),
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 28),
-                        LungChartScreen(userResultData: userResultData),
-                        const SizedBox(height: 14),
-                        Text(
-                          'Values (Exhale)',
-                          style: GoogleFonts.poppins(
-                            color: const Color(0xFF252525),
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            height: 1.30,
-                            letterSpacing: -0.24,
+                          const SizedBox(height: 28),
+                          LungChartScreen(userResultData: userResultData),
+                          const SizedBox(height: 14),
+                          Text(
+                            'Values (Exhale)',
+                            style: GoogleFonts.poppins(
+                              color: const Color(0xFF252525),
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              height: 1.30,
+                              letterSpacing: -0.24,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 20),
-                        _buildClinicalTable(category),
-                      ],
+                          const SizedBox(height: 20),
+                          _buildClinicalTable(category),
+                        ],
+                      ),
                     ),
                   ),
 

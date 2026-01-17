@@ -11,8 +11,12 @@ class ScoreCard extends StatelessWidget {
   final double score;
   const ScoreCard({super.key, required this.scoreName, required this.score});
 
+
+
+
   @override
   Widget build(BuildContext context) {
+
     return Expanded(
       child: Container(
         decoration: ShapeDecoration(

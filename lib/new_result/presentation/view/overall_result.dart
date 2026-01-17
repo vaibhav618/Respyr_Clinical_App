@@ -5,6 +5,7 @@ import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import '../../../common/get_score_title.dart';
 import '../../../router/app_routers.dart';
 import '../../../shared/colors.dart';
 import '../../../shared/images_string.dart';
@@ -115,11 +116,11 @@ class _ResultScreenState extends State<ResultScreen> {
 
                   const SizedBox(height: 20),
 
-                  const ScoreReferenceCard(),
+                  ScoreReferenceCard(isCorporate: isCorporate,),
 
                   const SizedBox(height: 10),
 
-                  _resultScoreLineBar(),
+                  _resultScoreLineBar(isCorporate: isCorporate),
 
                   const SizedBox(height: 20),
 
@@ -137,7 +138,7 @@ class _ResultScreenState extends State<ResultScreen> {
 
                   _buildScoreCard(
                     isCorporate: isCorporate,
-                    scoreTitle: "Respiratory Score",
+                    scoreTitle: getScoreTitle(isCorporate: isCorporate, score: ScoreType.respiratory),
                     scoreVal: widget.userResultData.respiratoryScore,
                     category: "respiratory",
                   ),
@@ -146,7 +147,7 @@ class _ResultScreenState extends State<ResultScreen> {
 
                   _buildScoreCard(
                     isCorporate: isCorporate,
-                    scoreTitle: "Sugar Score",
+                    scoreTitle: getScoreTitle(isCorporate: isCorporate, score: ScoreType.sugar),
                     scoreVal: widget.userResultData.sugarScore,
                     category: "sugar",
                   ),
@@ -155,7 +156,7 @@ class _ResultScreenState extends State<ResultScreen> {
 
                   _buildScoreCard(
                     isCorporate: isCorporate,
-                    scoreTitle: "Liver Stress Score",
+                    scoreTitle: getScoreTitle(isCorporate: isCorporate, score: ScoreType.liver),
                     scoreVal: widget.userResultData.liverScore,
                     category: "liver",
                   ),
@@ -164,7 +165,7 @@ class _ResultScreenState extends State<ResultScreen> {
 
                   _buildScoreCard(
                     isCorporate: isCorporate,
-                    scoreTitle: "Gut Fermentation Score",
+                    scoreTitle: getScoreTitle(isCorporate: isCorporate, score: ScoreType.gut),
                     scoreVal: widget.userResultData.gutScore,
                     category: "gut",
                   ),
@@ -208,7 +209,7 @@ class _ResultScreenState extends State<ResultScreen> {
     );
   }
 
-  Widget _resultScoreLineBar() {
+  Widget _resultScoreLineBar({required bool isCorporate}) {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 15),
       width: MediaQuery.of(context).size.width,
@@ -226,7 +227,7 @@ class _ResultScreenState extends State<ResultScreen> {
             child: CustomResultScoreLinearbar(
               progress: widget.userResultData.respiratoryScore / 100,
               svgPath: ResSvg.respiratory,
-              textTitle: 'Respiratory\nScore',
+              textTitle: getScoreTitle(isCorporate: isCorporate, score: ScoreType.respiratory).replaceAll(" ", "\n"),
               scoreType: 'respiratory',
             ),
           ),
@@ -236,7 +237,7 @@ class _ResultScreenState extends State<ResultScreen> {
             child: CustomResultScoreLinearbar(
               progress: widget.userResultData.gutScore / 100,
               svgPath: ResSvg.gutVital,
-              textTitle: 'Gut\nFermentation\nScore',
+              textTitle: getScoreTitle(isCorporate: isCorporate, score: ScoreType.gut).replaceAll(" ", "\n"),
               scoreType: 'gut',
             ),
           ),
@@ -246,7 +247,7 @@ class _ResultScreenState extends State<ResultScreen> {
             child: CustomResultScoreLinearbar(
               progress: widget.userResultData.liverScore / 100,
               svgPath: ResSvg.liver,
-              textTitle: 'Liver\nStress\nScore',
+              textTitle: getScoreTitle(isCorporate: isCorporate, score: ScoreType.liver).replaceAll(" ", "\n"),
               scoreType: 'liver',
             ),
           ),
@@ -256,7 +257,7 @@ class _ResultScreenState extends State<ResultScreen> {
             child: CustomResultScoreLinearbar(
               progress: widget.userResultData.sugarScore / 100,
               svgPath: ResSvg.sugarPancreas,
-              textTitle: 'Sugar\nScore',
+              textTitle: getScoreTitle(isCorporate: isCorporate, score: ScoreType.sugar).replaceAll(" ", "\n"),
               scoreType: 'sugar',
             ),
           ),
@@ -294,30 +295,6 @@ class _ResultScreenState extends State<ResultScreen> {
                     letterSpacing: -0.24,
                   ),
                 ),
-                TextSpan(
-                  text: 'link',
-                  style: const TextStyle(
-                    color: Color(0xFF308BF9),
-                    fontSize: 12,
-                    fontFamily: 'Poppins',
-                    fontWeight: FontWeight.w400,
-                    decoration: TextDecoration.underline,
-                    height: 1.26,
-                    letterSpacing: -0.24,
-                  ),
-                  recognizer: TapGestureRecognizer()..onTap = () {},
-                ),
-                const TextSpan(
-                  text: ' for more details.',
-                  style: TextStyle(
-                    color: Color(0xFF252525),
-                    fontSize: 12,
-                    fontFamily: 'Poppins',
-                    fontWeight: FontWeight.w400,
-                    height: 1.26,
-                    letterSpacing: -0.24,
-                  ),
-                ),
               ],
             ),
           ),
@@ -337,4 +314,6 @@ class _ResultScreenState extends State<ResultScreen> {
       },
     );
   }
+
+
 }

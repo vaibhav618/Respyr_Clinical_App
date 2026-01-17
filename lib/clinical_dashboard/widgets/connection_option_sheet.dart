@@ -18,12 +18,30 @@ class ConnectionOptionSheet extends StatefulWidget {
 }
 
 class _ConnectionOptionSheetState extends State<ConnectionOptionSheet> {
-  bool isBluetoothClicked = false;
+  bool _autoTriggered = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    if (Platform.isIOS && !_autoTriggered) {
+      _autoTriggered = true;
+
+      // schedule after first frame (safe)
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        widget.onBluetoothTap();
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final bool isIOS = Platform.isIOS;
+    // ✅ iOS: return nothing so bottom sheet UI won't be shown
+    if (Platform.isIOS) {
+      return const SizedBox.shrink();
+    }
 
+    // ✅ Android: show both options
     return Container(
       height: MediaQuery.of(context).size.height * 0.32,
       padding: const EdgeInsets.all(16.0),
@@ -48,29 +66,20 @@ class _ConnectionOptionSheetState extends State<ConnectionOptionSheet> {
           const SizedBox(height: 20),
 
           Row(
-            mainAxisAlignment:
-            isIOS ? MainAxisAlignment.center : MainAxisAlignment.spaceEvenly,
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
               _buildConnectionOption(
                 context: context,
                 iconPath: 'assets/icon_bluetooth.svg',
                 label: 'Bluetooth',
-                onTap: () {
-                  setState(() {
-                    isBluetoothClicked = true;
-                  });
-                  widget.onBluetoothTap();
-                },
+                onTap: widget.onBluetoothTap,
               ),
-
-              // ✅ Show USB only on Android
-              if (!isIOS)
-                _buildConnectionOption(
-                  context: context,
-                  iconPath: 'assets/carbon_usb.svg',
-                  label: 'Cable',
-                  onTap: widget.onUsbTap,
-                ),
+              _buildConnectionOption(
+                context: context,
+                iconPath: 'assets/carbon_usb.svg',
+                label: 'Cable',
+                onTap: widget.onUsbTap,
+              ),
             ],
           ),
 

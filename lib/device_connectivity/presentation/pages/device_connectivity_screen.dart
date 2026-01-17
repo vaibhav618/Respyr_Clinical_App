@@ -1,4 +1,5 @@
 // usb_device_connectivity.dart
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -116,13 +117,24 @@ class _UsbDeviceConnectivityState extends State<UsbDeviceConnectivity> {
       child: Scaffold(
         backgroundColor: Colors.white,
         resizeToAvoidBottomInset: false,
+        appBar: AppBar(
+          backgroundColor: Colors.white,
+          surfaceTintColor: Colors.white,
+          title: Text(
+            'Connect Device',
+            style: GoogleFonts.poppins(
+              fontSize: 34,
+              fontWeight: FontWeight.w400,
+            ),
+          ),
+        ),
         body: SafeArea(
           child: BlocBuilder<UsbCubit, UsbState>(
             builder: (context, state) {
               return Padding(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 16,
-                  vertical: 10,
+                  vertical: 0,
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -147,14 +159,6 @@ class _UsbDeviceConnectivityState extends State<UsbDeviceConnectivity> {
                           );
                         }),
                       ),
-                    const SizedBox(height: 30),
-                    Text(
-                      'Connect Device',
-                      style: GoogleFonts.poppins(
-                        fontSize: 34,
-                        fontWeight: FontWeight.w400,
-                      ),
-                    ),
                     const SizedBox(height: 10),
                     Text(
                       'Connect the device to mobile phone using C-type cable.',

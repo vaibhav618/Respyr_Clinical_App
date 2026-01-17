@@ -292,7 +292,9 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                         height: 60,
                         width: 60,
                         child: ElevatedButton(
-                            onPressed: (){},
+                            onPressed: (){
+                              Navigator.pop(context);
+                            },
                             style: ElevatedButton.styleFrom(
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(40),

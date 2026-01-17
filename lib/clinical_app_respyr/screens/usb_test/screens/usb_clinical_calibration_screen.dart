@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
@@ -14,12 +13,10 @@ import 'package:respyr_clinical/widgets/internet_connectivity_check.dart';
 import 'package:respyr_clinical/shared/audio_helper.dart';
 import 'package:respyr_clinical/shared/colors.dart';
 import 'package:respyr_clinical/shared/get_stored_data_text.dart';
-
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../../../clinical_dashboard/bloc/health_score_bloc.dart';
-import '../../../../clinical_dashboard/service/overall_data_by_date_service.dart';
 import '../../../../clinical_dashboard/views/clinical_dashboard.dart';
+import '../../../../common/floating_message.dart';
 import '../../../../new_result/data/model/result_profile_data_model.dart';
 import '../../../../router/app_routers.dart';
 
@@ -63,34 +60,42 @@ class _UsbClinicalCalibrationScreenState
     "assets/gif_images/cal3.gif",
     "assets/gif_images/cal4.gif",
   ];
-  late StreamSubscription<String> _usbDataSubscription;
+
+  // ✅ make nullable to avoid LateInitializationError
+  StreamSubscription<String>? _usbDataSubscription;
+
   final ClinicalUsbCommunicationServices _usbService =
-      ClinicalUsbCommunicationServices();
+  ClinicalUsbCommunicationServices();
+
   bool _isConnected = false;
   bool _dialogShown = false;
 
   String? loginId;
   String? profileId;
   Color profileColor = const Color(0xFF99E37F);
+
+  // ✅ signal tracking
   bool signalsAlreadySent = false;
 
   @override
   void initState() {
     super.initState();
     _initializeAnimationController();
+
     Future.delayed(const Duration(milliseconds: 300), () {
-      if (mounted && _usbService.isConnected) {
+      if (!mounted) return;
+
+      if (_usbService.isConnected) {
         setState(() {
           _isConnected = true;
-          _getUserId();
-          _loadProfileColor();
-          _initializeUsbConnection();
-          _startProgress();
-          if (!signalsAlreadySent) {
-            _sendStepSpecificData(1);
-            signalsAlreadySent = true;
-          }
         });
+
+        _getUserId();
+        _loadProfileColor();
+        _initializeUsbConnection();
+
+        // ✅ Start flow (signal will be sent inside _startProgress at timer start)
+        _startProgress();
       } else {
         _handleDisconnection();
       }
@@ -161,24 +166,20 @@ class _UsbClinicalCalibrationScreenState
 
   Future<void> _getUserId() async {
     final prefs = await SharedPreferences.getInstance();
-
     loginId = prefs.getString('userLoginId');
     profileId = prefs.getString('userProfileId');
   }
 
-  // Method to load profile color from GetStorage
   void _loadProfileColor() {
     final storage = GetStorage();
     final String? profileColorHex = storage.read(
       GetStoredDataText.isProfileColorChanged,
     );
 
-    // If profile color is available, convert from hex string to Color object
     if (profileColorHex != null) {
       setState(() {
-        profileColor = Color(
-          int.parse(profileColorHex, radix: 16),
-        ).withAlpha(255);
+        profileColor = Color(int.parse(profileColorHex, radix: 16))
+            .withAlpha(255);
       });
     }
   }
@@ -232,30 +233,55 @@ class _UsbClinicalCalibrationScreenState
     if (!mounted || _isDisposed || _isPaused) return;
 
     if (data.contains("inhale") && !_navigatedToInhaleScreen) {
-      if (mounted) {
-        _stopAllProcesses();
-        _navigateToInhaleScreen();
-      }
+      _stopAllProcesses();
+      _navigateToInhaleScreen();
     }
   }
 
+  // ✅ NEW: send signal right when timers start
+  Future<void> _sendInitialSignal() async {
+    if (_isDisposed || _isPaused) return;
+    if (signalsAlreadySent) return;
+    if (!_usbService.isConnected) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    final String signal = prefs.getString("isFirstReading") ?? "{";
+
+    FloatingMessage.show(context, message: signal);
+    debugPrint("signal :$signal");
+
+    await _usbService.sendData("?");
+    await _usbService.sendData("}");
+    await _usbService.sendData(signal);
+    await _usbService.sendData("+");
+
+    signalsAlreadySent = true;
+  }
+
   Future<void> _startProgress() async {
+    if (_isPaused || _isDisposed || _navigatedToInhaleScreen) return;
+
+    // ✅ Send signal immediately when timer starts
+    await _sendInitialSignal();
+
     for (int i = 1; i <= 5; i++) {
       if (_isPaused || _isDisposed || _navigatedToInhaleScreen) return;
+
+      // ✅ If signal was NOT sent at timer start (eg: not connected),
+      // retry in next step(s) - here we retry in step 1 and 2.
+      if (!signalsAlreadySent && (i == 1 || i == 2)) {
+        await _sendInitialSignal();
+      }
+
       if (i < 5) {
-        // Steps 0 to 4: Process normally for 20 seconds
         for (int seconds = 20; seconds > 0; seconds--) {
           if (_isPaused || _isDisposed || _navigatedToInhaleScreen) return;
-
           await Future.delayed(const Duration(seconds: 1));
           if (!mounted || _navigatedToInhaleScreen) return;
         }
       } else {
-        // Step 5: Keep checking until "inhale" is received
-
         while (!_navigatedToInhaleScreen && !_isPaused) {
           await Future.delayed(const Duration(seconds: 1));
-
           if (_isDisposed || _navigatedToInhaleScreen) return;
         }
       }
@@ -263,19 +289,22 @@ class _UsbClinicalCalibrationScreenState
       if (!_isDisposed && !_isPaused) {
         setState(() => _completedSteps = i);
         _restartAnimation();
-
-        if (!signalsAlreadySent) {
-          _sendStepSpecificData(1);
-          signalsAlreadySent = true;
-        }
       }
     }
   }
 
+  // ✅ KEEP SAME: your old method stays (used by developer "Step +" button)
   Future<void> _sendStepSpecificData(int step) async {
     final prefs = await SharedPreferences.getInstance();
     String signal = prefs.getString("isFirstReading") ?? "{";
+
     try {
+      FloatingMessage.show(
+        context,
+        message: signal,
+      );
+      print("signal :$signal");
+
       switch (step) {
         case 1:
           await _usbService.sendData("?");
@@ -300,24 +329,23 @@ class _UsbClinicalCalibrationScreenState
     if (!_isDisposed) {
       showDialog(
         context: context,
-        builder:
-            (context) => AlertDialog(
-              title: const Text("Error"),
-              content: Text(message),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text("OK"),
-                ),
-              ],
+        builder: (context) => AlertDialog(
+          title: const Text("Error"),
+          content: Text(message),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text("OK"),
             ),
+          ],
+        ),
       );
     }
   }
 
   void _stopAllProcesses() {
     _isDisposed = true;
-    _usbDataSubscription.cancel();
+    _usbDataSubscription?.cancel();
     _animationController.stop();
   }
 
@@ -326,9 +354,8 @@ class _UsbClinicalCalibrationScreenState
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder:
-            (_) =>
-                UsbClinicalInhaleScreen(profileDetails: widget.profileDetails),
+        builder: (_) =>
+            UsbClinicalInhaleScreen(profileDetails: widget.profileDetails),
       ),
     ).then((_) {
       if (mounted) {
@@ -368,7 +395,6 @@ class _UsbClinicalCalibrationScreenState
     await storage.write('cancel_or_disconnect_time', now.toIso8601String());
   }
 
-
   void _abortProcess() {
     if (_isDisposed) return;
 
@@ -404,9 +430,7 @@ class _UsbClinicalCalibrationScreenState
           GestureDetector(
             onTap: () {},
             child: Text(
-              _isConnected
-                  ? "Ble device connected"
-                  : "Ble device not connected",
+              _isConnected ? "USB device connected" : "USB device not connected",
               style: GoogleFonts.mulish(
                 fontSize: 15,
                 color: _isConnected ? Colors.green : Colors.red,
@@ -464,10 +488,9 @@ class _UsbClinicalCalibrationScreenState
             height: 4,
             width: lineWidth,
             decoration: BoxDecoration(
-              color:
-                  isCompleted
-                      ? AppColor.buttonGreenColor
-                      : const Color(0xFFE0E0E0),
+              color: isCompleted
+                  ? AppColor.buttonGreenColor
+                  : const Color(0xFFE0E0E0),
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -493,16 +516,9 @@ class _UsbClinicalCalibrationScreenState
         canPop: false,
         onPopInvokedWithResult: (didPop, result) async {
           if (!didPop) {
-            // Handle cancel confirmation
-            final shouldExit = await _showCancelTestDialog(context);
-
-            if (shouldExit) {
-              // ✅ Do NOT pop here. Directly navigate to dashboard (handled inside _handleCancelTest)
-              // Keeps the flow clean, without popping twice
-            }
+            await _showCancelTestDialog(context);
           }
         },
-
         child: Scaffold(
           backgroundColor: AppColor.whiteColor,
           appBar: _buildAppBar(),
@@ -562,7 +578,7 @@ class _UsbClinicalCalibrationScreenState
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: List.generate(
                       5,
-                      (index) => _buildProgressIndicator(index, context),
+                          (index) => _buildProgressIndicator(index, context),
                     ),
                   ),
                   SizedBox(height: MediaQuery.of(context).size.height * 0.06),

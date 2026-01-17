@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 import '../../../../authentication/corporate/corporate_login/data/response/corporate_login_response.dart';
 import '../../../../common/floating_message.dart';
+import '../../../../common/get_score_title.dart';
 import '../../../../new_result/data/model/result_model.dart';
 import '../../../../new_result/data/model/result_profile_data_model.dart';
 import '../../../../new_result/presentation/view/overall_result.dart';
@@ -86,11 +87,11 @@ class Scores extends StatelessWidget {
                       spacing: 12,
                       children: [
                         ScoreCard(
-                          scoreName: 'Sugar score',
+                          scoreName: getScoreTitle(isCorporate: true, score: ScoreType.sugar),
                           score: sugar,
                         ),
                         ScoreCard(
-                          scoreName: 'Respiratory score',
+                          scoreName: getScoreTitle(isCorporate: true, score: ScoreType.respiratory),
                           score: respiratory,
                         ),
                       ],
@@ -99,11 +100,11 @@ class Scores extends StatelessWidget {
                       spacing: 12,
                       children: [
                         ScoreCard(
-                          scoreName: 'Liver score',
+                          scoreName: getScoreTitle(isCorporate: true, score: ScoreType.liver),
                           score: liver,
                         ),
                         ScoreCard(
-                          scoreName: 'Gut score',
+                          scoreName: getScoreTitle(isCorporate: true, score: ScoreType.gut),
                           score: gut,
                         ),
                       ],

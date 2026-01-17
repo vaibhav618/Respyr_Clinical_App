@@ -18,6 +18,7 @@ import '../../../../common/floating_message.dart';
 import '../../../../device_connectivity/presentation/pages/device_connectivity_screen.dart';
 import '../../../../new_result/data/model/result_profile_data_model.dart';
 import '../../../../router/app_routers.dart';
+import '../../../../widgets/internet_connectivity_check.dart';
 
 import '../../bloc/corporate_profile_bloc.dart';
 import '../../bloc/corporate_profile_event.dart';
@@ -27,8 +28,6 @@ import '../../data/repository/corporate_profile_repository.dart';
 import '../widgets/appbar.dart';
 import '../widgets/corporate_dashboard_content_screen.dart';
 import '../widgets/horizontal_calender.dart';
-
-
 
 class CorporateDashboard extends StatefulWidget {
   final String email;
@@ -62,8 +61,15 @@ class _CorporateDashboardState extends State<CorporateDashboard>
 
   DateTime _selectedDate = DateTime.now();
 
-  // ✅ Cooldown toast timer (NEW)
+  // ✅ Cooldown toast timer
   Timer? _cooldownToastTimer;
+
+  // ✅ Internet state
+  bool _hasInternet = true;
+  bool _internetToastShown = false;
+
+  // ✅ Keep a context that is INSIDE BlocProvider scope (fix ProviderNotFound on resume)
+  BuildContext? _blocScopeContext;
 
   @override
   void initState() {
@@ -78,11 +84,30 @@ class _CorporateDashboardState extends State<CorporateDashboard>
     _scrollController.removeListener(_handleScroll);
     _scrollController.dispose();
 
-    // ✅ cancel toast timer
     _cooldownToastTimer?.cancel();
     _cooldownToastTimer = null;
 
     super.dispose();
+  }
+
+  void _handleConnectivityChanged(bool hasInternet) {
+    _hasInternet = hasInternet;
+
+    if (!hasInternet) {
+      if (_internetToastShown) return;
+      _internetToastShown = true;
+
+      if (!mounted) return;
+      FloatingMessage.show(
+        context,
+        message: "No internet connection",
+        type: FloatingMessageType.warning,
+        duration: const Duration(seconds: 3),
+        fromTop: false,
+      );
+    } else {
+      _internetToastShown = false;
+    }
   }
 
   void _handleScroll() {
@@ -108,6 +133,17 @@ class _CorporateDashboardState extends State<CorporateDashboard>
   }
 
   void _refreshProfile(BuildContext blocContext) {
+    if (!_hasInternet) {
+      FloatingMessage.show(
+        context,
+        message: "Please turn ON internet and tap Retry.",
+        type: FloatingMessageType.warning,
+        duration: const Duration(seconds: 3),
+        fromTop: false,
+      );
+      return;
+    }
+
     blocContext.read<CorporateProfileBloc>().add(
       CorporateProfileFetchRequested(widget.email),
     );
@@ -120,10 +156,13 @@ class _CorporateDashboardState extends State<CorporateDashboard>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    // ✅ Fix: use bloc-scoped context instead of widget context
     if (state == AppLifecycleState.resumed && mounted) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
-        _refreshProfile(context);
+        final ctx = _blocScopeContext;
+        if (ctx == null) return;
+        _refreshProfile(ctx);
       });
     }
   }
@@ -135,99 +174,144 @@ class _CorporateDashboardState extends State<CorporateDashboard>
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider<CorporateProfileBloc>(
-      create: (_) => CorporateProfileBloc(
-        repo: CorporateProfileRepository(
-          endpointUrl:
-          "https://humorstech.com/humors_app/app_final/clinical/fetch_corporate_profile.php",
-        ),
-      )..add(CorporateProfileFetchRequested(widget.email)),
-      child: Builder(
-        builder: (blocContext) {
-          return BlocListener<CorporateProfileBloc, CorporateProfileState>(
-            listenWhen: (p, c) => p.status != c.status,
-            listener: (context, profileState) {
-              if (profileState.status == CorporateProfileStatus.success &&
-                  profileState.user != null) {
-                _printProfileData(profileState);
-              }
-
-              if (profileState.status == CorporateProfileStatus.failure) {
-                debugPrint(
-                  "❌ [CorporateProfileBloc] FAILED: ${profileState.errorMessage ?? '-'}",
-                );
-              }
-            },
-            child: BlocBuilder<CorporateProfileBloc, CorporateProfileState>(
-              builder: (blocContext, profileState) {
-                final bottomBarHeight = kBottomNavigationBarHeight;
-                final bottomPadding = (_showBottomBar
-                    ? bottomBarHeight + _bottomBarExtraGap
-                    : _bottomBarExtraGap);
-
-                return Scaffold(
-                  backgroundColor: Colors.white,
-                  body: SafeArea(
-                    bottom: true,
-                    child: Stack(
-                      children: [
-                        _buildScrollableContent(
-                          blocContext: blocContext,
-                          bottomPadding: bottomPadding,
-                          profileState: profileState,
-                        ),
-                        if (profileState.user != null)
-                          _FloatingBottomNav(
-                            visible: _showBottomBar,
-                            slideDuration: _slideDuration,
-                            fadeDuration: _fadeDuration,
-                            curve: _animCurve,
-                            child: BottomNavigationBarWidget(
-                              activeIndex: 0,
-                              onDashboardTap: () => _refreshProfile(blocContext),
-                              label3: "Profile",
-                              onTakeTestTap: () {
-                                final u = profileState.user!;
-                                final profileDetails = ResultProfileDataModel(
-                                  email: u.email,
-                                  subjectId: u.subjectId,
-                                  clinicName: u.clinicName,
-                                  profileName: u.profileName,
-                                  gender: u.gender,
-                                  age: int.parse(u.age),
-                                  height: double.parse(u.height),
-                                  weight: double.parse(u.weight),
-                                  region: u.region,
-                                  dttm: u.dttm,
-                                  role: "corporate",
-                                );
-
-                                if (!mounted) return;
-                                checkDeviceAbortStatus(profileDetails, context);
-                              },
-                              onProfileTap: () {
-                                Navigator.pushNamed(
-                                  context,
-                                  AppRoutes.corporateProfile,
-                                  arguments: profileState.user,
-                                );
-                              },
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
+    return InternetConnectivityHandler(
+      onConnectivityChanged: _handleConnectivityChanged,
+      onRetry: () async {
+        // Just close overlay; user can retry.
+        if (mounted) {
+          FloatingMessage.show(
+            context,
+            message: "Please turn ON internet and tap Retry.",
+            type: FloatingMessageType.warning,
+            duration: const Duration(seconds: 3),
+            fromTop: false,
           );
-        },
+        }
+      },
+      child: BlocProvider<CorporateProfileBloc>(
+        create: (_) => CorporateProfileBloc(
+          repo: CorporateProfileRepository(
+            endpointUrl:
+            "https://humorstech.com/humors_app/app_final/clinical/fetch_corporate_profile.php",
+          ),
+        )..add(CorporateProfileFetchRequested(widget.email)),
+        child: Builder(
+          builder: (blocContext) {
+            // ✅ store bloc-scoped context
+            _blocScopeContext = blocContext;
+
+            return BlocListener<CorporateProfileBloc, CorporateProfileState>(
+              listenWhen: (p, c) => p.status != c.status,
+              listener: (context, profileState) {
+                if (profileState.status == CorporateProfileStatus.success &&
+                    profileState.user != null) {
+                  _printProfileData(profileState);
+                }
+
+                if (profileState.status == CorporateProfileStatus.failure) {
+                  debugPrint(
+                    "❌ [CorporateProfileBloc] FAILED: ${profileState.errorMessage ?? '-'}",
+                  );
+
+                  if (!_hasInternet) {
+                    FloatingMessage.show(
+                      context,
+                      message:
+                      "No internet connection. Please turn it ON and tap Retry.",
+                      type: FloatingMessageType.warning,
+                      duration: const Duration(seconds: 3),
+                      fromTop: false,
+                    );
+                  }
+                }
+              },
+              child: BlocBuilder<CorporateProfileBloc, CorporateProfileState>(
+                builder: (blocContext, profileState) {
+                  final bottomBarHeight = kBottomNavigationBarHeight;
+                  final bottomPadding = (_showBottomBar
+                      ? bottomBarHeight + _bottomBarExtraGap
+                      : _bottomBarExtraGap);
+
+                  return Scaffold(
+                    backgroundColor: Colors.white,
+                    body: SafeArea(
+                      bottom: true,
+                      child: Stack(
+                        children: [
+                          _buildScrollableContent(
+                            blocContext: blocContext,
+                            bottomPadding: bottomPadding,
+                            profileState: profileState,
+                          ),
+                          if (profileState.user != null)
+                            _FloatingBottomNav(
+                              visible: _showBottomBar,
+                              slideDuration: _slideDuration,
+                              fadeDuration: _fadeDuration,
+                              curve: _animCurve,
+                              child: BottomNavigationBarWidget(
+                                activeIndex: 0,
+                                onDashboardTap: () =>
+                                    _refreshProfile(blocContext),
+                                label3: "Profile",
+                                onTakeTestTap: () {
+                                  if (!_hasInternet) {
+                                    FloatingMessage.show(
+                                      context,
+                                      message:
+                                      "Please turn ON internet and try again.",
+                                      type: FloatingMessageType.warning,
+                                      duration: const Duration(seconds: 3),
+                                      fromTop: false,
+                                    );
+                                    return;
+                                  }
+
+                                  final u = profileState.user!;
+                                  final profileDetails = ResultProfileDataModel(
+                                    email: u.email,
+                                    subjectId: u.subjectId,
+                                    clinicName: u.clinicName,
+                                    profileName: u.profileName,
+                                    gender: u.gender,
+                                    age: int.parse(u.age),
+                                    height: double.parse(u.height),
+                                    weight: double.parse(u.weight),
+                                    region: u.region,
+                                    dttm: u.dttm,
+                                    role: "corporate",
+                                  );
+
+                                  if (!mounted) return;
+                                  checkDeviceAbortStatus(
+                                      profileDetails, context);
+                                },
+                                onProfileTap: () {
+                                  Navigator.pushNamed(
+                                    context,
+                                    AppRoutes.corporateProfile,
+                                    arguments: profileState.user,
+                                  );
+                                },
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            );
+          },
+        ),
       ),
     );
   }
 
   Future<void> checkDeviceAbortStatus(
-      ResultProfileDataModel profileModel, BuildContext context) async {
+      ResultProfileDataModel profileModel,
+      BuildContext context,
+      ) async {
     final isDeviceAborted = await AbortDeviceManager.getAbortStatus();
     if (!mounted) return;
 
@@ -259,9 +343,19 @@ class _CorporateDashboardState extends State<CorporateDashboard>
       builder: (sheetCtx) {
         return ConnectionOptionSheet(
           onBluetoothTap: () async {
-            // ✅ close the sheet first
             Navigator.pop(sheetCtx);
             await Future.delayed(const Duration(milliseconds: 200));
+
+            if (!_hasInternet) {
+              FloatingMessage.show(
+                context,
+                message: "Please turn ON internet and try again.",
+                type: FloatingMessageType.warning,
+                duration: const Duration(seconds: 3),
+                fromTop: false,
+              );
+              return;
+            }
 
             final remaining =
             await getRemainingCooldownSeconds(cooldownSeconds: 40);
@@ -285,6 +379,17 @@ class _CorporateDashboardState extends State<CorporateDashboard>
           },
           onUsbTap: () {
             Navigator.pop(sheetCtx);
+
+            if (!_hasInternet) {
+              FloatingMessage.show(
+                context,
+                message: "Please turn ON internet and try again.",
+                type: FloatingMessageType.warning,
+                duration: const Duration(seconds: 3),
+                fromTop: false,
+              );
+              return;
+            }
 
             Navigator.pushAndRemoveUntil(
               context,
@@ -316,7 +421,6 @@ class _CorporateDashboardState extends State<CorporateDashboard>
     return remaining > 0 ? remaining : 0;
   }
 
-  // ✅ REPLACED snackbar with FloatingMessage toast countdown
   Future<void> showCooldownToast(BuildContext context, int seconds) async {
     _cooldownToastTimer?.cancel();
 
@@ -401,7 +505,9 @@ class _CorporateDashboardState extends State<CorporateDashboard>
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      "Oops! Something went wrong. Try logging in again. If you see this error again, please reach out to the admin or support team.",
+                      _hasInternet
+                          ? "Oops! Something went wrong. Try again. If you see this error again, please reach out to the admin or support team."
+                          : "No internet connection.\nPlease turn it ON and tap Retry.",
                       textAlign: TextAlign.center,
                       style: GoogleFonts.poppins(
                         color: const Color(0xFF252525),
@@ -415,15 +521,9 @@ class _CorporateDashboardState extends State<CorporateDashboard>
                     ElevatedButton(
                       style: ElevatedButton.styleFrom(elevation: 0),
                       onPressed: () {
-                        LogoutBox().showDialogBox(
-                          context: context,
-                          clinicName: widget.email,
-                          onLogoutClick: () {
-                            AuthLogout.logout(context);
-                          },
-                        );
+                        _refreshProfile(blocContext);
                       },
-                      child: const Text("Logout"),
+                      child: const Text("Retry"),
                     ),
                   ],
                 ),
@@ -440,6 +540,17 @@ class _CorporateDashboardState extends State<CorporateDashboard>
               profileId: u.subjectId,
               date: _formatDate(_selectedDate),
               onTrackHealthButtonClicked: () {
+                if (!_hasInternet) {
+                  FloatingMessage.show(
+                    context,
+                    message: "Please turn ON internet and try again.",
+                    type: FloatingMessageType.warning,
+                    duration: const Duration(seconds: 3),
+                    fromTop: false,
+                  );
+                  return;
+                }
+
                 final profileDetails = ResultProfileDataModel(
                   email: u.email,
                   subjectId: u.subjectId,

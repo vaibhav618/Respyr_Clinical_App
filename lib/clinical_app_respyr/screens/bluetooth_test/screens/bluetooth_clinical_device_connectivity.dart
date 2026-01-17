@@ -11,6 +11,9 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+// ✅ ADDED
+import 'package:flutter_blue_plus/flutter_blue_plus.dart';
+
 import 'package:respyr_clinical/clinical_app_respyr/screens/bluetooth_test/screens/bluetooth_clinical_breathe_tube.dart';
 import 'package:respyr_clinical/clinical_app_respyr/screens/bluetooth_test/services/clinical_bluetooth_manager.dart';
 import 'package:respyr_clinical/clinical_app_respyr/screens/usb_test/services/clinical_usb_communication_services.dart';
@@ -111,6 +114,62 @@ class _BluetoothClinicalDeviceConnectivityState
 
     super.dispose();
   }
+
+  // -----------------------------
+  // ✅ ADDED: Ensure Bluetooth is ON (asks every time it's OFF)
+  // -----------------------------
+  Future<bool> _ensureBluetoothOn() async {
+    if (!Platform.isAndroid) return true;
+    if (!mounted || _isDisposed) return false;
+
+    final state = await FlutterBluePlus.adapterState.first;
+    if (state == BluetoothAdapterState.on) return true;
+
+
+    final turnOn = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => AlertDialog(
+        title: const Text("Turn on Bluetooth"),
+        content: const Text(
+          "Bluetooth is turned OFF. Please turn it ON to connect with the device.",
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text("Cancel"),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text("Turn ON"),
+          ),
+        ],
+      ),
+    );
+
+    if (turnOn != true) return false;
+
+    // 🔥 Try native BT enable (works on some devices)
+    try {
+      await FlutterBluePlus.turnOn();
+    } catch (_) {
+      // ignore
+    }
+
+    // ⏳ wait a bit for user/system action
+    await Future.delayed(const Duration(seconds: 2));
+
+    final newState = await FlutterBluePlus.adapterState.first;
+
+    // ❌ Still OFF → open system settings
+    if (newState != BluetoothAdapterState.on) {
+      await openAppSettings(); // from permission_handler
+      return false;
+    }
+
+    return true;
+  }
+
 
   // -----------------------------
   // Connection Listener
@@ -276,6 +335,20 @@ class _BluetoothClinicalDeviceConnectivityState
       if (!isPermissionGranted) {
         _isConnectingInProgress = false;
         _handleError("Permissions are required to connect to the device.");
+        return;
+      }
+
+      // ✅ ADDED: if BT is OFF, ask every time
+      final btOn = await _ensureBluetoothOn();
+      if (!btOn) {
+        _isConnectingInProgress = false;
+        if (mounted && !_isDisposed) {
+          setState(() {
+            isScanningDevice = false;
+            _connectionStatusText = "Not Connected";
+            _isButtonEnabled = false;
+          });
+        }
         return;
       }
 
@@ -465,11 +538,11 @@ class _BluetoothClinicalDeviceConnectivityState
         appBar: AppBar(
           backgroundColor: Colors.white,
           leading: IconButton(
-              onPressed: (){
-                _showCancelTestDialog(context);
-              },
-              icon: Icon(Icons.close),)
-
+            onPressed: () {
+              _showCancelTestDialog(context);
+            },
+            icon: Icon(Icons.close),
+          ),
         ),
         body: SafeArea(
           child: Padding(
@@ -595,7 +668,6 @@ class _BluetoothClinicalDeviceConnectivityState
     }
   }
 
-
   void _stopAllProcesses() {
     _isDisposed = true;
   }
@@ -611,7 +683,6 @@ class _BluetoothClinicalDeviceConnectivityState
       },
     );
   }
-
 
   Widget _buildOtgButton(double width) {
     return (!_isConnected && isScanningDevice)
@@ -762,11 +833,16 @@ class _BluetoothClinicalDeviceConnectivityState
           ? null
           : () async {
         final ok = await checkAndRequestPermissions();
-        if (ok) {
-          await _connect();
-        } else {
+        if (!ok) {
           _handleError("Permissions are required to connect to the device.");
+          return;
         }
+
+        // ✅ ADDED: ask every time BT is OFF (even before _connect())
+        final btOn = await _ensureBluetoothOn();
+        if (!btOn) return;
+
+        await _connect();
       },
       style: ElevatedButton.styleFrom(
         elevation: 0,
@@ -927,8 +1003,6 @@ class _BluetoothClinicalDeviceConnectivityState
     );
   }
 
-  // Your previous OK button was navigating away always.
-  // This one just closes the dialog. You can keep navigation if you want.
   Widget _buildOkButtonCloseDialog() {
     return SizedBox(
       height: MediaQuery.of(context).size.height * 0.045,

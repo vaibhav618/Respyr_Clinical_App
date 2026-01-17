@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../common/get_score_title.dart';
 import '../../data/model/corporate_profile_tests_response.dart';
 import '../../data/model/score_trend_model.dart';
 import 'score_line_chart.dart';
@@ -15,19 +16,20 @@ class ScoreTrend extends StatefulWidget {
 }
 
 class _ScoreTrendState extends State<ScoreTrend> {
-  final ValueNotifier<String> selectedValue =
-  ValueNotifier<String>('Sugar score');
+  // store selection as enum (not string)
+  final ValueNotifier<ScoreType> selectedScore =
+  ValueNotifier<ScoreType>(ScoreType.sugar);
 
-  final List<String> items = const [
-    'Sugar score',
-    'Respiratory score',
-    'Liver score',
-    'Gut score',
+  final List<ScoreType> items = const [
+    ScoreType.sugar,
+    ScoreType.respiratory,
+    ScoreType.liver,
+    ScoreType.gut,
   ];
 
   @override
   void dispose() {
-    selectedValue.dispose();
+    selectedScore.dispose();
     super.dispose();
   }
 
@@ -60,23 +62,21 @@ class _ScoreTrendState extends State<ScoreTrend> {
     return double.tryParse(v) ?? 0;
   }
 
-  double _scoreFromItem(CorporateProfileTestItem item, String selected) {
-    switch (selected) {
-      case 'Sugar score':
+  // ✅ switch on enum
+  double _scoreFromItem(CorporateProfileTestItem item, ScoreType score) {
+    switch (score) {
+      case ScoreType.sugar:
         return _parseScore(item.dbScore);
-      case 'Respiratory score':
+      case ScoreType.respiratory:
         return _parseScore(item.blowScore);
-      case 'Liver score':
+      case ScoreType.liver:
         return _parseScore(item.liverScore);
-      case 'Gut score':
+      case ScoreType.gut:
         return _parseScore(item.gutScorePer);
-      default:
-        return _parseScore(item.dbScore);
     }
   }
 
-  /// ✅ Builds chart data AND prints first 7 used points
-  List<ScoreTrendModel> _buildChartData(String selected) {
+  List<ScoreTrendModel> _buildChartData(ScoreType score) {
     final temp = <({CorporateProfileTestItem item, DateTime dt, double score})>[];
 
     for (final item in widget.latestPerDay) {
@@ -86,18 +86,17 @@ class _ScoreTrendState extends State<ScoreTrend> {
       temp.add((
       item: item,
       dt: dt,
-      score: _scoreFromItem(item, selected),
+      score: _scoreFromItem(item, score),
       ));
     }
 
-    // sort by datetime
     temp.sort((a, b) => a.dt.compareTo(b.dt));
 
-    // take first 7
     final used = temp.take(7).toList();
 
-    // 🔎 DEBUG PRINT (exactly what chart uses)
-    debugPrint('📊 [ScoreTrend] Showing first ${used.length} points for "$selected"');
+    debugPrint(
+      '[ScoreTrend] Showing first ${used.length} points for "${getScoreTitle(isCorporate: true, score: score)}"',
+    );
     for (int i = 0; i < used.length; i++) {
       final u = used[i];
       debugPrint(
@@ -105,14 +104,8 @@ class _ScoreTrendState extends State<ScoreTrend> {
       );
     }
 
-    // map to chart model
     return used
-        .map(
-          (e) => ScoreTrendModel(
-        date: e.dt,
-        score: e.score,
-      ),
-    )
+        .map((e) => ScoreTrendModel(date: e.dt, score: e.score))
         .toList();
   }
 
@@ -129,75 +122,61 @@ class _ScoreTrendState extends State<ScoreTrend> {
         ),
         child: Column(
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    "Score Trend",
-                    style: GoogleFonts.poppins(
-                      color: const Color(0xFF252525),
-                      fontSize: 18,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-                ValueListenableBuilder<String>(
-                  valueListenable: selectedValue,
-                  builder: (context, value, _) {
-                    return Theme(
-                      data: Theme.of(context)
-                          .copyWith(canvasColor: Colors.white),
-                      child: Container(
-                        height: 36,
-                        padding: const EdgeInsets.symmetric(horizontal: 10),
-                        decoration: BoxDecoration(
-                          border:
-                          Border.all(color: const Color(0xFFD9D9D9)),
-                          borderRadius: BorderRadius.circular(15),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            DropdownButtonHideUnderline(
-                              child: DropdownButton<String>(
-                                value: value,
-                                isDense: true,
-                                items: items
-                                    .map(
-                                      (item) => DropdownMenuItem<String>(
-                                    value: item,
-                                    child: Text(
-                                      item,
-                                      style: GoogleFonts.poppins(
-                                        fontSize: 12,
-                                        color: item == value
-                                            ? const Color(0xFF308BF9)
-                                            : const Color(0xFF252525),
-                                      ),
-                                    ),
-                                  ),
-                                )
-                                    .toList(),
-                                onChanged: (v) {
-                                  if (v != null) selectedValue.value = v;
-                                },
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ],
+            Text(
+              "Score Trend",
+              style: GoogleFonts.poppins(
+                color: const Color(0xFF252525),
+                fontSize: 18,
+                fontWeight: FontWeight.w500,
+              ),
             ),
             const SizedBox(height: 24),
-
-            ValueListenableBuilder<String>(
-              valueListenable: selectedValue,
+            ValueListenableBuilder<ScoreType>(
+              valueListenable: selectedScore,
+              builder: (context, value, _) {
+                return Theme(
+                  data: Theme.of(context).copyWith(canvasColor: Colors.white),
+                  child: Container(
+                    height: 36,
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: const Color(0xFFD9D9D9)),
+                      borderRadius: BorderRadius.circular(15),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<ScoreType>(
+                        value: value,
+                        isDense: true,
+                        items: items.map((type) {
+                          final title =
+                          getScoreTitle(isCorporate: true, score: type);
+                          return DropdownMenuItem<ScoreType>(
+                            value: type,
+                            child: Text(
+                              title,
+                              style: GoogleFonts.poppins(
+                                fontSize: 12,
+                                color: type == value
+                                    ? const Color(0xFF308BF9)
+                                    : const Color(0xFF252525),
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                        onChanged: (v) {
+                          if (v != null) selectedScore.value = v;
+                        },
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 50),
+            ValueListenableBuilder<ScoreType>(
+              valueListenable: selectedScore,
               builder: (context, value, _) {
                 final chartData = _buildChartData(value);
-
                 if (chartData.isEmpty) {
                   return Padding(
                     padding: const EdgeInsets.symmetric(vertical: 18),
@@ -210,7 +189,6 @@ class _ScoreTrendState extends State<ScoreTrend> {
                     ),
                   );
                 }
-
                 return ScoreTrendLineChart(data: chartData);
               },
             ),
