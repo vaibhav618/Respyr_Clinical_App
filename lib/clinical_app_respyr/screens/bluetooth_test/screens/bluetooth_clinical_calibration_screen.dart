@@ -258,7 +258,7 @@ class _BluetoothCalibrationScreenState extends State<BluetoothCalibrationScreen>
       if (_isDisposed) return;
 
       // ✅ Retry signal only for step 1 & 2 if not sent at timer start
-      if (!allSignalSent && (step == 1 || step == 2)) {
+      if (!allSignalSent) {
         await _sendInitialSignal();
       }
 

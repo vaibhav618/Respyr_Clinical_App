@@ -269,7 +269,7 @@ class _UsbClinicalCalibrationScreenState
 
       // ✅ If signal was NOT sent at timer start (eg: not connected),
       // retry in next step(s) - here we retry in step 1 and 2.
-      if (!signalsAlreadySent && (i == 1 || i == 2)) {
+      if (!signalsAlreadySent) {
         await _sendInitialSignal();
       }
 

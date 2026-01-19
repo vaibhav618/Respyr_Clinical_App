@@ -8,7 +8,6 @@ plugins {
     id("com.google.gms.google-services")
 }
 
-// Load keystore properties (safe)
 val keystoreProperties = Properties().apply {
     val keystoreFile = rootProject.file("key.properties")
     if (keystoreFile.exists()) {
@@ -19,48 +18,48 @@ val keystoreProperties = Properties().apply {
 android {
     namespace = "com.humorstech.respyr_clinical"
     compileSdk = flutter.compileSdkVersion
-    ndkVersion = "29.0.14206865"
+
+    // ✅ MUST match installed NDK version exactly
+    ndkVersion = "28.1.13356709"
+
 
     defaultConfig {
         applicationId = "com.humorstech.respyr_clinical"
         minSdk = flutter.minSdkVersion
         targetSdk = 35
 
-        // ✅ keep Flutter-managed version values
         versionCode = flutter.versionCode
         versionName = flutter.versionName
 
-        // ✅ Support common ABIs
+        // Optional: keep only if you really want to restrict ABIs
         ndk {
             abiFilters += listOf("armeabi-v7a", "arm64-v8a", "x86_64")
         }
     }
 
+    // ✅ Important for modern packaging of native libs
+    packaging {
+        jniLibs {
+            useLegacyPackaging = false
+        }
+    }
+
     signingConfigs {
         create("release") {
-            // ✅ Only configure signing if key.properties contains storeFile
-            val storeFilePath = keystoreProperties.getProperty("storeFile")
-            if (storeFilePath != null) {
-                keyAlias = keystoreProperties.getProperty("keyAlias") ?: ""
-                keyPassword = keystoreProperties.getProperty("keyPassword") ?: ""
-                storeFile = file(storeFilePath)
-                storePassword = keystoreProperties.getProperty("storePassword") ?: ""
-            }
+            // If key.properties not present, this will crash. Keep only if always present.
+            keyAlias = keystoreProperties["keyAlias"] as String
+            keyPassword = keystoreProperties["keyPassword"] as String
+            storeFile = file(keystoreProperties["storeFile"] as String)
+            storePassword = keystoreProperties["storePassword"] as String
         }
     }
 
     buildTypes {
         getByName("release") {
-            // ✅ Only attach signing config if present (prevents crash)
-            if (keystoreProperties.getProperty("storeFile") != null) {
-                signingConfig = signingConfigs.getByName("release")
-            }
-
-            // Optional size optimizations
+            signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = false
             isShrinkResources = false
 
-            // ✅ Include debug symbols for crash analysis
             ndk {
                 debugSymbolLevel = "FULL"
             }
@@ -79,7 +78,7 @@ android {
     }
 
     kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_11.toString()
+        jvmTarget = "11"
     }
 }
 
@@ -88,7 +87,7 @@ flutter {
 }
 
 dependencies {
-    implementation("com.google.firebase:firebase-auth:22.3.0")
-    implementation("com.google.android.gms:play-services-auth:21.1.0")
+    implementation("com.google.firebase:firebase-auth:23.1.0")
+    implementation("com.google.android.gms:play-services-auth:21.2.0")
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
 }
