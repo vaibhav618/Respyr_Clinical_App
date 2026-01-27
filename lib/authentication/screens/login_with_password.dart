@@ -264,7 +264,8 @@ class _LoginWithPasswordState extends State<LoginWithPassword> {
       body: SafeArea(
         child: WillPopScope(
           onWillPop: () async {
-            SystemNavigator.pop(); // Exits the app instead of going back
+            // SystemNavigator.pop();
+            Navigator.of(context).pop();
             return false;
           },
           child: Stack(
