@@ -831,16 +831,8 @@ class DummyBluetoothBlowPressure {
             isBlowStartTimeCaptured = true;
           }
 
-          int currentTime = DateTime.now().millisecondsSinceEpoch;
-          int futureTime = currentTime - blowStartTime!;
+          blowValuesList.add(blowValue);
 
-          if (futureTime >= 500 && futureTime <= 5000) {
-            finalBlowValue = blowValue;
-          }
-
-          if (futureTime <= 1500) {
-            blowValuesList.add(blowValue);
-          }
         }
 
         if (blowP! < thresholdPercentage!) {

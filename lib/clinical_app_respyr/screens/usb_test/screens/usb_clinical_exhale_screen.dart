@@ -854,6 +854,7 @@ class UsbBlowProcessor {
           }
 
           blowValuesList.add(blowValue);
+
         } else if (blowP! < thresholdPercentage!) {
           if (perfectBlowValueCaptured && isBlown && !moveToResults) {
             moveToGenerateResult(context, profileDetails, usbService);

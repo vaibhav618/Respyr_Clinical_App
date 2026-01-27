@@ -405,21 +405,26 @@ class _BluetoothGeneratingScreenState extends State<BluetoothGeneratingScreen>
   void _showErrorDialog(String message) {
     showDialog(
       context: context,
-      builder:
-          (context) => AlertDialog(
-        title: const Text("Error"),
-        content: Text(message),
-        actions: [
-          TextButton(
-            onPressed: () => {
-              _navigateToDashboard()
-            },
-            child: const Text("OK"),
-          ),
-        ],
+      barrierDismissible: false, // 👈 prevents tap outside dismiss
+      builder: (context) => WillPopScope(
+        onWillPop: () async => false, // 👈 disables back button
+        child: AlertDialog(
+          title: const Text("Error"),
+          content: Text(message),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(); // close dialog
+                _navigateToDashboard();
+              },
+              child: const Text("OK"),
+            ),
+          ],
+        ),
       ),
     );
   }
+
 
   String? getProfileData(List<Map<String, String>> result, String key) {
     try {
@@ -632,6 +637,7 @@ class _BluetoothGeneratingScreenState extends State<BluetoothGeneratingScreen>
 
 
   void processRawData1(String deviceRawData) async {
+
 
     ResultService resultService = ResultService();
     final profile = widget.profileDetails;
