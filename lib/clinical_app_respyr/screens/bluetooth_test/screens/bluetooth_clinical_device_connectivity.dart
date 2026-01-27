@@ -116,60 +116,113 @@ class _BluetoothClinicalDeviceConnectivityState
   }
 
   // -----------------------------
-  // ✅ ADDED: Ensure Bluetooth is ON (asks every time it's OFF)
+  // ✅ UPDATED: Ensure Bluetooth is ON (Android + iOS)
   // -----------------------------
   Future<bool> _ensureBluetoothOn() async {
-    if (!Platform.isAndroid) return true;
     if (!mounted || _isDisposed) return false;
 
-    final state = await FlutterBluePlus.adapterState.first;
-    if (state == BluetoothAdapterState.on) return true;
-
-
-    final turnOn = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => AlertDialog(
-        title: const Text("Turn on Bluetooth"),
-        content: const Text(
-          "Bluetooth is turned OFF. Please turn it ON to connect with the device.",
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text("Cancel"),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text("Turn ON"),
-          ),
-        ],
-      ),
-    );
-
-    if (turnOn != true) return false;
-
-    // 🔥 Try native BT enable (works on some devices)
+    BluetoothAdapterState state;
     try {
-      await FlutterBluePlus.turnOn();
+      state = await FlutterBluePlus.adapterState.first;
     } catch (_) {
-      // ignore
+      // if adapterState stream fails for any reason, be safe
+      state = BluetoothAdapterState.unknown;
     }
 
-    // ⏳ wait a bit for user/system action
-    await Future.delayed(const Duration(seconds: 2));
+    // ✅ If already ON -> continue
+    if (state == BluetoothAdapterState.on) return true;
 
-    final newState = await FlutterBluePlus.adapterState.first;
+    // -----------------------------
+    // 🍎 iOS behavior:
+    // - App CANNOT turn on Bluetooth programmatically
+    // - Only option: show dialog + open Settings
+    // -----------------------------
+    if (Platform.isIOS) {
+      final openSettings = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => AlertDialog(
+          title: const Text("Turn on Bluetooth"),
+          content: const Text(
+            "Bluetooth is turned OFF. Please turn it ON from iPhone Settings to connect with the device.",
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text("Cancel"),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text("Open Settings"),
+            ),
+          ],
+        ),
+      );
 
-    // ❌ Still OFF → open system settings
-    if (newState != BluetoothAdapterState.on) {
-      await openAppSettings(); // from permission_handler
+      if (openSettings == true) {
+        await openAppSettings(); // iOS: takes user to app settings
+      }
       return false;
     }
 
+    // -----------------------------
+    // 🤖 Android behavior:
+    // - Can attempt native enable (some devices)
+    // - Else open settings
+    // -----------------------------
+    if (Platform.isAndroid) {
+      final turnOn = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => AlertDialog(
+          title: const Text("Turn on Bluetooth"),
+          content: const Text(
+            "Bluetooth is turned OFF. Please turn it ON to connect with the device.",
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text("Cancel"),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text("Turn ON"),
+            ),
+          ],
+        ),
+      );
+
+      if (turnOn != true) return false;
+
+      // 🔥 Try native BT enable (works on some devices)
+      try {
+        await FlutterBluePlus.turnOn();
+      } catch (_) {
+        // ignore
+      }
+
+      // ⏳ wait a bit for user/system action
+      await Future.delayed(const Duration(seconds: 2));
+
+      BluetoothAdapterState newState;
+      try {
+        newState = await FlutterBluePlus.adapterState.first;
+      } catch (_) {
+        newState = BluetoothAdapterState.unknown;
+      }
+
+      // ❌ Still OFF → open system settings
+      if (newState != BluetoothAdapterState.on) {
+        await openAppSettings(); // from permission_handler
+        return false;
+      }
+
+      return true;
+    }
+
+    // Other platforms: allow flow (or handle as needed)
     return true;
   }
-
 
   // -----------------------------
   // Connection Listener
@@ -338,7 +391,7 @@ class _BluetoothClinicalDeviceConnectivityState
         return;
       }
 
-      // ✅ ADDED: if BT is OFF, ask every time
+      // ✅ if BT is OFF, ask every time
       final btOn = await _ensureBluetoothOn();
       if (!btOn) {
         _isConnectingInProgress = false;
@@ -351,19 +404,6 @@ class _BluetoothClinicalDeviceConnectivityState
         }
         return;
       }
-
-      // Check USB already connected
-      // try {
-      //   final usbDevices = await _usbService.listDevices();
-      //   if (usbDevices.isNotEmpty) {
-      //     if (!mounted || _isDisposed) return;
-      //     _isConnectingInProgress = false;
-      //     _showUsbAlreadyConnectedDialog();
-      //     return;
-      //   }
-      // } catch (_) {
-      //   // ignore
-      // }
 
       // Reset flags for fresh attempt
       _hasShownRetryDialog = false;
@@ -449,48 +489,72 @@ class _BluetoothClinicalDeviceConnectivityState
     try {
       if (!mounted || _isDisposed) return;
 
+      debugPrint("🟢 _processHardwareId START");
+      debugPrint("🔹 Hardware ID: $hardwareId");
+
       setState(() => isHardwareIdProcessing = true);
 
+      debugPrint("📡 Calling fetchDeviceLastDataTime...");
       final response = await fetchDeviceLastDataTime(hardwareId);
 
-      if (!mounted || _isDisposed) return;
+      debugPrint("⬅️ API Raw Response: $response");
+
+      final bool canUpdateUi = mounted && !_isDisposed;
 
       if (response.contains("Error")) {
-        setState(() {
-          isHardwareIdProcessed = false;
-          isHardwareIdProcessedErrorOccurred = true;
-          isHardwareIdProcessing = false;
-          _isButtonEnabled = true;
-        });
-      } else {
-        // Send start signal
-        await _sendData(getDeviceStartSignal(response));
+        debugPrint("❌ API returned error");
 
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString("isFirstReading", getDeviceStartSignal(response));
+        if (canUpdateUi) {
+          setState(() {
+            isHardwareIdProcessed = false;
+            isHardwareIdProcessedErrorOccurred = true;
+            isHardwareIdProcessing = false;
+            _isButtonEnabled = true;
+          });
+        }
+        return;
+      }
 
-        if (!mounted || _isDisposed) return;
+      final String signal = getDeviceStartSignal(response);
+      debugPrint("✅ Final Signal Selected: $signal");
 
+      debugPrint("📤 Sending signal to device: $signal");
+      await _sendData(signal);
+
+      final prefs = await SharedPreferences.getInstance();
+      debugPrint("🧹 Clearing old SharedPreference: isFirstReading");
+      await prefs.remove("isFirstReading");
+
+      debugPrint("💾 Saving new signal to SharedPreferences: $signal");
+      await prefs.setString("isFirstReading", signal);
+
+      if (canUpdateUi) {
         setState(() {
           isHardwareIdProcessed = true;
           isHardwareIdProcessing = false;
           _isButtonEnabled = false;
         });
       }
+
+      debugPrint("🟢 _processHardwareId SUCCESS");
     } catch (e) {
-      if (kDebugMode) print("Error processing hardware ID: $e");
-      if (!mounted || _isDisposed) return;
+      debugPrint("🔥 Exception in _processHardwareId: $e");
 
-      setState(() {
-        isHardwareIdProcessing = false;
-        isHardwareIdProcessed = false;
-        isHardwareIdProcessedErrorOccurred = true;
-        _isButtonEnabled = true;
-      });
+      if (mounted && !_isDisposed) {
+        setState(() {
+          isHardwareIdProcessing = false;
+          isHardwareIdProcessed = false;
+          isHardwareIdProcessedErrorOccurred = true;
+          _isButtonEnabled = true;
+        });
 
-      _handleError("Failed to process hardware ID.");
+        _handleError("Failed to process hardware ID.");
+      }
     }
   }
+
+
+
 
   // -----------------------------
   // UI + Dialog Helpers
@@ -525,46 +589,6 @@ class _BluetoothClinicalDeviceConnectivityState
       ),
     );
 
-    // return PopScope(
-    //   canPop: false,
-    //   onPopInvokedWithResult: (didPop, result) async {
-    //     if (!didPop) {
-    //       _handlePop(context);
-    //     }
-    //   },
-    //   child: Scaffold(
-    //     key: _freshKey,
-    //     backgroundColor: AppColor.whiteColor,
-    //     appBar: AppBar(
-    //       backgroundColor: Colors.white,
-    //       leading: IconButton(
-    //         onPressed: () {
-    //           _showCancelTestDialog(context);
-    //         },
-    //         icon: Icon(Icons.close),
-    //       ),
-    //     ),
-    //     body: SafeArea(
-    //       child: Column(
-    //         crossAxisAlignment: CrossAxisAlignment.start,
-    //         children: [
-    //           Align(
-    //             alignment: Alignment.topCenter,
-    //             child: SvgPicture.asset(
-    //               _isConnected
-    //                   ? "assets/connected_devices.svg"
-    //                   : "assets/not_connected.svg",
-    //             ),
-    //           ),
-    //           _buildConnectionSubtitle(),
-    //            _buildConnectionTitle(),
-    //         ],
-    //       ),
-    //     ),
-    //     bottomNavigationBar: SafeArea(child: _buildBottomNavigationBar()),
-    //   ),
-    // );
-
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -589,13 +613,16 @@ class _BluetoothClinicalDeviceConnectivityState
                       : "assets/not_connected.svg",
                 ),
                 _buildConnectionSubtitle(),
-                SizedBox(height: 10,),
+                SizedBox(
+                  height: 10,
+                ),
                 _buildConnectionTitle(),
-                Spacer(flex: 2,)
+                Spacer(
+                  flex: 2,
+                )
               ],
             ),
-          )
-      ),
+          )),
       bottomNavigationBar: SafeArea(child: _buildBottomNavigationBar()),
     );
   }
@@ -762,10 +789,9 @@ class _BluetoothClinicalDeviceConnectivityState
         children: [
           _buildHardwareIdProcessingMessage(),
           SizedBox(
-            width: double.infinity,
+              width: double.infinity,
               height: 52,
-              child: _buildConnectOrProceedButton()
-          ),
+              child: _buildConnectOrProceedButton()),
         ],
       ),
     );
@@ -859,7 +885,7 @@ class _BluetoothClinicalDeviceConnectivityState
           return;
         }
 
-        // ✅ ADDED: ask every time BT is OFF (even before _connect())
+        // ✅ ask every time BT is OFF (even before _connect())
         final btOn = await _ensureBluetoothOn();
         if (!btOn) return;
 
@@ -949,7 +975,10 @@ class _BluetoothClinicalDeviceConnectivityState
   }
 
   void _showRetryDialog() {
-    if (_isDisposed || _bleManager.isConnected || isScanningDevice || _isDialogShowing) {
+    if (_isDisposed ||
+        _bleManager.isConnected ||
+        isScanningDevice ||
+        _isDialogShowing) {
       return;
     }
 

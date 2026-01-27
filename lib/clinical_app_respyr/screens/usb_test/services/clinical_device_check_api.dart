@@ -4,76 +4,68 @@ import 'package:respyr_clinical/clinical_app_respyr/screens/usb_test/services/cl
 import 'package:shared_preferences/shared_preferences.dart';
 
 Future<void> clinicalDeviceCheckApi(String deviceId) async {
-
   final ClinicalUsbCommunicationServices usbService =
   ClinicalUsbCommunicationServices();
 
   final String url =
       'https://humorstech.com/humors_app/app_final/clinical/api/fetch/fetch_last_data_time2.php?hwid=$deviceId';
 
+  final prefs = await SharedPreferences.getInstance();
+  String signal = '{';
+
   try {
     final response = await http.get(Uri.parse(url));
-
-    String signal = '{';
-
-    final prefs = await SharedPreferences.getInstance();
 
     if (response.statusCode == 200) {
       final jsonObject = jsonDecode(response.body);
 
-      if (jsonObject.containsKey("count") &&
-          jsonObject.containsKey("lastDataTime")) {
-        final int count = int.tryParse(jsonObject['count'].toString()) ?? 0;
-        final int lastDataTime =
-            int.tryParse(jsonObject["lastDataTime"].toString()) ?? 0;
-
-
-        if (count > 0) {
-          final int now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-          final int diff = now - lastDataTime;
-
-
-          if (diff <= 600) {
-            signal = '#';
-          } else if (diff <= 3600) {
-            signal = '\$';
-          } else {
-            signal = '{';
-          }
-        }
-
-        final int lastAbortTime =
-            prefs.getInt("last_abort_time_full_test") ?? 0;
-        final int counter = prefs.getInt("abort_counter") ?? 0;
-
-
-        if (signal == '{' && lastAbortTime != 0 && counter != 0) {
-          final int nowMillis = DateTime.now().millisecondsSinceEpoch;
-          final double timeDiffMinutes =
-              (nowMillis - lastAbortTime) / 60000.0;
-          if (timeDiffMinutes > 10) {
-            signal = '\$';
-          } else {
-            signal = '#';
-          }
+      // Get signal from API
+      if (jsonObject.containsKey("signal")) {
+        final String apiSignal = jsonObject["signal"].toString();
+        if (apiSignal == '#' || apiSignal == '\$' || apiSignal == '{') {
+          signal = apiSignal;
         }
       }
+
+      // Optional values
+      if (jsonObject.containsKey("timeDifferenceMinutes")) {
+        await prefs.setInt(
+          "timeDifferenceMinutes",
+          int.tryParse(jsonObject["timeDifferenceMinutes"].toString()) ?? 0,
+        );
+      }
+
+      if (jsonObject.containsKey("count")) {
+        await prefs.setInt(
+          "today_count",
+          int.tryParse(jsonObject["count"].toString()) ?? 0,
+        );
+      }
+
+      if (jsonObject.containsKey("lastDataTime")) {
+        await prefs.setInt(
+          "lastDataTime",
+          int.tryParse(jsonObject["lastDataTime"].toString()) ?? 0,
+        );
+      }
     }
-
-    await prefs.setString("isFirstReading", signal);
-    await prefs.setBool("is_device_ready", true);
-
-    usbService.sendData(signal);
-    usbService.sendData("%");
-
   } catch (e) {
-
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString("is_first_reading", "{");
-    await prefs.setBool("is_device_ready", true);
-
-
-    usbService.sendData("{");
-    usbService.sendData("%");
+    signal = '{';
   }
+
+  // 🔥 CLEAN OLD SIGNAL BEFORE SAVING NEW ONE
+  await prefs.remove("isFirstReading");
+
+  // (optional cleanup if you want fully clean state)
+  // await prefs.remove("timeDifferenceMinutes");
+  // await prefs.remove("today_count");
+  // await prefs.remove("lastDataTime");
+
+  // ✅ SAVE FRESH VALUES
+  await prefs.setString("isFirstReading", signal);
+  await prefs.setBool("is_device_ready", true);
+
+  // Send to device
+  usbService.sendData(signal);
+  usbService.sendData("%");
 }

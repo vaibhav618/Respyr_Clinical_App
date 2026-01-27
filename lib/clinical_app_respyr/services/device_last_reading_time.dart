@@ -1,69 +1,59 @@
 import 'dart:convert';
-
 import 'package:http/http.dart' as http;
+import 'package:flutter/foundation.dart';
 
 Future<String> fetchDeviceLastDataTime(String hwid) async {
-  const String baseUrl = 'https://humorstech.com/humors_app/app_final/fetch_last_data_time2.php';
+  const String baseUrl =
+      'https://humorstech.com/humors_app/app_final/clinical/api/fetch/fetch_last_data_time2.php';
 
-  // Add query parameters
   final Uri uri = Uri.parse(baseUrl).replace(queryParameters: {'hwid': hwid});
 
   try {
-    // Send a GET request
+    debugPrint("➡️ fetchDeviceLastDataTime | HWID: $hwid");
+    debugPrint("➡️ Request URL: $uri");
+
     final response = await http.get(uri);
 
-    // Check the status code and return the response body as a string
+    debugPrint("⬅️ Response Status Code: ${response.statusCode}");
+    debugPrint("⬅️ Raw Response Body: ${response.body}");
+
     if (response.statusCode == 200) {
-      return response.body; // Return response as a string
+      return response.body;
     } else {
+      debugPrint("❌ API Error: ${response.statusCode}");
       return 'Error: Failed with status code ${response.statusCode}';
     }
   } catch (e) {
+    debugPrint("❌ Exception in fetchDeviceLastDataTime: $e");
     return 'Error: $e';
   }
 }
 
-
 String getDeviceStartSignal(String response) {
   try {
-    // Parse the JSON response
+    debugPrint("➡️ getDeviceStartSignal | Raw Response: $response");
+
     final jsonObject = jsonDecode(response);
 
-    // Extract and parse 'count'
-    int count = int.tryParse(jsonObject['count'].toString()) ?? 0;
+    debugPrint("📦 Decoded JSON: $jsonObject");
 
-    // Extract and parse 'lastDataTime'
-    int lastDataTime = int.tryParse(jsonObject['lastDataTime'].toString()) ?? 0;
+    if (jsonObject.containsKey("signal")) {
+      final String apiSignal = jsonObject["signal"].toString();
 
-    // Initialize signal
-    String signal = (count == 0) ? "{" : "#";
+      debugPrint("✅ Signal received from API: $apiSignal");
 
-    if (count > 0) {
-      // Get the current timestamp in seconds
-      int currentTimestamp = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-
-      // Calculate time difference in seconds
-      int timeDifferenceSeconds = currentTimestamp - lastDataTime;
-
-
-      print("timeDifferenceSeconds :$timeDifferenceSeconds");
-
-      // Determine the signal based on the time difference
-      if (timeDifferenceSeconds <= (10 * 60)) {
-        signal = "#"; // Less than or equal to 10 minutes
-      } else if (timeDifferenceSeconds > (10 * 60) && timeDifferenceSeconds < (3600)) {
-        signal = "\$"; // Greater than 10 minutes and less than 1 hour
+      if (apiSignal == "#" || apiSignal == "\$" || apiSignal == "{") {
+        return apiSignal;
       } else {
-        signal = "{"; // Greater than or equal to 1 hour
+        debugPrint("⚠️ Invalid signal value received");
       }
-
-
-
-
+    } else {
+      debugPrint("⚠️ 'signal' key not found in API response");
     }
 
-    return signal;
+    return "{";
   } catch (e) {
+    debugPrint("❌ Exception in getDeviceStartSignal: $e");
     return "{";
   }
 }
