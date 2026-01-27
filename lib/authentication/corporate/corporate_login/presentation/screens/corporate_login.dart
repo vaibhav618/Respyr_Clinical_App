@@ -133,11 +133,12 @@ class _CorporateLoginState extends State<CorporateLogin> {
           if (state.status == CorporateLoginStatus.failure) {
             final msg = (state.errorMessage ?? "Login failed").trim();
 
-
             if (_isInvalidCredentialMsg(msg)) {
               setState(() {
-                _emailServerError = "Invalid email or password";
-                _passwordServerError = "Invalid email or password";
+                // ✅ IMPORTANT FIX: do NOT put server error on email
+                // so user can correct only password and proceed.
+                _emailServerError = null;
+                _passwordServerError = "Invalid password";
               });
               _formKey.currentState?.validate();
             } else {
@@ -267,9 +268,9 @@ class _CorporateLoginState extends State<CorporateLogin> {
                                     textInputAction: TextInputAction.next,
                                     validator: _validateEmail,
                                     onChanged: (v) {
-                                      if (_emailServerError != null) {
-                                        setState(() => _emailServerError = null);
-                                      }
+                                      // ✅ IMPORTANT FIX: clear both errors on edit
+                                      _clearServerErrorsIfAny();
+
                                       context
                                           .read<CorporateLoginBloc>()
                                           .add(CorporateLoginEmailChanged(v));
@@ -289,9 +290,9 @@ class _CorporateLoginState extends State<CorporateLogin> {
                                     textInputAction: TextInputAction.done,
                                     validator: _validatePassword,
                                     onChanged: (v) {
-                                      if (_passwordServerError != null) {
-                                        setState(() => _passwordServerError = null);
-                                      }
+                                      // ✅ IMPORTANT FIX: clear both errors on edit
+                                      _clearServerErrorsIfAny();
+
                                       context
                                           .read<CorporateLoginBloc>()
                                           .add(CorporateLoginPasswordChanged(v));
@@ -313,26 +314,23 @@ class _CorporateLoginState extends State<CorporateLogin> {
                                   ),
                                   const SizedBox(height: 20),
                                   Align(
-                                    alignment: Alignment.topRight,
+                                      alignment: Alignment.topRight,
                                       child: TextButton(
-                                          onPressed: (){
-
+                                          onPressed: () {
                                             Navigator.pushNamed(
                                               context,
                                               AppRoutes.corporateForgotPassword,
                                             );
                                           },
-                                          child: Text("Forgot your password?",
-
+                                          child: Text(
+                                            "Forgot your password?",
                                             style: GoogleFonts.poppins(
                                               color: const Color(0xFF308BF9),
                                               fontSize: 15,
                                               fontWeight: FontWeight.w400,
                                               letterSpacing: -0.72,
                                             ),
-                                          )
-                                      )
-                                  ),
+                                          ))),
                                   const Spacer(),
                                   const SizedBox(height: 12),
                                 ],
@@ -408,7 +406,8 @@ class _CorporateLoginState extends State<CorporateLogin> {
                                 ? null
                                 : () {
                               final isValid =
-                                  _formKey.currentState?.validate() ?? false;
+                                  _formKey.currentState?.validate() ??
+                                      false;
                               if (!isValid) return;
 
                               _clearServerErrorsIfAny();

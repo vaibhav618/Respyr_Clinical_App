@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:respyr_clinical/authentication/screens/login_with_password.dart';
 
 
 import '../authentication/screens/login_screen.dart';
@@ -48,7 +49,7 @@ class JwtHttpClient extends http.BaseClient {
 
                   // ✅ Navigate to login and remove all routes
                   Navigator.of(context).pushAndRemoveUntil(
-                    MaterialPageRoute(builder: (_) => const LoginScreen()),
+                    MaterialPageRoute(builder: (_) => const LoginWithPassword()),
                         (route) => false,
                   );
                 },

@@ -8,6 +8,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:respyr_clinical/authentication/screens/login_screen.dart';
 import '../../clinical_dashboard/bloc/health_score_bloc.dart';
 import '../../clinical_dashboard/views/clinical_dashboard.dart';
+import '../authentication/screens/login_with_password.dart';
 import '../authentication/services/clinical_token_generating_api.dart';
 import '../clinical_dashboard/service/overall_data_by_date_service.dart';
 import '../log_manager/log_manager.dart';
@@ -169,7 +170,7 @@ class _SplashState extends State<Splash> with WidgetsBindingObserver {
       if (mounted) {
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (_) => const LoginScreen()),
+          MaterialPageRoute(builder: (_) => const LoginWithPassword()),
         );
       }
     } else if (isOtpVerified && loginId != "NA") {

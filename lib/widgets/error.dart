@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:respyr_clinical/authentication/screens/login_with_password.dart';
 
 import '../authentication/screens/login_screen.dart';
 
@@ -48,7 +49,7 @@ class ErrorsWidgets{
                 SizedBox(height: 20,),
                 ElevatedButton(
                   onPressed: (){
-                    Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (context) => LoginScreen()), (route) => false);
+                    Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (context) => LoginWithPassword()), (route) => false);
 
 
 
@@ -116,7 +117,7 @@ class ErrorsWidgets{
                 SizedBox(height: 20,),
                 ElevatedButton(
                   onPressed: (){
-                    Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (context) => LoginScreen()), (route) => false);
+                    Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (context) => LoginWithPassword()), (route) => false);
 
                   },
                   style: ElevatedButton.styleFrom(

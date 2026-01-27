@@ -15,8 +15,6 @@ import 'package:respyr_clinical/shared/colors.dart';
 import 'package:respyr_clinical/shared/get_stored_data_text.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../../../clinical_dashboard/views/clinical_dashboard.dart';
-import '../../../../common/floating_message.dart';
 import '../../../../new_result/data/model/result_profile_data_model.dart';
 import '../../../../router/app_routers.dart';
 
@@ -47,8 +45,8 @@ class _UsbClinicalCalibrationScreenState
 
   final List<String> progressMessage = [
     "Cleaning inner\nChamber of Device",
-    "Verifying Cleanlliness",
-    "Initialing Calibration",
+    "Verifying Cleanliness",
+    "Initiating Calibration",
     "Activating Sensors",
     "Getting Device Ready",
   ];
@@ -61,7 +59,6 @@ class _UsbClinicalCalibrationScreenState
     "assets/gif_images/cal4.gif",
   ];
 
-  // ✅ make nullable to avoid LateInitializationError
   StreamSubscription<String>? _usbDataSubscription;
 
   final ClinicalUsbCommunicationServices _usbService =
@@ -76,6 +73,13 @@ class _UsbClinicalCalibrationScreenState
 
   // ✅ signal tracking
   bool signalsAlreadySent = false;
+
+  // ✅ Retry / handshake variables (same as BLE flow)
+  bool _handshakeDone = false; // once true => stop retry timer
+  bool _awaitingPercentEcho = false;
+  Timer? _percentEchoWindowTimer;
+  Timer? _retryTimer;
+  int elapsedSeconds = 0;
 
   @override
   void initState() {
@@ -94,7 +98,6 @@ class _UsbClinicalCalibrationScreenState
         _loadProfileColor();
         _initializeUsbConnection();
 
-        // ✅ Start flow (signal will be sent inside _startProgress at timer start)
         _startProgress();
       } else {
         _handleDisconnection();
@@ -114,20 +117,27 @@ class _UsbClinicalCalibrationScreenState
   }
 
   void _pauseProcesses() {
-    if (!_isDisposed) {
-      _animationController.stop();
-      _usbService.pauseCommunication(); // Implement this in your service
-      _audioHelper.stopAudio();
-    }
+    if (_isDisposed) return;
+
+    _animationController.stop();
+    _usbService.pauseCommunication();
+    _audioHelper.stopAudio();
+
+    // ✅ stop timers when screen paused
+    _retryTimer?.cancel();
+    _retryTimer = null;
+    _percentEchoWindowTimer?.cancel();
+    _percentEchoWindowTimer = null;
   }
 
   void _resumeProcesses() {
-    if (!_isDisposed && _isConnected) {
-      _animationController.repeat();
-      _usbService.resumeCommunication(); // Implement this in your service
-      if (!_navigatedToInhaleScreen) {
-        _startProgress();
-      }
+    if (_isDisposed || !_isConnected) return;
+
+    _animationController.repeat();
+    _usbService.resumeCommunication();
+
+    if (!_navigatedToInhaleScreen) {
+      _startProgress();
     }
   }
 
@@ -229,46 +239,80 @@ class _UsbClinicalCalibrationScreenState
     });
   }
 
-  void _onUsbDataReceived(String data) {
+  void _onUsbDataReceived(String data) async {
     if (!mounted || _isDisposed || _isPaused) return;
+
+    // ✅ SAME AS BLE:
+    // If we sent "%" to check handshake, and we receive "%" back
+    // => initial signal NOT received in device, so resend initial signals.
+    if (data.contains("%") &&
+        !_navigatedToInhaleScreen &&
+        _awaitingPercentEcho &&
+        !_handshakeDone) {
+      _awaitingPercentEcho = false;
+      _percentEchoWindowTimer?.cancel();
+      _percentEchoWindowTimer = null;
+
+      debugPrint("⚠️ USB echoed '%' back => resending initial signals");
+      await _sendInitialSignal(force: true);
+      return;
+    }
 
     if (data.contains("inhale") && !_navigatedToInhaleScreen) {
       _stopAllProcesses();
       _navigateToInhaleScreen();
+      return;
     }
   }
 
-  // ✅ NEW: send signal right when timers start
-  Future<void> _sendInitialSignal() async {
+  // ✅ NEW: send signal at start, supports force resend like BLE
+  Future<void> _sendInitialSignal({bool force = false}) async {
     if (_isDisposed || _isPaused) return;
-    if (signalsAlreadySent) return;
+    if (_handshakeDone && !force) return;
+    if (!force && signalsAlreadySent) return;
     if (!_usbService.isConnected) return;
 
     final prefs = await SharedPreferences.getInstance();
     final String signal = prefs.getString("isFirstReading") ?? "{";
 
-    FloatingMessage.show(context, message: signal);
-    debugPrint("signal :$signal");
+    debugPrint("🚀 USB Sending initial signal: $signal (force=$force)");
+
+    if (force) {
+      signalsAlreadySent = false;
+    }
 
     await _usbService.sendData("?");
+    await Future.delayed(const Duration(seconds: 2));
     await _usbService.sendData("}");
+    await Future.delayed(const Duration(seconds: 2));
     await _usbService.sendData(signal);
+    await Future.delayed(const Duration(seconds: 2));
     await _usbService.sendData("+");
 
     signalsAlreadySent = true;
+
+    // ✅ Start retry timer once; on force resend reset counters
+    if (_retryTimer == null) {
+      startWaitTimer();
+    } else if (force) {
+      elapsedSeconds = 0;
+      _awaitingPercentEcho = false;
+      _percentEchoWindowTimer?.cancel();
+      _percentEchoWindowTimer = null;
+      _handshakeDone = false;
+    }
   }
 
   Future<void> _startProgress() async {
     if (_isPaused || _isDisposed || _navigatedToInhaleScreen) return;
 
-    // ✅ Send signal immediately when timer starts
+    // ✅ Send initial signal immediately
     await _sendInitialSignal();
 
     for (int i = 1; i <= 5; i++) {
       if (_isPaused || _isDisposed || _navigatedToInhaleScreen) return;
 
-      // ✅ If signal was NOT sent at timer start (eg: not connected),
-      // retry in next step(s) - here we retry in step 1 and 2.
+      // ✅ keep your old retry behavior as well
       if (!signalsAlreadySent) {
         await _sendInitialSignal();
       }
@@ -293,16 +337,67 @@ class _UsbClinicalCalibrationScreenState
     }
   }
 
-  // ✅ KEEP SAME: your old method stays (used by developer "Step +" button)
+  // ✅ SAME AS BLE:
+  // - counts seconds
+  // - at 20s sends "%"
+  // - if "%" not echoed in 3s => handshake success => stop retry timer
+  void startWaitTimer() {
+    _retryTimer?.cancel();
+    elapsedSeconds = 0;
+    _handshakeDone = false;
+    _awaitingPercentEcho = false;
+    _percentEchoWindowTimer?.cancel();
+    _percentEchoWindowTimer = null;
+
+    _retryTimer = Timer.periodic(const Duration(seconds: 1), (timer) async {
+      if (_isDisposed ||
+          _isPaused ||
+          _navigatedToInhaleScreen ||
+          !_usbService.isConnected) {
+        timer.cancel();
+        _retryTimer = null;
+        return;
+      }
+
+      elapsedSeconds++;
+      debugPrint("⏱️ USB Completed Seconds: $elapsedSeconds");
+
+      if (elapsedSeconds == 20 && !_handshakeDone) {
+        _awaitingPercentEcho = true;
+
+        debugPrint("📤 USB Sending '%' to validate initial signals");
+        await _usbService.sendData("%");
+
+        _percentEchoWindowTimer?.cancel();
+        _percentEchoWindowTimer = Timer(const Duration(seconds: 3), () {
+          if (_isDisposed || _isPaused || _navigatedToInhaleScreen) return;
+
+          // If still awaiting echo => no echo came => success
+          if (_awaitingPercentEcho && !_handshakeDone) {
+            _awaitingPercentEcho = false;
+            _handshakeDone = true;
+
+            debugPrint(
+                "✅ USB '%' not echoed back => handshake success. Stop retry timer.");
+
+            _retryTimer?.cancel();
+            _retryTimer = null;
+          }
+        });
+      }
+
+      if (elapsedSeconds >= 60 && !_handshakeDone) {
+        elapsedSeconds = 0;
+      }
+    });
+  }
+
+  // ✅ KEEP SAME: developer Step + button uses this old method
   Future<void> _sendStepSpecificData(int step) async {
     final prefs = await SharedPreferences.getInstance();
     String signal = prefs.getString("isFirstReading") ?? "{";
 
     try {
-      FloatingMessage.show(
-        context,
-        message: signal,
-      );
       print("signal :$signal");
 
       switch (step) {
@@ -326,27 +421,33 @@ class _UsbClinicalCalibrationScreenState
   }
 
   void _showErrorDialog(String message) {
-    if (!_isDisposed) {
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text("Error"),
-          content: Text(message),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text("OK"),
-            ),
-          ],
-        ),
-      );
-    }
+    if (_isDisposed) return;
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Error"),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text("OK"),
+          ),
+        ],
+      ),
+    );
   }
 
   void _stopAllProcesses() {
     _isDisposed = true;
     _usbDataSubscription?.cancel();
     _animationController.stop();
+
+    // ✅ stop timers (important)
+    _retryTimer?.cancel();
+    _retryTimer = null;
+
+    _percentEchoWindowTimer?.cancel();
+    _percentEchoWindowTimer = null;
   }
 
   void _navigateToInhaleScreen() {
@@ -381,7 +482,6 @@ class _UsbClinicalCalibrationScreenState
         Navigator.pop(context);
 
         await Future.delayed(const Duration(milliseconds: 300));
-
         await _exitToDashboard();
       },
     );

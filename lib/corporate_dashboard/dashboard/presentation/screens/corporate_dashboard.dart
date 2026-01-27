@@ -367,14 +367,13 @@ class _CorporateDashboardState extends State<CorporateDashboard>
               return;
             }
 
-            Navigator.pushAndRemoveUntil(
+            Navigator.push(
               context,
               MaterialPageRoute(
                 builder: (_) => BluetoothClinicalDeviceConnectivity(
                   profileDetails: profileModel,
                 ),
               ),
-                  (route) => false,
             );
           },
           onUsbTap: () {
@@ -391,7 +390,7 @@ class _CorporateDashboardState extends State<CorporateDashboard>
               return;
             }
 
-            Navigator.pushAndRemoveUntil(
+            Navigator.push(
               context,
               MaterialPageRoute(
                 builder: (_) => UsbDeviceConnectivity(
@@ -399,7 +398,6 @@ class _CorporateDashboardState extends State<CorporateDashboard>
                   profileDetails: profileModel,
                 ),
               ),
-                  (route) => false,
             );
           },
         );

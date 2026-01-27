@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:provider/provider.dart';
 import 'package:respyr_clinical/authentication/corporate/forgot_password/corporate_forgot_password.dart';
+import 'package:respyr_clinical/authentication/screens/login_with_password.dart';
 import 'package:upgrader/upgrader.dart';
 
 import '../authentication/corporate/check_corporate_id/presentation/check_corporate_id_screen.dart';
@@ -56,7 +57,7 @@ class AppPages {
     ),
 
     GetPage(name: AppRoutes.signIn, page: () => const SignIn()),
-    GetPage(name: AppRoutes.clinicalLogin, page: () => const LoginScreen()),
+    GetPage(name: AppRoutes.clinicalLogin, page: () => const LoginWithPassword()),
     GetPage(name: AppRoutes.corporateLogin, page: () => const CorporateLogin()),
 
     GetPage(

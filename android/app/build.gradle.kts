@@ -17,28 +17,34 @@ val keystoreProperties = Properties().apply {
 
 android {
     namespace = "com.humorstech.respyr_clinical"
-    compileSdk = flutter.compileSdkVersion
 
-    // ✅ MUST match installed NDK version exactly
+    // ✅ Updated to 36 to satisfy plugin requirements (shared_preferences, image_picker, etc.)
+    compileSdk = 36
+
+    // Using the NDK version you specified
     ndkVersion = "28.1.13356709"
-
 
     defaultConfig {
         applicationId = "com.humorstech.respyr_clinical"
+
+        // Recommended to hardcode or ensure flutter.minSdkVersion is at least 23
         minSdk = flutter.minSdkVersion
+
+        // targetSdk 35 is currently the requirement for Google Play
         targetSdk = 35
 
         versionCode = flutter.versionCode
         versionName = flutter.versionName
 
-        // Optional: keep only if you really want to restrict ABIs
         ndk {
             abiFilters += listOf("armeabi-v7a", "arm64-v8a", "x86_64")
         }
     }
 
-    // ✅ Important for modern packaging of native libs
     packaging {
+        resources {
+            excludes += "/META-INF/{AL2.0,LGPL2.1}"
+        }
         jniLibs {
             useLegacyPackaging = false
         }
@@ -46,24 +52,28 @@ android {
 
     signingConfigs {
         create("release") {
-            // If key.properties not present, this will crash. Keep only if always present.
-            keyAlias = keystoreProperties["keyAlias"] as String
-            keyPassword = keystoreProperties["keyPassword"] as String
-            storeFile = file(keystoreProperties["storeFile"] as String)
-            storePassword = keystoreProperties["storePassword"] as String
+            val hasKeyProps = keystoreProperties.containsKey("storeFile")
+                    && keystoreProperties.containsKey("storePassword")
+                    && keystoreProperties.containsKey("keyAlias")
+                    && keystoreProperties.containsKey("keyPassword")
+
+            if (hasKeyProps) {
+                keyAlias = keystoreProperties["keyAlias"] as String
+                keyPassword = keystoreProperties["keyPassword"] as String
+                storeFile = file(keystoreProperties["storeFile"] as String)
+                storePassword = keystoreProperties["storePassword"] as String
+            }
         }
     }
 
     buildTypes {
-        getByName("release") {
+        release {
             signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = false
             isShrinkResources = false
-
             ndk {
                 debugSymbolLevel = "FULL"
             }
-
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -72,13 +82,13 @@ android {
     }
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
         isCoreLibraryDesugaringEnabled = true
     }
 
     kotlinOptions {
-        jvmTarget = "11"
+        jvmTarget = "17"
     }
 }
 

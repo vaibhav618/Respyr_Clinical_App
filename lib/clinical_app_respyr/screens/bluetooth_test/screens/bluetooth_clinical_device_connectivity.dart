@@ -353,17 +353,17 @@ class _BluetoothClinicalDeviceConnectivityState
       }
 
       // Check USB already connected
-      try {
-        final usbDevices = await _usbService.listDevices();
-        if (usbDevices.isNotEmpty) {
-          if (!mounted || _isDisposed) return;
-          _isConnectingInProgress = false;
-          _showUsbAlreadyConnectedDialog();
-          return;
-        }
-      } catch (_) {
-        // ignore
-      }
+      // try {
+      //   final usbDevices = await _usbService.listDevices();
+      //   if (usbDevices.isNotEmpty) {
+      //     if (!mounted || _isDisposed) return;
+      //     _isConnectingInProgress = false;
+      //     _showUsbAlreadyConnectedDialog();
+      //     return;
+      //   }
+      // } catch (_) {
+      //   // ignore
+      // }
 
       // Reset flags for fresh attempt
       _hasShownRetryDialog = false;
@@ -525,54 +525,78 @@ class _BluetoothClinicalDeviceConnectivityState
       ),
     );
 
-    return PopScope(
-      canPop: false,
-      onPopInvokedWithResult: (didPop, result) async {
-        if (!didPop) {
-          _handlePop(context);
-        }
-      },
-      child: Scaffold(
-        key: _freshKey,
-        backgroundColor: AppColor.whiteColor,
-        appBar: AppBar(
-          backgroundColor: Colors.white,
-          leading: IconButton(
-            onPressed: () {
-              _showCancelTestDialog(context);
-            },
-            icon: Icon(Icons.close),
-          ),
+    // return PopScope(
+    //   canPop: false,
+    //   onPopInvokedWithResult: (didPop, result) async {
+    //     if (!didPop) {
+    //       _handlePop(context);
+    //     }
+    //   },
+    //   child: Scaffold(
+    //     key: _freshKey,
+    //     backgroundColor: AppColor.whiteColor,
+    //     appBar: AppBar(
+    //       backgroundColor: Colors.white,
+    //       leading: IconButton(
+    //         onPressed: () {
+    //           _showCancelTestDialog(context);
+    //         },
+    //         icon: Icon(Icons.close),
+    //       ),
+    //     ),
+    //     body: SafeArea(
+    //       child: Column(
+    //         crossAxisAlignment: CrossAxisAlignment.start,
+    //         children: [
+    //           Align(
+    //             alignment: Alignment.topCenter,
+    //             child: SvgPicture.asset(
+    //               _isConnected
+    //                   ? "assets/connected_devices.svg"
+    //                   : "assets/not_connected.svg",
+    //             ),
+    //           ),
+    //           _buildConnectionSubtitle(),
+    //            _buildConnectionTitle(),
+    //         ],
+    //       ),
+    //     ),
+    //     bottomNavigationBar: SafeArea(child: _buildBottomNavigationBar()),
+    //   ),
+    // );
+
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        leading: IconButton(
+          onPressed: () {
+            _showCancelTestDialog(context);
+          },
+          icon: Icon(Icons.close),
         ),
-        body: SafeArea(
+      ),
+      body: SafeArea(
           child: Padding(
-            padding: const EdgeInsets.all(10.0),
+            padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Align(
-                  alignment: Alignment.topCenter,
-                  child: SvgPicture.asset(
-                    _isConnected
-                        ? "assets/connected_devices.svg"
-                        : "assets/not_connected.svg",
-                  ),
+                Spacer(),
+                SvgPicture.asset(
+                  _isConnected
+                      ? "assets/connected_devices.svg"
+                      : "assets/not_connected.svg",
                 ),
-                SizedBox(height: height * 0.01),
                 _buildConnectionSubtitle(),
-                SizedBox(height: height * 0.05),
+                SizedBox(height: 10,),
                 _buildConnectionTitle(),
-                SizedBox(height: height * 0.05),
-                _buildOtgButton(width),
-                SizedBox(height: height * 0.05),
+                Spacer(flex: 2,)
               ],
             ),
-          ),
-        ),
-        bottomNavigationBar:
-        SafeArea(child: _buildBottomNavigationBar(height, width)),
+          )
       ),
+      bottomNavigationBar: SafeArea(child: _buildBottomNavigationBar()),
     );
   }
 
@@ -588,7 +612,7 @@ class _BluetoothClinicalDeviceConnectivityState
     bool confirmed = await showCancelTestDialog(Get.context!);
     if (confirmed) {
       if (Get.isOverlaysOpen) {
-        Get.back(); // close any dialog/bottomsheet if open
+        Get.back();
       }
 
       Get.offAllNamed(
@@ -688,7 +712,6 @@ class _BluetoothClinicalDeviceConnectivityState
     return (!_isConnected && isScanningDevice)
         ? Center(
       child: SizedBox(
-        width: width * 0.5,
         child: TextButton(
           onPressed: () => Navigator.push(
             context,
@@ -731,19 +754,17 @@ class _BluetoothClinicalDeviceConnectivityState
         : const SizedBox.shrink();
   }
 
-  Widget _buildBottomNavigationBar(double height, double width) {
-    return SizedBox(
-      height: height * 0.1,
+  Widget _buildBottomNavigationBar() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
           _buildHardwareIdProcessingMessage(),
-          Padding(
-            padding: const EdgeInsets.only(top: 2),
-            child: SizedBox(
-              height: height * 0.06,
-              width: width * 0.9,
-              child: _buildConnectOrProceedButton(),
-            ),
+          SizedBox(
+            width: double.infinity,
+              height: 52,
+              child: _buildConnectOrProceedButton()
           ),
         ],
       ),

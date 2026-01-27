@@ -41,6 +41,7 @@ class _BluetoothCalibrationScreenState extends State<BluetoothCalibrationScreen>
   bool _isConnected = false;
   int _completedSteps = 0;
   bool _navigatedToInhaleScreen = false;
+  bool _inhaleReceived = false;
   bool _isDisposed = false;
   bool _isDisconnectDialogPop = false;
   bool _hasShownDisconnectedDialog = false;
@@ -49,10 +50,20 @@ class _BluetoothCalibrationScreenState extends State<BluetoothCalibrationScreen>
 
   bool allSignalSent = false;
 
+  Timer? _timer;
+  bool timerStarted = false;
+
+  // ✅ Retry / handshake variables
+  bool _handshakeDone = false; // once true => stop retry timer
+  bool _awaitingPercentEcho = false;
+  Timer? _percentEchoWindowTimer;
+
+  int elapsedSeconds = 0;
+
   final List<String> progressMessage = [
     "Cleaning inner\nChamber of Device",
-    "Verifying Cleanlliness",
-    "Initialing Calibration",
+    "Verifying Cleanliness",
+    "Initiating Calibration",
     "Activating Sensors",
     "Getting Device Ready",
   ];
@@ -74,7 +85,6 @@ class _BluetoothCalibrationScreenState extends State<BluetoothCalibrationScreen>
     _initializeAnimationController();
     _checkBluetoothDeviceConnectivity();
 
-    // Start progress after first frame so context is safe for dialogs/snackbars
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _startProgress();
@@ -148,10 +158,31 @@ class _BluetoothCalibrationScreenState extends State<BluetoothCalibrationScreen>
         }, onError: (_) => _showErrorDialog("Connection status error."));
 
     _receivedDataSubscription = _bleManager.receivedDataStream.listen(
-          (data) {
+          (data) async {
         if (_isDisposed) return;
 
+        // ✅ If we sent "%" to check handshake, and we receive "%" back
+        // => initial signal NOT received in device, so resend initial signals.
+        if (data.contains("%") &&
+            !_inhaleReceived &&
+            !_navigatedToInhaleScreen &&
+            _awaitingPercentEcho &&
+            !_handshakeDone) {
+          _awaitingPercentEcho = false;
+          _percentEchoWindowTimer?.cancel();
+          _percentEchoWindowTimer = null;
+
+          if (kDebugMode) {
+            debugPrint("⚠️ Device echoed '%' back => resending initial signals");
+          }
+
+          // Force resend initial signals
+          await _sendInitialSignal(force: true);
+          return;
+        }
+
         if (data.contains("inhale") && !_navigatedToInhaleScreen) {
+          _inhaleReceived = true;
           if (mounted) {
             _stopAllProcesses();
             _navigateToInhaleScreen();
@@ -192,13 +223,11 @@ class _BluetoothCalibrationScreenState extends State<BluetoothCalibrationScreen>
   }
 
   Future<void> _startProgress() async {
-    // ✅ Send signal immediately when timer starts
     await _sendInitialSignal();
 
     for (int i = 1; i <= 5; i++) {
       if (_isDisposed || _navigatedToInhaleScreen) return;
 
-      // Step timers
       if (i < 5) {
         for (int seconds = 20; seconds > 0; seconds--) {
           if (_isDisposed || _navigatedToInhaleScreen) return;
@@ -206,7 +235,6 @@ class _BluetoothCalibrationScreenState extends State<BluetoothCalibrationScreen>
           if (!mounted || _navigatedToInhaleScreen || _isDisposed) return;
         }
       } else {
-        // Step 5: wait until inhale comes
         while (!_navigatedToInhaleScreen) {
           if (_isDisposed) return;
           await Future.delayed(const Duration(seconds: 1));
@@ -226,38 +254,67 @@ class _BluetoothCalibrationScreenState extends State<BluetoothCalibrationScreen>
     }
   }
 
-  /// Sends the initial calibration signal once.
-  /// If device is not connected at start, it will be retried in step 1 and 2.
-  Future<void> _sendInitialSignal() async {
-    if (allSignalSent) return;
+  Future<void> _sendInitialSignal({bool force = false}) async {
+    // If handshake already confirmed, no need to keep resending
+    if (_handshakeDone && !force) return;
+
+    if (!force && allSignalSent) return;
+    if (_navigatedToInhaleScreen) return;
     if (!_bleManager.isConnected) return;
+    if (_isDisposed) return;
 
     final prefs = await SharedPreferences.getInstance();
     final String signal = prefs.getString("isFirstReading") ?? "{";
 
-    if (_isDisposed) return;
+    if (_isDisposed || _navigatedToInhaleScreen) return;
 
     if (kDebugMode) {
-      print("🚀 Sending initial signal at timer start: $signal");
+      print("🚀 Sending initial signal: $signal (force=$force)");
     }
 
     if (mounted) {
-      FloatingMessage.show(context, message: signal);
+      // FloatingMessage.show(context, message: signal);
+    }
+
+    // When forcing resend, allow sending again
+    if (force) {
+      allSignalSent = false;
     }
 
     await _bleManager.sendData("?");
+    await Future.delayed(const Duration(seconds: 2));
+    if (_isDisposed || _navigatedToInhaleScreen) return;
+
     await _bleManager.sendData("}");
+    await Future.delayed(const Duration(seconds: 2));
+    if (_isDisposed || _navigatedToInhaleScreen) return;
+
     await _bleManager.sendData(signal);
+    await Future.delayed(const Duration(seconds: 2));
+    if (_isDisposed || _navigatedToInhaleScreen) return;
+
     await _bleManager.sendData("+");
 
     allSignalSent = true;
+
+    // Start timer only once (or restart on force resend)
+    if (!timerStarted) {
+      startWaitTimer(); // 20 seconds logic inside
+      timerStarted = true;
+    } else if (force) {
+      // Reset the retry timer counters on force resend
+      elapsedSeconds = 0;
+      _awaitingPercentEcho = false;
+      _percentEchoWindowTimer?.cancel();
+      _percentEchoWindowTimer = null;
+    }
   }
 
   Future<void> _sendStepSpecificData(int step) async {
     try {
       if (_isDisposed) return;
 
-      // ✅ Retry signal only for step 1 & 2 if not sent at timer start
+      // NOTE: keep your original behavior
       if (!allSignalSent) {
         await _sendInitialSignal();
       }
@@ -266,7 +323,6 @@ class _BluetoothCalibrationScreenState extends State<BluetoothCalibrationScreen>
         case 3:
           _audioHelper.playActivatingSensors();
           break;
-
         case 4:
           _audioHelper.playStartBreathTest();
           await Future.delayed(const Duration(seconds: 10));
@@ -281,6 +337,73 @@ class _BluetoothCalibrationScreenState extends State<BluetoothCalibrationScreen>
         _showErrorDialog("Failed to send data to the device.");
       }
     }
+  }
+
+  // ✅ Timer: counts seconds, at 20s sends "%".
+  // If "%" is NOT echoed back within window => handshake success => stop retry timer.
+  void startWaitTimer() {
+    _timer?.cancel();
+    elapsedSeconds = 0;
+    _handshakeDone = false;
+    _awaitingPercentEcho = false;
+    _percentEchoWindowTimer?.cancel();
+    _percentEchoWindowTimer = null;
+
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) async {
+      if (_isDisposed ||
+          _inhaleReceived ||
+          _navigatedToInhaleScreen ||
+          !_bleManager.isConnected) {
+        timer.cancel();
+        return;
+      }
+
+      elapsedSeconds++;
+      debugPrint("⏱️ Completed Seconds: $elapsedSeconds");
+
+      // After 20 seconds, send "%" to check if initial signal reached device
+      if (elapsedSeconds == 20 && !_handshakeDone) {
+        _awaitingPercentEcho = true;
+
+        if (kDebugMode) {
+          debugPrint("📤 Sending '%' to validate initial signals");
+        }
+
+        await _bleManager.sendData("%");
+
+        // If device does NOT echo "%" back quickly => we assume initial signals were received
+        _percentEchoWindowTimer?.cancel();
+        _percentEchoWindowTimer =
+            Timer(const Duration(seconds: 3), () {
+              if (_isDisposed) return;
+              if (_navigatedToInhaleScreen) return;
+
+              // If still awaiting echo, it means no echo came back => success
+              if (_awaitingPercentEcho && !_handshakeDone) {
+                _awaitingPercentEcho = false;
+                _handshakeDone = true;
+
+                if (kDebugMode) {
+                  debugPrint("✅ '%' not echoed back => handshake success. Stop retry timer.");
+                }
+
+                // Stop this retry timer since handshake succeeded
+                _timer?.cancel();
+                _timer = null;
+              }
+            });
+
+        // Important: keep counter moving if handshake fails and we resend.
+        // If handshake succeeds, timer cancels above.
+      }
+
+      // If elapsed goes too high, keep it looping to allow repeated retries.
+      // (We retry by resending initial when "%" is echoed back; that call resets elapsedSeconds.)
+      if (elapsedSeconds >= 60 && !_handshakeDone) {
+        // soft reset every 60s to avoid overflow / logs spam
+        elapsedSeconds = 0;
+      }
+    });
   }
 
   void _restartAnimation() {
@@ -309,11 +432,15 @@ class _BluetoothCalibrationScreenState extends State<BluetoothCalibrationScreen>
   }
 
   void _stopAllProcesses() {
-    _isDisposed = true;
     _connectionStatusSubscription?.cancel();
     _receivedDataSubscription?.cancel();
     _animationController.stop();
     _audioHelper.stopAudio();
+    _timer?.cancel();
+    _timer = null;
+
+    _percentEchoWindowTimer?.cancel();
+    _percentEchoWindowTimer = null;
   }
 
   void _navigateToInhaleScreen() {
@@ -389,6 +516,7 @@ class _BluetoothCalibrationScreenState extends State<BluetoothCalibrationScreen>
 
   @override
   void dispose() {
+    _isDisposed = true;
     _stopAllProcesses();
     _animationController.dispose();
     super.dispose();

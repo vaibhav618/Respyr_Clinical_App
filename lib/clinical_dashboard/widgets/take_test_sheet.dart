@@ -9,19 +9,23 @@ class BeforeTest {
   }) {
     showModalBottomSheet(
       context: context,
-      isScrollControlled: false,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      backgroundColor: Colors.white,
       builder: (context) {
         return SafeArea(
-          bottom: true,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 30),
+          top: false,
+          child: SingleChildScrollView(
+            padding: EdgeInsets.only(
+              left: 20,
+              right: 20,
+              top: 30,
+              bottom: 20 + MediaQuery.of(context).viewInsets.bottom,
+            ),
             child: Column(
-              mainAxisSize:
-                  MainAxisSize.min, // 💡 This makes height wrap content
+              mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Align(
@@ -54,7 +58,6 @@ class BeforeTest {
                   ),
                 ),
                 const SizedBox(height: 50),
-
                 if (onCreateNewProfileClicked != null)
                   SizedBox(
                     width: double.infinity,
@@ -65,12 +68,15 @@ class BeforeTest {
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.white,
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(2500),
-                          side: BorderSide(width: 1, color: Color(0xFF308BF9)),
+                          side: const BorderSide(
+                            width: 1,
+                            color: Color(0xFF308BF9),
+                          ),
                         ),
-                        elevation: 0,
-                        padding: EdgeInsets.symmetric(vertical: 16),
                       ),
                       child: Text(
                         "Create new",
@@ -84,7 +90,7 @@ class BeforeTest {
                       ),
                     ),
                   ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 20),
                 if (onSelectExistingProfileClicked != null)
                   SizedBox(
                     width: double.infinity,
@@ -94,14 +100,12 @@ class BeforeTest {
                         onSelectExistingProfileClicked();
                       },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Color(0xFF308BF9),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(
-                            2500,
-                          ), // 🎯 Rounded corner
-                        ),
+                        backgroundColor: const Color(0xFF308BF9),
                         elevation: 0,
-                        padding: EdgeInsets.symmetric(vertical: 16),
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(2500),
+                        ),
                       ),
                       child: Text(
                         "Select existing",
@@ -115,6 +119,7 @@ class BeforeTest {
                       ),
                     ),
                   ),
+                const SizedBox(height: 100),
               ],
             ),
           ),
