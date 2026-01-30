@@ -790,9 +790,13 @@ class DummyBluetoothBlowPressure {
       blowThresholdValue = blowBaseValue! + 20;
       isBaseValueCaptured = true;
 
+      blowValuesList.add(blowBaseValue!);
+
       if (!isBlowThresholdSet) {
+
         thresholdPercentage = Thresholds.calculateThresholdPercentage(
           blowBaseValue!,
+
         );
       }
     } else if (blowValueMatch != null) {

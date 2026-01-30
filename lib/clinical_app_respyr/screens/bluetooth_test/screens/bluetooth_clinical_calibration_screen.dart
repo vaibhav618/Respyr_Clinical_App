@@ -15,7 +15,6 @@ import 'package:respyr_clinical/shared/audio_helper.dart';
 import 'package:respyr_clinical/shared/colors.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../../../common/floating_message.dart';
 import '../../../../new_result/data/model/result_profile_data_model.dart';
 import '../../../../router/app_routers.dart';
 
@@ -45,6 +44,9 @@ class _BluetoothCalibrationScreenState extends State<BluetoothCalibrationScreen>
   bool _isDisposed = false;
   bool _isDisconnectDialogPop = false;
   bool _hasShownDisconnectedDialog = false;
+
+  // ✅ prevents attaching listeners multiple times
+  bool _listenersAttached = false;
 
   final AudioHelper _audioHelper = AudioHelper();
 
@@ -83,7 +85,7 @@ class _BluetoothCalibrationScreenState extends State<BluetoothCalibrationScreen>
     _isConnected = _bleManager.isConnected;
 
     _initializeAnimationController();
-    _checkBluetoothDeviceConnectivity();
+    _attachListenersOnce();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -98,43 +100,16 @@ class _BluetoothCalibrationScreenState extends State<BluetoothCalibrationScreen>
     )..repeat();
   }
 
-  void _handleDisconnection() {
-    if (_isDisposed ||
-        _isConnected ||
-        _isDisconnectDialogPop ||
-        _hasShownDisconnectedDialog) {
-      return;
-    }
+  void _attachListenersOnce() {
+    if (_listenersAttached) return;
+    _listenersAttached = true;
 
-    _isDisconnectDialogPop = true;
-    _hasShownDisconnectedDialog = true;
-
-    showDeviceDisconnectedBox(
-      context: context,
-      onButtonPressed: () async {
-        if (!_isDisconnectDialogPop) return;
-
-        _isDisconnectDialogPop = false;
-        Navigator.pop(context);
-
-        await Future.delayed(const Duration(milliseconds: 300));
-
-        abortProcess();
-        _navigateToDashboard();
-      },
-    );
-  }
-
-  void _checkBluetoothDeviceConnectivity() {
     _connectionStatusSubscription =
         _bleManager.connectionStatusStream.listen((isConnected) {
           if (_isDisposed) return;
 
-          if (mounted) {
-            setState(() => _isConnected = isConnected);
-          } else {
-            _isConnected = isConnected;
-          }
+          _isConnected = isConnected;
+          if (mounted) setState(() {});
 
           if (isConnected) {
             _hasShownDisconnectedDialog = false;
@@ -161,8 +136,7 @@ class _BluetoothCalibrationScreenState extends State<BluetoothCalibrationScreen>
           (data) async {
         if (_isDisposed) return;
 
-        // ✅ If we sent "%" to check handshake, and we receive "%" back
-        // => initial signal NOT received in device, so resend initial signals.
+        // ✅ handshake echo case: if we sent "%" and device echoes back "%"
         if (data.contains("%") &&
             !_inhaleReceived &&
             !_navigatedToInhaleScreen &&
@@ -176,17 +150,18 @@ class _BluetoothCalibrationScreenState extends State<BluetoothCalibrationScreen>
             debugPrint("⚠️ Device echoed '%' back => resending initial signals");
           }
 
-          // Force resend initial signals
           await _sendInitialSignal(force: true);
           return;
         }
 
+        // ✅ inhale received -> go next ONLY ONCE
         if (data.contains("inhale") && !_navigatedToInhaleScreen) {
           _inhaleReceived = true;
-          if (mounted) {
-            _stopAllProcesses();
-            _navigateToInhaleScreen();
-          }
+
+          // stop listening before navigation
+          _stopAllProcesses();
+
+          if (mounted) _navigateToInhaleScreen();
           return;
         }
 
@@ -204,6 +179,33 @@ class _BluetoothCalibrationScreenState extends State<BluetoothCalibrationScreen>
         }
       },
       onError: (_) => _showErrorDialog("Error receiving data from device."),
+    );
+  }
+
+  void _handleDisconnection() {
+    if (_isDisposed ||
+        _isConnected ||
+        _isDisconnectDialogPop ||
+        _hasShownDisconnectedDialog) {
+      return;
+    }
+
+    _isDisconnectDialogPop = true;
+    _hasShownDisconnectedDialog = true;
+
+    showDeviceDisconnectedBox(
+      context: context,
+      onButtonPressed: () async {
+        if (!_isDisconnectDialogPop) return;
+
+        _isDisconnectDialogPop = false;
+        Navigator.pop(context);
+
+        await Future.delayed(const Duration(milliseconds: 300));
+
+        abortProcess();
+        _navigateToDashboard();
+      },
     );
   }
 
@@ -255,9 +257,7 @@ class _BluetoothCalibrationScreenState extends State<BluetoothCalibrationScreen>
   }
 
   Future<void> _sendInitialSignal({bool force = false}) async {
-    // If handshake already confirmed, no need to keep resending
     if (_handshakeDone && !force) return;
-
     if (!force && allSignalSent) return;
     if (_navigatedToInhaleScreen) return;
     if (!_bleManager.isConnected) return;
@@ -272,11 +272,6 @@ class _BluetoothCalibrationScreenState extends State<BluetoothCalibrationScreen>
       print("🚀 Sending initial signal: $signal (force=$force)");
     }
 
-    if (mounted) {
-      // FloatingMessage.show(context, message: signal);
-    }
-
-    // When forcing resend, allow sending again
     if (force) {
       allSignalSent = false;
     }
@@ -297,12 +292,10 @@ class _BluetoothCalibrationScreenState extends State<BluetoothCalibrationScreen>
 
     allSignalSent = true;
 
-    // Start timer only once (or restart on force resend)
     if (!timerStarted) {
-      startWaitTimer(); // 20 seconds logic inside
+      startWaitTimer();
       timerStarted = true;
     } else if (force) {
-      // Reset the retry timer counters on force resend
       elapsedSeconds = 0;
       _awaitingPercentEcho = false;
       _percentEchoWindowTimer?.cancel();
@@ -314,7 +307,6 @@ class _BluetoothCalibrationScreenState extends State<BluetoothCalibrationScreen>
     try {
       if (_isDisposed) return;
 
-      // NOTE: keep your original behavior
       if (!allSignalSent) {
         await _sendInitialSignal();
       }
@@ -339,8 +331,6 @@ class _BluetoothCalibrationScreenState extends State<BluetoothCalibrationScreen>
     }
   }
 
-  // ✅ Timer: counts seconds, at 20s sends "%".
-  // If "%" is NOT echoed back within window => handshake success => stop retry timer.
   void startWaitTimer() {
     _timer?.cancel();
     elapsedSeconds = 0;
@@ -361,7 +351,6 @@ class _BluetoothCalibrationScreenState extends State<BluetoothCalibrationScreen>
       elapsedSeconds++;
       debugPrint("⏱️ Completed Seconds: $elapsedSeconds");
 
-      // After 20 seconds, send "%" to check if initial signal reached device
       if (elapsedSeconds == 20 && !_handshakeDone) {
         _awaitingPercentEcho = true;
 
@@ -371,36 +360,28 @@ class _BluetoothCalibrationScreenState extends State<BluetoothCalibrationScreen>
 
         await _bleManager.sendData("%");
 
-        // If device does NOT echo "%" back quickly => we assume initial signals were received
         _percentEchoWindowTimer?.cancel();
-        _percentEchoWindowTimer =
-            Timer(const Duration(seconds: 3), () {
-              if (_isDisposed) return;
-              if (_navigatedToInhaleScreen) return;
+        _percentEchoWindowTimer = Timer(const Duration(seconds: 3), () {
+          if (_isDisposed) return;
+          if (_navigatedToInhaleScreen) return;
 
-              // If still awaiting echo, it means no echo came back => success
-              if (_awaitingPercentEcho && !_handshakeDone) {
-                _awaitingPercentEcho = false;
-                _handshakeDone = true;
+          if (_awaitingPercentEcho && !_handshakeDone) {
+            _awaitingPercentEcho = false;
+            _handshakeDone = true;
 
-                if (kDebugMode) {
-                  debugPrint("✅ '%' not echoed back => handshake success. Stop retry timer.");
-                }
+            if (kDebugMode) {
+              debugPrint(
+                "✅ '%' not echoed back => handshake success. Stop retry timer.",
+              );
+            }
 
-                // Stop this retry timer since handshake succeeded
-                _timer?.cancel();
-                _timer = null;
-              }
-            });
-
-        // Important: keep counter moving if handshake fails and we resend.
-        // If handshake succeeds, timer cancels above.
+            _timer?.cancel();
+            _timer = null;
+          }
+        });
       }
 
-      // If elapsed goes too high, keep it looping to allow repeated retries.
-      // (We retry by resending initial when "%" is echoed back; that call resets elapsedSeconds.)
       if (elapsedSeconds >= 60 && !_handshakeDone) {
-        // soft reset every 60s to avoid overflow / logs spam
         elapsedSeconds = 0;
       }
     });
@@ -433,9 +414,14 @@ class _BluetoothCalibrationScreenState extends State<BluetoothCalibrationScreen>
 
   void _stopAllProcesses() {
     _connectionStatusSubscription?.cancel();
+    _connectionStatusSubscription = null;
+
     _receivedDataSubscription?.cancel();
+    _receivedDataSubscription = null;
+
     _animationController.stop();
     _audioHelper.stopAudio();
+
     _timer?.cancel();
     _timer = null;
 
@@ -444,18 +430,17 @@ class _BluetoothCalibrationScreenState extends State<BluetoothCalibrationScreen>
   }
 
   void _navigateToInhaleScreen() {
+    if (_navigatedToInhaleScreen) return;
     _navigatedToInhaleScreen = true;
 
-    Navigator.push(
+    // ✅ replace route so calibration is disposed (no background listeners)
+    Navigator.pushReplacement(
       context,
       MaterialPageRoute(
         builder: (context) =>
             BluetoothInhaleScreen(profileDetails: widget.profileDetails),
       ),
-    ).then((_) {
-      if (!mounted) return;
-      setState(() => _navigatedToInhaleScreen = false);
-    });
+    );
   }
 
   Future<bool> _showCancelTestDialog(BuildContext context) async {
@@ -502,9 +487,7 @@ class _BluetoothCalibrationScreenState extends State<BluetoothCalibrationScreen>
 
     Get.offAllNamed(
       AppRoutes.mainDashboard,
-      arguments: {
-        'profile_details': widget.profileDetails,
-      },
+      arguments: {'profile_details': widget.profileDetails},
     );
   }
 

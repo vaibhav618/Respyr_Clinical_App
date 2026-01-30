@@ -3,21 +3,16 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:respyr_clinical/clinical_app_respyr/screens/bluetooth_test/screens/bluetooth_clinical_exhale_screen.dart';
 import 'package:respyr_clinical/clinical_app_respyr/screens/bluetooth_test/services/clinical_bluetooth_manager.dart';
-import 'package:respyr_clinical/clinical_app_respyr/services/device_battery_utils.dart';
 import 'package:respyr_clinical/clinical_app_respyr/services/disconnected_error.dart';
-import 'package:respyr_clinical/clinical_dashboard/views/clinical_dashboard.dart';
 import 'package:respyr_clinical/shared/audio_helper.dart';
 import 'package:respyr_clinical/shared/colors.dart';
 
-import '../../../../clinical_dashboard/bloc/health_score_bloc.dart';
-import '../../../../clinical_dashboard/service/overall_data_by_date_service.dart';
 import '../../../../new_result/data/model/result_profile_data_model.dart';
 import '../../../../router/app_routers.dart';
 
@@ -36,16 +31,23 @@ class BluetoothInhaleScreen extends StatefulWidget {
 
 class _BluetoothInhaleScreenState extends State<BluetoothInhaleScreen> {
   final ClinicalBluetoothManager _bleManager = ClinicalBluetoothManager();
-  late StreamSubscription<bool> _connectionStatusSubscription;
-  late StreamSubscription<String> _receivedDataSubscription;
+
+  StreamSubscription<bool>? _connectionStatusSubscription;
+  StreamSubscription<String>? _receivedDataSubscription;
+
   Timer? _timer;
   bool _isConnected = false;
   int _counter = 8;
-  bool _navigationToExhaleScreen = false;
+
   bool _isDisposed = false;
   bool _isDisconnectedPop = false;
   bool _hasShownDisconnectedDialog = false;
 
+  // ✅ prevents handling blownow multiple times
+  bool _handledBlowNow = false;
+
+  // ✅ prevents attaching stream listeners multiple times
+  bool _listenersAttached = false;
 
   final storage = GetStorage();
   final AudioHelper _audioHelper = AudioHelper();
@@ -54,20 +56,22 @@ class _BluetoothInhaleScreenState extends State<BluetoothInhaleScreen> {
   void initState() {
     super.initState();
     _isConnected = _bleManager.isConnected;
-    _startTimer();
 
-    _checkBluetoothDeviceConnectivity();
+    _startTimer();
+    _attachListenersOnce();
     _startInhaleVoice();
   }
 
   Future<void> _startInhaleVoice() async {
     await Future.delayed(const Duration(seconds: 1));
+    if (_isDisposed) return;
     _audioHelper.playInhaleAudio();
   }
 
   void _startTimer() {
+    _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (!mounted || _isDisposed || _navigationToExhaleScreen) {
+      if (!mounted || _isDisposed) {
         timer.cancel();
         return;
       }
@@ -86,13 +90,61 @@ class _BluetoothInhaleScreenState extends State<BluetoothInhaleScreen> {
     });
   }
 
+  void _attachListenersOnce() {
+    if (_listenersAttached) return;
+    _listenersAttached = true;
+
+    _connectionStatusSubscription =
+        _bleManager.connectionStatusStream.listen((isConnected) {
+          if (!mounted || _isDisposed) return;
+
+          setState(() => _isConnected = isConnected);
+
+          if (isConnected) {
+            _isDisconnectedPop = false;
+            _hasShownDisconnectedDialog = false;
+          }
+
+          if (!isConnected &&
+              !_isDisposed &&
+              !_isDisconnectedPop &&
+              !_hasShownDisconnectedDialog) {
+            Future.delayed(const Duration(milliseconds: 500)).then((_) {
+              if (!mounted || _isDisposed || _isConnected) return;
+
+              _setCancelOrDisconnectFlag();
+              _timer?.cancel();
+              _audioHelper.stopAudio();
+              _handleDisconnection();
+            });
+          }
+        }, onError: (_) {
+          if (mounted) _showErrorDialog("Connection status error.");
+        });
+
+    _receivedDataSubscription = _bleManager.receivedDataStream.listen((data) {
+      if (!mounted || _isDisposed) return;
+
+      if (kDebugMode) {
+        print("New Data Received InhaleScreen: $data");
+      }
+
+      // ✅ handle only ONCE
+      if (!_handledBlowNow && data.contains("blownow")) {
+        _handledBlowNow = true;
+
+        // ✅ stop listening BEFORE navigation (prevents double receive)
+        _stopAllProcesses();
+
+        _goToExhaleScreen(baseValue: data);
+      }
+    }, onError: (_) {
+      if (mounted) _showErrorDialog("Error receiving data from device.");
+    });
+  }
+
   void _handleDisconnection() {
-    if (_isDisposed ||
-        _isConnected ||
-        _isDisconnectedPop ||
-        _hasShownDisconnectedDialog) {
-      return;
-    }
+    if (_isDisposed || _isConnected || _isDisconnectedPop || _hasShownDisconnectedDialog) return;
 
     _isDisconnectedPop = true;
     _hasShownDisconnectedDialog = true;
@@ -110,93 +162,35 @@ class _BluetoothInhaleScreenState extends State<BluetoothInhaleScreen> {
     );
   }
 
-  void _checkBluetoothDeviceConnectivity() {
-    _connectionStatusSubscription = _bleManager.connectionStatusStream.listen(
-      (isConnected) {
-        if (!mounted) return;
-
-        setState(() => _isConnected = isConnected);
-
-        if (isConnected) {
-          _isDisconnectedPop = false;
-          _hasShownDisconnectedDialog = false;
-        }
-
-        if (!isConnected &&
-            !_isDisposed &&
-            !_isDisconnectedPop &&
-            !_hasShownDisconnectedDialog) {
-          Future.delayed(const Duration(milliseconds: 500)).then((_) {
-            if (!mounted || _isDisposed || _isConnected) return;
-            _setCancelOrDisconnectFlag();
-            _timer!.cancel();
-            _audioHelper.stopAudio();
-            _handleDisconnection();
-          });
-        }
-        _hasShownDisconnectedDialog = false;
-      },
-      onError: (error) {
-        if (mounted) _showErrorDialog("Connection status error.");
-      },
-    );
-
-    _receivedDataSubscription = _bleManager.receivedDataStream.listen(
-      (data) {
-        if (!mounted || _isDisposed) return;
-
-        if (kDebugMode) {
-          print("New Data Received InhaleScreen: $data");
-        }
-
-        if (data.contains("blownow") && !_navigationToExhaleScreen) {
-          _stopAllProcesses();
-          _receivedDataSubscriptionHandler(data);
-        }
-      },
-      onError: (error) {
-        if (mounted) _showErrorDialog("Error receiving data from device.");
-      },
-    );
-  }
-
-  void _receivedDataSubscriptionHandler(String data) {
-    final baseValue = data;
-    // if (kDebugMode) {
-    //   print("Base Value Received InhaleScreen: $baseValue");
-    // }
-
-    _navigationToExhaleScreen = true;
-    Navigator.of(context).popUntil((route) => route.isFirst);
-
-    Navigator.push(
+  void _goToExhaleScreen({required String baseValue}) {
+    // ✅ replace route so inhale screen is disposed
+    Navigator.pushReplacement(
       context,
       MaterialPageRoute(
-        builder:
-            (context) => BluetoothExhaleScreen(
-              baseValue: baseValue,
-              profileDetails: widget.profileDetails,
-            ),
+        builder: (context) => BluetoothExhaleScreen(
+          baseValue: baseValue,
+          profileDetails: widget.profileDetails,
+        ),
       ),
-    ).then((_) {
-      if (mounted) {
-        setState(() {
-          _navigationToExhaleScreen = false;
-        });
-      }
-    });
+    );
   }
 
   Future<void> _setCancelOrDisconnectFlag() async {
-    final storage = GetStorage();
     final DateTime now = DateTime.now();
     await storage.write('cancel_or_disconnect_time', now.toIso8601String());
   }
 
   void _stopAllProcesses() {
-    _isDisposed = true;
-    _connectionStatusSubscription.cancel();
-    _receivedDataSubscription.cancel();
+    _timer?.cancel();
+    _timer = null;
+
+    _audioHelper.stopAudio();
+
+    _connectionStatusSubscription?.cancel();
+    _connectionStatusSubscription = null;
+
+    _receivedDataSubscription?.cancel();
+    _receivedDataSubscription = null;
   }
 
   Future<bool> _showCancelTestDialog(BuildContext context) async {
@@ -205,7 +199,6 @@ class _BluetoothInhaleScreenState extends State<BluetoothInhaleScreen> {
     showCancelTestBox(
       context: context,
       cancelTestButtonPressed: () async {
-
         didCancel = true;
 
         abortProcess();
@@ -222,27 +215,17 @@ class _BluetoothInhaleScreenState extends State<BluetoothInhaleScreen> {
     return didCancel;
   }
 
-
   Future<void> _exitToDashboard() async {
     _stopAllProcesses();
-    _setCancelOrDisconnectFlag();
-    if (mounted) {
-      _navigateToDashboard();
-    }
+    await _setCancelOrDisconnectFlag();
+    if (mounted) _navigateToDashboard();
   }
 
-
-
-
   void _navigateToDashboard() {
-    if (Get.isOverlaysOpen) {
-      Get.back();
-    }
+    if (Get.isOverlaysOpen) Get.back();
     Get.offAllNamed(
       AppRoutes.mainDashboard,
-      arguments: {
-        'profile_details': widget.profileDetails,
-      },
+      arguments: {'profile_details': widget.profileDetails},
     );
   }
 
@@ -252,22 +235,19 @@ class _BluetoothInhaleScreenState extends State<BluetoothInhaleScreen> {
     }
   }
 
-
-
   void _showErrorDialog(String message) {
     showDialog(
       context: context,
-      builder:
-          (context) => AlertDialog(
-            title: const Text("Error"),
-            content: Text(message),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text("OK"),
-              ),
-            ],
+      builder: (context) => AlertDialog(
+        title: const Text("Error"),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text("OK"),
           ),
+        ],
+      ),
     );
   }
 
@@ -288,17 +268,15 @@ class _BluetoothInhaleScreenState extends State<BluetoothInhaleScreen> {
         children: [
           _isConnected
               ? Text(
-                "Ble device connected",
-                style: GoogleFonts.mulish(fontSize: 15, color: Colors.green),
-              )
+            "Ble device connected",
+            style: GoogleFonts.mulish(fontSize: 15, color: Colors.green),
+          )
               : Text(
-                "Ble device not connected",
-                style: GoogleFonts.mulish(fontSize: 15, color: Colors.red),
-              ),
+            "Ble device not connected",
+            style: GoogleFonts.mulish(fontSize: 15, color: Colors.red),
+          ),
           ElevatedButton(
-            onPressed: () {
-              _connectToDevice();
-            },
+            onPressed: _connectToDevice,
             child: const Text("Connect"),
           ),
         ],
@@ -309,11 +287,7 @@ class _BluetoothInhaleScreenState extends State<BluetoothInhaleScreen> {
   @override
   void dispose() {
     _isDisposed = true;
-
-    _timer?.cancel();
-    _connectionStatusSubscription.cancel();
-    _receivedDataSubscription.cancel();
-
+    _stopAllProcesses();
     super.dispose();
   }
 
@@ -326,7 +300,6 @@ class _BluetoothInhaleScreenState extends State<BluetoothInhaleScreen> {
       ),
     );
 
-    // batteryPercentage = storage.read('batteryPercentage');
     return PopScope(
       canPop: false,
       child: Scaffold(
@@ -340,18 +313,15 @@ class _BluetoothInhaleScreenState extends State<BluetoothInhaleScreen> {
               Stack(
                 children: [
                   Center(
-                    child:
-                        _counter > 4
-                            ? const SizedBox(
-                              height: 350,
-                              width: 375,
-                              child: Image(
-                                image: AssetImage(
-                                  'assets/gif_images/inhale.gif',
-                                ),
-                              ),
-                            )
-                            : SvgPicture.asset("assets/inhale_hold.svg"),
+                    child: _counter > 4
+                        ? const SizedBox(
+                      height: 350,
+                      width: 375,
+                      child: Image(
+                        image: AssetImage('assets/gif_images/inhale.gif'),
+                      ),
+                    )
+                        : SvgPicture.asset("assets/inhale_hold.svg"),
                   ),
                   Padding(
                     padding: const EdgeInsets.symmetric(
@@ -376,16 +346,6 @@ class _BluetoothInhaleScreenState extends State<BluetoothInhaleScreen> {
                           ),
                         ),
                         const Spacer(),
-                        // Text(
-                        //   "$batteryPercentage%",
-                        //   style: TextStyle(
-                        //     color: AppColor.primaryBlackColor,
-                        //     fontWeight: FontWeight.w600,
-                        //     fontSize: 8,
-                        //   ),
-                        // ),
-                        // const SizedBox(width: 2),
-                        //BatteryUtils.batteryIndicatorWidget(batteryPercentage),
                         IconButton(
                           onPressed: () {
                             setState(() {

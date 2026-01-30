@@ -49,6 +49,9 @@ class OverallDataByDateService {
       if (response.statusCode == 200) {
         final jsonResponse = json.decode(response.body);
 
+
+
+
         // Log success (no PHI!)
         LogManager().logEvent(
           event: 'FETCH_OVER_ALL_DATA_SUCCESS',

@@ -75,17 +75,32 @@ class _BluetoothClinicalDeviceConnectivityState
   final storage = GetStorage();
   Key _freshKey = UniqueKey();
 
+  // ✅ prevents attaching multiple listeners
+  bool _listenersAttached = false;
+
+  // ✅ de-dup quick repeats (prevents “same message printed twice”)
+  String _lastMsg = "";
+  int _lastMsgAtMs = 0;
+  static const int _dedupWindowMs = 200;
+
   @override
   void initState() {
     super.initState();
 
-    _setupConnectionStatusListener();
-    _startDataListener();
+    _attachListenersOnce();
 
     // Sync UI with existing BLE connection
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _syncUiWithExistingConnection();
     });
+  }
+
+  void _attachListenersOnce() {
+    if (_listenersAttached) return;
+    _listenersAttached = true;
+
+    _setupConnectionStatusListener();
+    _startDataListener();
   }
 
   void _syncUiWithExistingConnection() {
@@ -103,16 +118,25 @@ class _BluetoothClinicalDeviceConnectivityState
 
   @override
   void dispose() {
+    _stopAllProcesses();
+    super.dispose();
+  }
+
+  void _stopAllProcesses() {
     _isDisposed = true;
     _isDialogShowing = false;
 
     _dataStreamSubscription?.cancel();
+    _dataStreamSubscription = null;
+
     _connectionSub?.cancel();
+    _connectionSub = null;
 
     _connectingTimer?.cancel();
-    _batteryCaptureTimeoutTimer?.cancel();
+    _connectingTimer = null;
 
-    super.dispose();
+    _batteryCaptureTimeoutTimer?.cancel();
+    _batteryCaptureTimeoutTimer = null;
   }
 
   // -----------------------------
@@ -125,18 +149,11 @@ class _BluetoothClinicalDeviceConnectivityState
     try {
       state = await FlutterBluePlus.adapterState.first;
     } catch (_) {
-      // if adapterState stream fails for any reason, be safe
       state = BluetoothAdapterState.unknown;
     }
 
-    // ✅ If already ON -> continue
     if (state == BluetoothAdapterState.on) return true;
 
-    // -----------------------------
-    // 🍎 iOS behavior:
-    // - App CANNOT turn on Bluetooth programmatically
-    // - Only option: show dialog + open Settings
-    // -----------------------------
     if (Platform.isIOS) {
       final openSettings = await showDialog<bool>(
         context: context,
@@ -160,16 +177,11 @@ class _BluetoothClinicalDeviceConnectivityState
       );
 
       if (openSettings == true) {
-        await openAppSettings(); // iOS: takes user to app settings
+        await openAppSettings();
       }
       return false;
     }
 
-    // -----------------------------
-    // 🤖 Android behavior:
-    // - Can attempt native enable (some devices)
-    // - Else open settings
-    // -----------------------------
     if (Platform.isAndroid) {
       final turnOn = await showDialog<bool>(
         context: context,
@@ -194,14 +206,10 @@ class _BluetoothClinicalDeviceConnectivityState
 
       if (turnOn != true) return false;
 
-      // 🔥 Try native BT enable (works on some devices)
       try {
         await FlutterBluePlus.turnOn();
-      } catch (_) {
-        // ignore
-      }
+      } catch (_) {}
 
-      // ⏳ wait a bit for user/system action
       await Future.delayed(const Duration(seconds: 2));
 
       BluetoothAdapterState newState;
@@ -211,16 +219,14 @@ class _BluetoothClinicalDeviceConnectivityState
         newState = BluetoothAdapterState.unknown;
       }
 
-      // ❌ Still OFF → open system settings
       if (newState != BluetoothAdapterState.on) {
-        await openAppSettings(); // from permission_handler
+        await openAppSettings();
         return false;
       }
 
       return true;
     }
 
-    // Other platforms: allow flow (or handle as needed)
     return true;
   }
 
@@ -239,17 +245,13 @@ class _BluetoothClinicalDeviceConnectivityState
         _isConnectingInProgress = false;
         _connectingTimer?.cancel();
       } else {
-        // Only show disconnect popup if:
-        // - not scanning
-        // - not disposed
-        // - no dialog already
-        // - not already shown
         if (!_isDisposed &&
             !isScanningDevice &&
             !_isDialogShowing &&
-            !_hasShownDisconnectedDialog) {
+            !_hasShownDisconnectedDialog &&
+            !_navigatedToNext) {
           Future.delayed(const Duration(milliseconds: 350)).then((_) {
-            if (!mounted || _isDisposed) return;
+            if (!mounted || _isDisposed || _navigatedToNext) return;
             _handleDisconnection();
           });
         }
@@ -272,7 +274,8 @@ class _BluetoothClinicalDeviceConnectivityState
         isScanningDevice ||
         _isDialogShowing ||
         _hasShownDisconnectedDialog ||
-        _hasShownRetryDialog) {
+        _hasShownRetryDialog ||
+        _navigatedToNext) {
       return;
     }
 
@@ -302,10 +305,21 @@ class _BluetoothClinicalDeviceConnectivityState
     _dataStreamSubscription?.cancel();
 
     _dataStreamSubscription = _bleManager.receivedDataStream.listen(
-          (data) async {
-        if (!mounted || _isDisposed) return;
+          (raw) async {
+        if (!mounted || _isDisposed || _navigatedToNext) return;
 
-        data = data.trim();
+        String data = raw.trim();
+
+        // ✅ de-dup: ignore same msg within small window
+        final now = DateTime.now().millisecondsSinceEpoch;
+        if (data.isNotEmpty &&
+            data == _lastMsg &&
+            (now - _lastMsgAtMs) <= _dedupWindowMs) {
+          return;
+        }
+        _lastMsg = data;
+        _lastMsgAtMs = now;
+
         debugPrint("📨 Received: '$data'");
 
         if (data.contains("120")) {
@@ -316,7 +330,7 @@ class _BluetoothClinicalDeviceConnectivityState
           }
         }
 
-        // Step 1: Confirm device ON (your old logic)
+        // Step 1: Confirm device ON
         if (data == "%" && !_receivedPercentResponse && _hasSentBraceCommand) {
           _receivedPercentResponse = true;
           debugPrint(
@@ -328,21 +342,19 @@ class _BluetoothClinicalDeviceConnectivityState
             });
           }
 
-          // Navigate
           await _navigateToNextIfNeeded();
           return;
         }
 
         // Step 2: Hardware ID
         if (data.startsWith("H") && !isHardwareIdProcessed) {
-          final id = data.replaceAll("H", "").trim();
+          final id = data.replaceFirst("H", "").trim();
 
           final prefs = await SharedPreferences.getInstance();
           await prefs.setString('hardware_id', id);
 
           _processHardwareId(id);
 
-          // Mark processed + navigate
           if (mounted) {
             setState(() => isHardwareIdProcessed = true);
           }
@@ -361,9 +373,15 @@ class _BluetoothClinicalDeviceConnectivityState
 
     _navigatedToNext = true;
 
-    // stop listening so old screen doesn't react
+    // ✅ Cancel BOTH streams before navigation
     await _dataStreamSubscription?.cancel();
     _dataStreamSubscription = null;
+
+    await _connectionSub?.cancel();
+    _connectionSub = null;
+
+    _connectingTimer?.cancel();
+    _connectingTimer = null;
 
     if (!mounted || _isDisposed) return;
 
@@ -391,7 +409,6 @@ class _BluetoothClinicalDeviceConnectivityState
         return;
       }
 
-      // ✅ if BT is OFF, ask every time
       final btOn = await _ensureBluetoothOn();
       if (!btOn) {
         _isConnectingInProgress = false;
@@ -405,7 +422,6 @@ class _BluetoothClinicalDeviceConnectivityState
         return;
       }
 
-      // Reset flags for fresh attempt
       _hasShownRetryDialog = false;
       _hasShownDisconnectedDialog = false;
 
@@ -423,19 +439,16 @@ class _BluetoothClinicalDeviceConnectivityState
         });
       }
 
-      // Stop any existing connection cleanly (only if connected)
       if (_bleManager.isConnected) {
         await _bleManager.disconnect();
         await Future.delayed(const Duration(milliseconds: 600));
         _bleManager.reset();
       }
 
-      // Scanning timeout -> show retry dialog
       _connectingTimer?.cancel();
       _connectingTimer = Timer(const Duration(seconds: 30), () {
         if (_isDisposed || !mounted) return;
 
-        // If still not connected after 30 seconds, show retry dialog
         if (!_bleManager.isConnected && !_hasShownRetryDialog) {
           setState(() {
             isScanningDevice = false;
@@ -446,14 +459,10 @@ class _BluetoothClinicalDeviceConnectivityState
         }
       });
 
-      // IMPORTANT: do NOT set connected here manually.
-      // Let BLE manager stream update UI.
       await _bleManager.scanAndConnect();
 
-      // After scan attempt completes:
       if (_isDisposed || !mounted) return;
 
-      // If connected, update UI (stream should do it, but safe fallback)
       final connectedNow = _bleManager.isConnected;
       setState(() {
         _isConnected = connectedNow;
@@ -463,6 +472,7 @@ class _BluetoothClinicalDeviceConnectivityState
       });
 
       _connectingTimer?.cancel();
+      _connectingTimer = null;
     } catch (e) {
       if (kDebugMode) print("❌ _connect() error: $e");
       if (mounted && !_isDisposed) {
@@ -553,9 +563,6 @@ class _BluetoothClinicalDeviceConnectivityState
     }
   }
 
-
-
-
   // -----------------------------
   // UI + Dialog Helpers
   // -----------------------------
@@ -579,9 +586,6 @@ class _BluetoothClinicalDeviceConnectivityState
 
   @override
   Widget build(BuildContext context) {
-    final height = MediaQuery.of(context).size.height;
-    final width = MediaQuery.of(context).size.width;
-
     SystemChrome.setSystemUIOverlayStyle(
       SystemUiOverlayStyle(
         statusBarColor: AppColor.whiteColor,
@@ -597,59 +601,31 @@ class _BluetoothClinicalDeviceConnectivityState
           onPressed: () {
             _showCancelTestDialog(context);
           },
-          icon: Icon(Icons.close),
+          icon: const Icon(Icons.close),
         ),
       ),
       body: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Spacer(),
-                SvgPicture.asset(
-                  _isConnected
-                      ? "assets/connected_devices.svg"
-                      : "assets/not_connected.svg",
-                ),
-                _buildConnectionSubtitle(),
-                SizedBox(
-                  height: 10,
-                ),
-                _buildConnectionTitle(),
-                Spacer(
-                  flex: 2,
-                )
-              ],
-            ),
-          )),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              const Spacer(),
+              SvgPicture.asset(
+                _isConnected
+                    ? "assets/connected_devices.svg"
+                    : "assets/not_connected.svg",
+              ),
+              _buildConnectionSubtitle(),
+              const SizedBox(height: 10),
+              _buildConnectionTitle(),
+              const Spacer(flex: 2),
+            ],
+          ),
+        ),
+      ),
       bottomNavigationBar: SafeArea(child: _buildBottomNavigationBar()),
     );
-  }
-
-  void _handlePop(BuildContext context) async {
-    bool shouldExit = await _handleCancelTest();
-    if (shouldExit) {
-      if (Get.isOverlaysOpen) Get.back();
-      Get.back(result: true);
-    }
-  }
-
-  Future<bool> _handleCancelTest() async {
-    bool confirmed = await showCancelTestDialog(Get.context!);
-    if (confirmed) {
-      if (Get.isOverlaysOpen) {
-        Get.back();
-      }
-
-      Get.offAllNamed(
-        AppRoutes.mainDashboard,
-        arguments: {
-          'profile_details': widget.profileDetails,
-        },
-      );
-    }
-    return confirmed;
   }
 
   Widget _buildConnectionSubtitle() {
@@ -688,8 +664,6 @@ class _BluetoothClinicalDeviceConnectivityState
     showCancelTestBox(
       context: context,
       cancelTestButtonPressed: () async {
-        debugPrint("🛑 Cancel button pressed");
-
         didCancel = true;
 
         abortProcess();
@@ -698,7 +672,6 @@ class _BluetoothClinicalDeviceConnectivityState
         }
 
         await Future.delayed(const Duration(milliseconds: 300));
-
         await _exitToDashboard();
       },
     );
@@ -719,10 +692,6 @@ class _BluetoothClinicalDeviceConnectivityState
     }
   }
 
-  void _stopAllProcesses() {
-    _isDisposed = true;
-  }
-
   void _navigateToDashboard() {
     if (Get.isOverlaysOpen) {
       Get.back();
@@ -735,52 +704,6 @@ class _BluetoothClinicalDeviceConnectivityState
     );
   }
 
-  Widget _buildOtgButton(double width) {
-    return (!_isConnected && isScanningDevice)
-        ? Center(
-      child: SizedBox(
-        child: TextButton(
-          onPressed: () => Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const OtgConnection()),
-          ),
-          style: ButtonStyle(
-            side: WidgetStateProperty.all(
-              BorderSide(color: AppColor.primaryBlueColor),
-            ),
-            backgroundColor: WidgetStateProperty.all(Colors.transparent),
-            overlayColor: WidgetStateProperty.resolveWith<Color?>(
-                  (Set<WidgetState> states) {
-                if (states.contains(WidgetState.pressed)) {
-                  return Colors.blue.withAlpha(47);
-                } else if (states.contains(WidgetState.hovered)) {
-                  return Colors.blue.withAlpha(26);
-                }
-                return null;
-              },
-            ),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              Text(
-                ResString.issuewithDevice,
-                style: GoogleFonts.mulish(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: AppColor.primaryBlueColor,
-                ),
-              ),
-              SvgPicture.asset(
-                  "assets/svg_icons/right_arrow_button.svg"),
-            ],
-          ),
-        ),
-      ),
-    )
-        : const SizedBox.shrink();
-  }
-
   Widget _buildBottomNavigationBar() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
@@ -789,9 +712,10 @@ class _BluetoothClinicalDeviceConnectivityState
         children: [
           _buildHardwareIdProcessingMessage(),
           SizedBox(
-              width: double.infinity,
-              height: 52,
-              child: _buildConnectOrProceedButton()),
+            width: double.infinity,
+            height: 52,
+            child: _buildConnectOrProceedButton(),
+          ),
         ],
       ),
     );
@@ -812,7 +736,6 @@ class _BluetoothClinicalDeviceConnectivityState
   }
 
   Widget _buildConnectOrProceedButton() {
-    // Connected state -> "Next" behavior
     if (_bleManager.isConnected) {
       return ElevatedButton(
         onPressed: (isHardwareIdProcessing && !_isButtonEnabled)
@@ -874,7 +797,6 @@ class _BluetoothClinicalDeviceConnectivityState
       );
     }
 
-    // Not connected -> "Connect Device"
     return ElevatedButton(
       onPressed: isScanningDevice
           ? null
@@ -885,7 +807,6 @@ class _BluetoothClinicalDeviceConnectivityState
           return;
         }
 
-        // ✅ ask every time BT is OFF (even before _connect())
         final btOn = await _ensureBluetoothOn();
         if (!btOn) return;
 
@@ -923,62 +844,8 @@ class _BluetoothClinicalDeviceConnectivityState
     );
   }
 
-  void _showUsbAlreadyConnectedDialog() {
-    if (_isDialogShowing || !mounted || _isDisposed) return;
-    _isDialogShowing = true;
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => Dialog(
-        backgroundColor: AppColor.whiteColor,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(20.0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Text(
-                "Device Connected via USB",
-                textAlign: TextAlign.center,
-                style: GoogleFonts.poppins(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  color: const Color(0xFFEA5455),
-                ),
-              ),
-              SizedBox(height: MediaQuery.of(context).size.height * 0.02),
-              Text(
-                "Please disconnect USB cable and try Bluetooth again.",
-                textAlign: TextAlign.center,
-                style: GoogleFonts.poppins(
-                  color: AppColor.textLightColor,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w400,
-                ),
-              ),
-              const SizedBox(height: 10),
-              _buildHelpLink(),
-              SizedBox(height: MediaQuery.of(context).size.height * 0.01),
-              const Divider(),
-              _buildOkButtonCloseDialog(),
-            ],
-          ),
-        ),
-      ),
-    ).then((_) {
-      _isDialogShowing = false;
-    });
-  }
-
   void _showRetryDialog() {
-    if (_isDisposed ||
-        _bleManager.isConnected ||
-        isScanningDevice ||
-        _isDialogShowing) {
+    if (_isDisposed || _bleManager.isConnected || isScanningDevice || _isDialogShowing) {
       return;
     }
 
@@ -1090,9 +957,6 @@ class _BluetoothClinicalDeviceConnectivityState
   Future<bool> checkAndRequestPermissions() async {
     if (!Platform.isAndroid) return true;
 
-    if (kDebugMode) print("Checking Android permissions...");
-
-    // Location (still required on many devices for BLE scan)
     var locationStatus = await Permission.location.status;
     if (!locationStatus.isGranted) {
       final consent = await _showCustomLocationDialog();
@@ -1107,7 +971,6 @@ class _BluetoothClinicalDeviceConnectivityState
       }
     }
 
-    // Android 12+
     var bluetoothScanStatus = await Permission.bluetoothScan.status;
     if (!bluetoothScanStatus.isGranted) {
       bluetoothScanStatus = await Permission.bluetoothScan.request();
@@ -1120,7 +983,6 @@ class _BluetoothClinicalDeviceConnectivityState
       if (!bluetoothConnectStatus.isGranted) return false;
     }
 
-    if (kDebugMode) print("✅ All permissions granted.");
     return true;
   }
 

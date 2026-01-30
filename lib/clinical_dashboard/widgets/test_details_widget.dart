@@ -22,6 +22,10 @@ class TestDetailsWidget extends StatelessWidget {
     final int? testLimitCount = int.tryParse(clinicalTestCountData?[testNoKey]?.toString() ?? '');
     final int? testTokenCount = int.tryParse(clinicalTestCountData?[scoreCountKey]?.toString() ?? '');
 
+
+    print("scoreCountKey :" + testTokenCount.toString() );
+    print("scoreCountKey :" + clinicalTestCountData.toString() );
+
     final int used = testTokenCount ?? 0;
     final int total = testLimitCount ?? 1; // avoid divide by zero
     final double progress = used / total;  // corrected
