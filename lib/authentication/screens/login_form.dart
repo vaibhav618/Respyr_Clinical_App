@@ -6,7 +6,6 @@ import 'package:respyr_clinical/authentication/screens/terms_privacy_widget.dart
 
 import '../services/forgot_password.dart';
 
-
 class LoginForm extends StatefulWidget {
   final GlobalKey<FormState> formKey;
   final TextEditingController nameController;
@@ -38,168 +37,219 @@ class _LoginFormState extends State<LoginForm> {
   Widget build(BuildContext context) {
     final height = MediaQuery.of(context).size.height;
 
-    return Column(
-      children: [
-        Form(
-          key: widget.formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
-                child: Text(
-                  "Login with password",
-                  style: GoogleFonts.poppins(
-                    color: const Color(0xFF252525),
-                    fontSize: 34,
-                    fontWeight: FontWeight.w400,
-                    letterSpacing: -2.04,
-                  ),
-                ),
-              ),
-              SizedBox(height: height * 0.025),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: TextFormField(
-                  controller: widget.nameController,
-                  style: GoogleFonts.poppins(fontSize: 15, color: Colors.black),
-                  decoration: _inputDecoration(
-                    "Enter admin id or phone no *",
-                    SvgPicture.asset("assets/admin_icon.svg", width: 24, height: 24,),
-                    widget.adminIdError,
-                  ),
-                  validator: (value) => value == null || value.trim().isEmpty
-                      ? 'Admin ID is required'
-                      : null,
-                ),
-              ),
-              SizedBox(height: height * 0.025),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: TextFormField(
-                  controller: widget.passwordController,
-                  obscureText: _obscureText,
-                  style: GoogleFonts.poppins(fontSize: 15, color: Colors.black),
-                  decoration: _inputDecoration(
-                    "Enter password *",
-                    SvgPicture.asset("assets/password_icon.svg", width: 24,height: 24,),
-                    widget.passwordError,
-                  ).copyWith(
-                    suffixIcon: IconButton(
-                      icon: Icon(
-                        _obscureText ? Icons.visibility_off : Icons.visibility,
-                        color: const Color(0xFF737373),
-                      ),
-                      onPressed: () => setState(() => _obscureText = !_obscureText),
+    // Wrapped the layout in LayoutBuilder + SingleChildScrollView
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return SingleChildScrollView(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              minHeight:
+                  constraints
+                      .maxHeight, // Ensures it takes full height when keyboard is closed
+            ),
+            child: IntrinsicHeight(
+              // Allows the Spacer() to work inside a scroll view
+              child: Column(
+                children: [
+                  Form(
+                    key: widget.formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                            vertical: 20,
+                            horizontal: 16,
+                          ),
+                          child: Text(
+                            "Login with password",
+                            style: GoogleFonts.poppins(
+                              color: const Color(0xFF252525),
+                              fontSize: 34,
+                              fontWeight: FontWeight.w400,
+                              letterSpacing: -2.04,
+                            ),
+                          ),
+                        ),
+                        SizedBox(height: height * 0.025),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: TextFormField(
+                            controller: widget.nameController,
+                            style: GoogleFonts.poppins(
+                              fontSize: 15,
+                              color: Colors.black,
+                            ),
+                            decoration: _inputDecoration(
+                              "Enter admin id or phone no *",
+                              SvgPicture.asset(
+                                "assets/admin_icon.svg",
+                                width: 24,
+                                height: 24,
+                              ),
+                              widget.adminIdError,
+                            ),
+                            validator:
+                                (value) =>
+                                    value == null || value.trim().isEmpty
+                                        ? 'Admin ID is required'
+                                        : null,
+                          ),
+                        ),
+                        SizedBox(height: height * 0.025),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: TextFormField(
+                            controller: widget.passwordController,
+                            obscureText: _obscureText,
+                            style: GoogleFonts.poppins(
+                              fontSize: 15,
+                              color: Colors.black,
+                            ),
+                            decoration: _inputDecoration(
+                              "Enter password *",
+                              SvgPicture.asset(
+                                "assets/password_icon.svg",
+                                width: 24,
+                                height: 24,
+                              ),
+                              widget.passwordError,
+                            ).copyWith(
+                              suffixIcon: IconButton(
+                                icon: Icon(
+                                  _obscureText
+                                      ? Icons.visibility_off
+                                      : Icons.visibility,
+                                  color: const Color(0xFF737373),
+                                ),
+                                onPressed:
+                                    () => setState(
+                                      () => _obscureText = !_obscureText,
+                                    ),
+                              ),
+                            ),
+                            validator:
+                                (value) =>
+                                    value == null || value.trim().isEmpty
+                                        ? 'Password is required'
+                                        : null,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  validator: (value) => value == null || value.trim().isEmpty
-                      ? 'Password is required'
-                      : null,
-                ),
-              ),
-            ],
-          ),
-        ),
-        SizedBox(height: height * 0.025),
-        GestureDetector(
-            onTap: (){
-              // Navigate using GetX
-              Get.to(
-                    () => ForgotPassword(
-                ),
-              )?.then((_) => ());
-            },
+                  SizedBox(height: height * 0.025),
+                  GestureDetector(
+                    onTap: () {
+                      // Navigate using GetX
+                      Get.to(() => ForgotPassword())?.then((_) => ());
+                    },
 
-            child: Text("Forgot password?",
+                    child: Text(
+                      "Forgot password?",
 
-              style: GoogleFonts.poppins(
-                  color: const Color(0xFF308BF9),
-                  fontSize: 15,
-                  fontWeight: FontWeight.w400,
-                  letterSpacing: -0.30,
-                  decoration: TextDecoration.underline,
-                  decorationColor: const Color(0xFF308BF9)
-              ),
-            )
-        ),
-        const Spacer(),
-        Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 30),
-              child: buildPrivacyText(context),
-            ),
-            SizedBox(height: height * 0.030),
-            Padding(
-              padding:
-              const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-              child: Row(
-                children: [
-                  SizedBox(
-                    height: 60,
-                    width: 60,
-                    child: ElevatedButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      style: ElevatedButton.styleFrom(
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(40),
-                        ),
-                        backgroundColor: Colors.white,
-                        elevation: 0,
-                        padding: const EdgeInsets.all(9),
-                      ),
-                      child: const Icon(
-                        Icons.keyboard_arrow_left_sharp,
-                        size: 24,
-                        color: Color(0xFF535359),
+                      style: GoogleFonts.poppins(
+                        color: const Color(0xFF308BF9),
+                        fontSize: 15,
+                        fontWeight: FontWeight.w400,
+                        letterSpacing: -0.30,
+                        decoration: TextDecoration.underline,
+                        decorationColor: const Color(0xFF308BF9),
                       ),
                     ),
                   ),
                   const Spacer(),
-                  SizedBox(
-                    width: 60,
-                    height: 60,
-                    child: ElevatedButton(
-                      onPressed: (){
-                       if(!widget.isLoading){
-                         widget.onLoginPressed();
-                       }
-                      },
-                      style: ElevatedButton.styleFrom(
-                        elevation: 0,
-                        backgroundColor: const Color(0xFF308BF9),
-                        padding: const EdgeInsets.all(9),
+                  SizedBox(height: 5),
+                  Column(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 30),
+                        child: buildPrivacyText(context),
                       ),
-                      child: widget.isLoading ? CircularProgressIndicator(color: Colors.white,) : Icon(
-                        Icons.keyboard_arrow_right_sharp,
-                        size: 24,
-                        color: Colors.white,
+                      SizedBox(height: height * 0.001),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 16,
+                        ),
+                        child: Row(
+                          children: [
+                            SizedBox(
+                              height: 60,
+                              width: 60,
+                              child: ElevatedButton(
+                                onPressed: () => Navigator.of(context).pop(),
+                                style: ElevatedButton.styleFrom(
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(40),
+                                  ),
+                                  backgroundColor: Colors.white,
+                                  elevation: 0,
+                                  padding: const EdgeInsets.all(9),
+                                ),
+                                child: const Icon(
+                                  Icons.keyboard_arrow_left_sharp,
+                                  size: 24,
+                                  color: Color(0xFF535359),
+                                ),
+                              ),
+                            ),
+                            const Spacer(),
+                            SizedBox(
+                              width: 60,
+                              height: 60,
+                              child: ElevatedButton(
+                                onPressed: () {
+                                  if (!widget.isLoading) {
+                                    widget.onLoginPressed();
+                                  }
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  elevation: 0,
+                                  backgroundColor: const Color(0xFF308BF9),
+                                  padding: const EdgeInsets.all(9),
+                                ),
+                                child:
+                                    widget.isLoading
+                                        ? const CircularProgressIndicator(
+                                          color: Colors.white,
+                                        )
+                                        : const Icon(
+                                          Icons.keyboard_arrow_right_sharp,
+                                          size: 24,
+                                          color: Colors.white,
+                                        ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
+                    ],
                   ),
                 ],
               ),
             ),
-          ],
-        ),
-      ],
+          ),
+        );
+      },
     );
   }
 
-  InputDecoration _inputDecoration(String hint, SvgPicture icon, String? errorText) {
+  InputDecoration _inputDecoration(
+    String hint,
+    SvgPicture icon,
+    String? errorText,
+  ) {
     return InputDecoration(
       hintText: hint,
       prefixIcon: Container(
-        padding: const EdgeInsets.all(12), // Adjust padding to control visual size
+        padding: const EdgeInsets.all(
+          12,
+        ), // Adjust padding to control visual size
         width: 48,
         height: 48,
         alignment: Alignment.center,
-        child: SizedBox(
-          width: 20,
-          height: 20,
-          child: icon,
-        ),
+        child: SizedBox(width: 20, height: 20, child: icon),
       ),
       errorText: errorText,
       enabledBorder: OutlineInputBorder(
@@ -231,5 +281,4 @@ class _LoginFormState extends State<LoginForm> {
       ),
     );
   }
-
 }

@@ -11,7 +11,8 @@ class CheckAbortSheet {
   }) {
     showModalBottomSheet(
       context: context,
-      isScrollControlled: false,
+      isScrollControlled:
+          true, // Allows the sheet to take full height if needed
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -48,7 +49,6 @@ class _CoolingDownContentState extends State<_CoolingDownContent> {
     final storage = GetStorage();
     final storedTimeStr = storage.read('cancel_or_disconnect_time');
 
-    // If nothing stored -> allow immediately
     if (storedTimeStr == null) {
       _remainingSeconds = 0;
       _isButtonEnabled = true;
@@ -63,13 +63,8 @@ class _CoolingDownContentState extends State<_CoolingDownContent> {
     }
 
     final now = DateTime.now();
-
-    // ✅ FIX: If storedTime is in the future (device wrote time twice / lifecycle),
-    // clamp diff to 0 so remaining never becomes > 60.
-    final diffSeconds = now.isBefore(storedTime)
-        ? 0
-        : now.difference(storedTime).inSeconds;
-
+    final diffSeconds =
+        now.isBefore(storedTime) ? 0 : now.difference(storedTime).inSeconds;
     final remaining = 60 - diffSeconds;
 
     if (remaining > 0 && remaining <= 60) {
@@ -90,7 +85,6 @@ class _CoolingDownContentState extends State<_CoolingDownContent> {
         timer.cancel();
         return;
       }
-
       if (_remainingSeconds <= 1) {
         timer.cancel();
         setState(() {
@@ -113,89 +107,101 @@ class _CoolingDownContentState extends State<_CoolingDownContent> {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 5),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Align(
-              alignment: Alignment.centerRight,
-              child: GestureDetector(
-                onTap: () => Navigator.of(context).pop(),
-                child: const CircleAvatar(
-                  radius: 16,
-                  backgroundColor: Colors.white,
-                  child: Icon(Icons.close, size: 24, color: Colors.black),
-                ),
-              ),
-            ),
-            const SizedBox(height: 10),
-            _isButtonEnabled
-                ? SvgPicture.asset("assets/sagar/device_ready.svg")
-                : SvgPicture.asset("assets/sagar/device_error.svg"),
-            const SizedBox(height: 10),
-            Text(
-              _isButtonEnabled ? "Device is Ready Now" : "Device Cooling Down",
-              style: GoogleFonts.poppins(
-                color: const Color(0xFF252525),
-                fontSize: 25,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              _isButtonEnabled
-                  ? "Device is ready now. You can continue with the test."
-                  : "You aborted the previous test. Respyr needs to cool down. Please wait for 1 minute before starting the next test.",
-              textAlign: TextAlign.center,
-              style: GoogleFonts.poppins(
-                color: const Color(0xFF535359),
-                fontSize: 15,
-                fontWeight: FontWeight.w400,
-              ),
-            ),
-            const SizedBox(height: 10),
-            if (_remainingSeconds > 0)
-              Text(
-                "$_remainingSeconds seconds",
-                textAlign: TextAlign.center,
-                style: GoogleFonts.poppins(
-                  color: const Color(0xFF252525),
-                  fontSize: 25,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            const SizedBox(height: 30),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _isButtonEnabled
-                    ? () {
-                  Navigator.of(context).pop();
-                  widget.onTakeTextClick?.call();
-                }
-                    : null,
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+    // 👇 Added padding to account for keyboard and safe area
+    return Padding(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
+      child: SafeArea(
+        child: SingleChildScrollView(
+          // 👇 FIX: Allows content to scroll if it exceeds screen height
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: GestureDetector(
+                    onTap: () => Navigator.of(context).pop(),
+                    child: const CircleAvatar(
+                      radius: 16,
+                      backgroundColor: Colors.white,
+                      child: Icon(Icons.close, size: 24, color: Colors.black),
+                    ),
                   ),
-                  backgroundColor: const Color(0xFF308BF9),
-                  disabledBackgroundColor: const Color(0xFFA1A1A1),
                 ),
-                child: Text(
-                  _isButtonEnabled ? "Start Test" : "Please wait...",
+                const SizedBox(height: 10),
+                _isButtonEnabled
+                    ? SvgPicture.asset("assets/sagar/device_ready.svg")
+                    : SvgPicture.asset("assets/sagar/device_error.svg"),
+                const SizedBox(height: 10),
+                Text(
+                  _isButtonEnabled
+                      ? "Device is Ready Now"
+                      : "Device Cooling Down",
                   style: GoogleFonts.poppins(
-                    fontSize: 16,
+                    color: const Color(0xFF252525),
+                    fontSize: 25,
                     fontWeight: FontWeight.w600,
-                    color: Colors.white,
                   ),
                 ),
-              ),
+                const SizedBox(height: 10),
+                Text(
+                  _isButtonEnabled
+                      ? "Device is ready now. You can continue with the test."
+                      : "You aborted the previous test. Respyr needs to cool down. Please wait for 1 minute before starting the next test.",
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.poppins(
+                    color: const Color(0xFF535359),
+                    fontSize: 15,
+                    fontWeight: FontWeight.w400,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                if (_remainingSeconds > 0)
+                  Text(
+                    "$_remainingSeconds seconds",
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.poppins(
+                      color: const Color(0xFF252525),
+                      fontSize: 25,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                const SizedBox(height: 30),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed:
+                        _isButtonEnabled
+                            ? () {
+                              Navigator.of(context).pop();
+                              widget.onTakeTextClick?.call();
+                            }
+                            : null,
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      backgroundColor: const Color(0xFF308BF9),
+                      disabledBackgroundColor: const Color(0xFFA1A1A1),
+                    ),
+                    child: Text(
+                      _isButtonEnabled ? "Start Test" : "Please wait...",
+                      style: GoogleFonts.poppins(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );

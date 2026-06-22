@@ -222,52 +222,69 @@ class _CompleteTestLogState extends State<CompleteTestLog> {
                   letterSpacing: -0.48,
                 ),
               ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    profileName,
-                    style: GoogleFonts.poppins(
-                      color: const Color(0xFF252525),
-                      fontSize: 15,
-                      fontWeight: FontWeight.w400,
-                      height: 1.10,
-                      letterSpacing: -0.30,
+              const SizedBox(width: 16), // Buffer space
+              // 👇 Wrapped the right side in Expanded to prevent layout breaking
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      profileName,
+                      textAlign: TextAlign.right,
+                      overflow:
+                          TextOverflow
+                              .ellipsis, // Neatly cuts off super long names
+                      style: GoogleFonts.poppins(
+                        color: const Color(0xFF252525),
+                        fontSize: 15,
+                        fontWeight: FontWeight.w400,
+                        height: 1.10,
+                        letterSpacing: -0.30,
+                      ),
                     ),
-                  ),
-                  Row(
-                    children: [
-                      Text(
-                        profileId,
-                        style: GoogleFonts.poppins(
-                          color: const Color(0xFF535359),
-                          fontSize: 12,
-                          fontWeight: FontWeight.w400,
-                          letterSpacing: -0.20,
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        Flexible(
+                          // Allows profileId to shrink if the date is long
+                          child: Text(
+                            profileId,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.poppins(
+                              color: const Color(0xFF535359),
+                              fontSize: 12,
+                              fontWeight: FontWeight.w400,
+                              letterSpacing: -0.20,
+                            ),
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 5),
-                      Container(
-                        width: 4,
-                        height: 4,
-                        decoration: const ShapeDecoration(
-                          color: Color(0xFF535359),
-                          shape: OvalBorder(),
+                        const SizedBox(width: 5),
+                        Container(
+                          width: 4,
+                          height: 4,
+                          decoration: const ShapeDecoration(
+                            color: Color(0xFF535359),
+                            shape: OvalBorder(),
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 5),
-                      Text(
-                        dateTime,
-                        style: GoogleFonts.poppins(
-                          color: const Color(0xFF535359),
-                          fontSize: 12,
-                          fontWeight: FontWeight.w400,
-                          letterSpacing: -0.20,
+                        const SizedBox(width: 5),
+                        Flexible(
+                          // Allow dateTime to truncate safely too
+                          child: Text(
+                            dateTime,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.poppins(
+                              color: const Color(0xFF535359),
+                              fontSize: 12,
+                              fontWeight: FontWeight.w400,
+                              letterSpacing: -0.20,
+                            ),
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                ],
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
@@ -296,16 +313,20 @@ class _CompleteTestLogState extends State<CompleteTestLog> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(
-          label,
-          style: GoogleFonts.poppins(
-            color: const Color(0xFF535359),
-            fontSize: 12,
-            fontWeight: FontWeight.w400,
-            height: 1.10,
-            letterSpacing: -0.48,
+        // 👇 Wraps the label so long names like 'Gut fermentation score' don't push the % off screen
+        Expanded(
+          child: Text(
+            label,
+            style: GoogleFonts.poppins(
+              color: const Color(0xFF535359),
+              fontSize: 12,
+              fontWeight: FontWeight.w400,
+              height: 1.10,
+              letterSpacing: -0.48,
+            ),
           ),
         ),
+        const SizedBox(width: 10), // Safe buffer
         Text(
           value,
           style: GoogleFonts.poppins(

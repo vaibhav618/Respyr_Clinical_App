@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:io'; // 👇 ADDED for secure Internet check
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -14,8 +16,6 @@ import '../clinical_dashboard/service/overall_data_by_date_service.dart';
 import '../log_manager/log_manager.dart';
 import '../shared/get_stored_data_text.dart';
 import '../widgets/error.dart';
-
-
 
 class Splash extends StatefulWidget {
   const Splash({super.key});
@@ -33,6 +33,7 @@ class _SplashState extends State<Splash> with WidgetsBindingObserver {
   String? errorMessage;
   bool isLoading = true;
   bool unauthorized = false;
+  bool _hasInternet = true; // 👇 NEW: Tracks internet state
 
   @override
   void initState() {
@@ -55,22 +56,63 @@ class _SplashState extends State<Splash> with WidgetsBindingObserver {
       }
     });
 
-    // Timeout after 10 seconds if still loading
+    _initializeApp(); // 👇 NEW: Start controlled initialization
+  }
+
+  // 👇 NEW: Check Internet BEFORE checking user or fetching tokens
+  Future<void> _initializeApp() async {
+    setState(() {
+      isLoading = true;
+      _hasInternet = true;
+      errorMessage = null;
+    });
+
+    bool isConnected = await _checkInternetConnection();
+
+    if (!isConnected) {
+      if (mounted) {
+        setState(() {
+          _hasInternet = false;
+          isLoading = false;
+        });
+      }
+      return; // 🛑 Stop here. Don't check the user yet.
+    }
+
+    // Internet is good! Start the timeout timer and fetch data.
+    _startTimeoutTimer();
+    _checkUserAndNavigate();
+  }
+
+  // 👇 NEW: Bulletproof internet check
+  Future<bool> _checkInternetConnection() async {
+    try {
+      final result = await InternetAddress.lookup('google.com');
+      if (result.isNotEmpty && result[0].rawAddress.isNotEmpty) {
+        return true;
+      }
+    } on SocketException catch (_) {
+      return false;
+    }
+    return false;
+  }
+
+  // 👇 CHANGED: Route timeout to No Internet UI instead of generic error
+  void _startTimeoutTimer() {
+    _timeoutTimer?.cancel();
     _timeoutTimer = Timer(const Duration(seconds: 10), () {
       if (mounted && isLoading) {
         setState(() {
-          errorMessage = "Something took too long. Please try again.";
+          _hasInternet = false; // Show No Internet UI
           isLoading = false;
         });
         LogManager().logEvent(
           event: 'SPLASH_TIMEOUT',
           status: 'FAILED',
-          details: 'Splash loading exceeded 10 seconds.',
+          details: 'Splash loading exceeded 10 seconds. Network assumed dead.',
         );
       }
     });
-
-   _checkUserAndNavigate();
   }
 
   @override
@@ -83,8 +125,17 @@ class _SplashState extends State<Splash> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
+    // 👇 Prevent hardware back button from breaking the nav stack
+    return PopScope(canPop: false, child: _buildBody());
+  }
+
+  Widget _buildBody() {
+    // 👇 NEW: Block UI completely if no internet
+    if (!_hasInternet) {
+      return _buildNoInternetUI();
+    }
+
     if (unauthorized) {
-      // Log unauthorized state
       LogManager().logEvent(
         event: 'UNAUTHORIZED_SESSION',
         status: 'FAILED',
@@ -94,7 +145,6 @@ class _SplashState extends State<Splash> with WidgetsBindingObserver {
     }
 
     if (errorMessage != null) {
-      // Log error
       LogManager().logEvent(
         event: 'SPLASH_ERROR',
         status: 'FAILED',
@@ -104,16 +154,13 @@ class _SplashState extends State<Splash> with WidgetsBindingObserver {
     }
 
     return Scaffold(
-      backgroundColor: Color(0xFF308BF9),
+      backgroundColor: const Color(0xFF308BF9),
       body: SafeArea(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             const Spacer(),
-            SvgPicture.asset(
-              "assets/business_logo.svg",
-              height: 160,
-            ),
+            SvgPicture.asset("assets/business_logo.svg", height: 160),
             const Spacer(),
             Padding(
               padding: const EdgeInsets.only(bottom: 32),
@@ -131,6 +178,74 @@ class _SplashState extends State<Splash> with WidgetsBindingObserver {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  // 👇 NEW: Dedicated No Internet Screen UI (Stays strictly inside Splash)
+  Widget _buildNoInternetUI() {
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 30.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              const Spacer(),
+              const Icon(
+                Icons.wifi_off_rounded,
+                size: 80,
+                color: Color(0xFF535359),
+              ),
+              const SizedBox(height: 30),
+              Text(
+                "No Internet Connection",
+                style: GoogleFonts.poppins(
+                  color: const Color(0xFF252525),
+                  fontSize: 20,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                "Please check your mobile data or Wi-Fi network and try again.",
+                textAlign: TextAlign.center,
+                style: GoogleFonts.poppins(
+                  color: const Color(0xFF757575),
+                  fontSize: 14,
+                  fontWeight: FontWeight.w400,
+                  height: 1.4,
+                ),
+              ),
+              const Spacer(),
+              SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: ElevatedButton(
+                  onPressed: _initializeApp, // 👇 Retries check without routing
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF308BF9),
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  child: Text(
+                    "Try Again",
+                    style: GoogleFonts.poppins(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 40),
+            ],
+          ),
         ),
       ),
     );
@@ -157,7 +272,7 @@ class _SplashState extends State<Splash> with WidgetsBindingObserver {
     );
 
     if (!isOtpVerified) {
-      // Mark as not first launch, redirect to login
+      _timeoutTimer?.cancel(); // Cancel timer on successful resolve
       await storage.write(GetStoredDataText.isFirstLaunch, false);
       await storage.write('isOtpVerified', true);
 
@@ -174,9 +289,10 @@ class _SplashState extends State<Splash> with WidgetsBindingObserver {
         );
       }
     } else if (isOtpVerified && loginId != "NA") {
-      LogManager().setUserId(loginId); // Set user for next logs
+      LogManager().setUserId(loginId);
       await _getJwtTokenAndFetchData(loginId);
     } else {
+      _timeoutTimer?.cancel();
       setState(() {
         errorMessage = "Session expired or incomplete. Please login again.";
         isLoading = false;
@@ -190,14 +306,30 @@ class _SplashState extends State<Splash> with WidgetsBindingObserver {
   }
 
   Future<void> _getJwtTokenAndFetchData(String loginId) async {
-
     final result = await JwtApiHelper.fetchAndStoreJwtToken(loginId: loginId);
+    _timeoutTimer?.cancel(); // Cancel timer on response
 
     if (!result.success) {
+      // 👇 NEW: If the API fails due to a network lag, catch it and show No Internet UI
+      if (result.message?.toLowerCase().contains("socket") == true ||
+          result.message?.toLowerCase().contains("timeout") == true ||
+          result.message?.toLowerCase().contains("network") == true ||
+          result.message?.toLowerCase().contains("connection") == true) {
+        if (mounted) {
+          setState(() {
+            _hasInternet = false;
+            isLoading = false;
+          });
+        }
+        return;
+      }
+
+      // If it's a real API logic error (like invalid user), show the error screen.
       setState(() {
         errorMessage = result.message;
         isLoading = false;
-        unauthorized = result.message?.toLowerCase().contains("unauthorized") ?? false;
+        unauthorized =
+            result.message?.toLowerCase().contains("unauthorized") ?? false;
       });
       return;
     }
@@ -207,13 +339,13 @@ class _SplashState extends State<Splash> with WidgetsBindingObserver {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
-          builder: (_) => BlocProvider(
-            create: (_) => HealthScoreBloc(OverallDataByDateService()),
-            child: ClinicalDashboardMain(loginId: loginId),
-          ),
+          builder:
+              (_) => BlocProvider(
+                create: (_) => HealthScoreBloc(OverallDataByDateService()),
+                child: ClinicalDashboardMain(loginId: loginId),
+              ),
         ),
       );
     }
   }
 }
-

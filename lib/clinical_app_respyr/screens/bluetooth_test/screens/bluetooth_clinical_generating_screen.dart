@@ -41,7 +41,8 @@ class BluetoothGeneratingScreen extends StatefulWidget {
     required this.maxPressure,
     required this.bestPressure,
     required this.blowDuration,
-    required this.profileDetails, required this.blowValuesList,
+    required this.profileDetails,
+    required this.blowValuesList,
   });
 
   @override
@@ -49,9 +50,16 @@ class BluetoothGeneratingScreen extends StatefulWidget {
       _BluetoothGeneratingScreenState();
 }
 
+// 👇 ADDED WidgetsBindingObserver
 class _BluetoothGeneratingScreenState extends State<BluetoothGeneratingScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   late AnimationController _controller;
+
+  // 👇 ADDED Hidden Variables for Retry Logic & Ghost Tracking
+  bool _needsRetry = false;
+  String _savedRawData = "";
+  bool _isApiRunning = false;
+  int _apiRequestId = 0;
 
   int completedSteps = 0;
   bool isErrorOccurred = false;
@@ -59,8 +67,6 @@ class _BluetoothGeneratingScreenState extends State<BluetoothGeneratingScreen>
   String bestPressure = '';
   String maxPressure = '';
   String blowTime = '';
-
-
 
   final storage = GetStorage();
 
@@ -102,6 +108,7 @@ class _BluetoothGeneratingScreenState extends State<BluetoothGeneratingScreen>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this); // 👇 ADDED OBSERVER LISTENER
     _isConnected = _bleManager.isConnected;
     _controller = AnimationController(vsync: this);
 
@@ -141,6 +148,9 @@ class _BluetoothGeneratingScreenState extends State<BluetoothGeneratingScreen>
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(
+      this,
+    ); // 👇 REMOVED OBSERVER LISTENER
     _isDisposed = true;
 
     _controller.dispose();
@@ -149,6 +159,29 @@ class _BluetoothGeneratingScreenState extends State<BluetoothGeneratingScreen>
     _receivedDataSubscription = null;
 
     super.dispose();
+  }
+
+  // 👇 ADDED LIFECYCLE HOOK FOR RESURRECTION & GHOST REQUESTS
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      if (_needsRetry && _savedRawData.isNotEmpty) {
+        setState(() {
+          _needsRetry = false;
+          isErrorOccurred = false;
+        });
+        print("🚀🚀🚀 APP WOKE UP. Retrying the dead API call! 🚀🚀🚀");
+        processRawData1(_savedRawData);
+      } else if (_isApiRunning && _savedRawData.isNotEmpty) {
+        setState(() {
+          isErrorOccurred = false;
+        });
+        print(
+          "⚡⚡⚡ APP WOKE UP. Old request is frozen. Firing a fresh one! ⚡⚡⚡",
+        );
+        processRawData1(_savedRawData);
+      }
+    }
   }
 
   void _handleDisconnection() {
@@ -191,12 +224,9 @@ class _BluetoothGeneratingScreenState extends State<BluetoothGeneratingScreen>
     }
     Get.offAllNamed(
       AppRoutes.mainDashboard,
-      arguments: {
-        'profile_details': widget.profileDetails,
-      },
+      arguments: {'profile_details': widget.profileDetails},
     );
   }
-
 
   Future<void> _setCancelOrDisconnectFlag() async {
     final storage = GetStorage();
@@ -212,7 +242,7 @@ class _BluetoothGeneratingScreenState extends State<BluetoothGeneratingScreen>
     });
 
     _bleManager.connectionStatusStream.listen(
-          (isConnected) {
+      (isConnected) {
         if (!mounted) return;
 
         setState(() {
@@ -252,19 +282,17 @@ class _BluetoothGeneratingScreenState extends State<BluetoothGeneratingScreen>
     if (_receivedDataSubscription == null ||
         _receivedDataSubscription!.isPaused) {
       _receivedDataSubscription = _bleManager.receivedDataStream.listen(
-            (data) {
+        (data) {
           if (_isDisposed) return;
 
           try {
-
-            final regex =    RegExp(r'\{\d+(\.\d+)?\}');
+            final regex = RegExp(r'\{\d+(\.\d+)?\}');
             final blowDataPattern = regex.hasMatch(data);
             final containsAnalise = data.contains("analize");
 
-
             if (data == "120") {
               received120 =
-              true; // ✅ Ensure this is set BEFORE checking dialogs
+                  true; // ✅ Ensure this is set BEFORE checking dialogs
               _isDisconnectPop = false; // Prevent the dialog from showing
 
               if (Get.isOverlaysOpen) {
@@ -272,7 +300,7 @@ class _BluetoothGeneratingScreenState extends State<BluetoothGeneratingScreen>
               }
 
               return; // ✅ STOP further processing
-            }else if(blowDataPattern || containsAnalise){
+            } else if (blowDataPattern || containsAnalise) {
               return;
             }
 
@@ -296,43 +324,34 @@ class _BluetoothGeneratingScreenState extends State<BluetoothGeneratingScreen>
             final containsBDur = accumulatedData.contains("BDur");
             final containsBestPr = accumulatedData.contains("Best_pr");
 
-
             final containsStar = accumulatedData.contains("*");
-
-
-
 
             if (kDebugMode) {
               print(
                 "🔎 Conditions: containsDollar=$containsDollar, "
-                    "containsMaxPressure=$containsMaxPressure, "
-                    "containsBDur=$containsBDur, containsBestPr=$containsBestPr, "
-                    "containsNumber=$containsNumber, containsStar=$containsStar",
+                "containsMaxPressure=$containsMaxPressure, "
+                "containsBDur=$containsBDur, containsBestPr=$containsBestPr, "
+                "containsNumber=$containsNumber, containsStar=$containsStar",
               );
             }
 
-            if(blowDataPattern){
-              print("blowDataPattern"+ accumulatedData);
+            if (blowDataPattern) {
+              print("blowDataPattern" + accumulatedData);
               accumulatedData.replaceAll(regex, "");
             }
 
-            if(containsAnalise){
-              print("blowDataPattern"+ accumulatedData);
+            if (containsAnalise) {
+              print("blowDataPattern" + accumulatedData);
               accumulatedData.replaceAll("analize", "");
             }
-
-
 
             if (containsDollar ||
                 containsMaxPressure ||
                 containsBDur ||
                 containsBestPr ||
                 containsNumber ||
-                containsStar ) {
+                containsStar) {
               if (accumulatedData.contains("*")) {
-
-
-
                 print("accumulatedData : " + accumulatedData);
                 print("rawData : f" + rawData);
 
@@ -357,11 +376,6 @@ class _BluetoothGeneratingScreenState extends State<BluetoothGeneratingScreen>
                 _receivedDataSubscription = null;
               }
             }
-
-
-
-
-
           } catch (e) {
             if (_isDisposed) return;
             if (kDebugMode) {
@@ -406,30 +420,30 @@ class _BluetoothGeneratingScreenState extends State<BluetoothGeneratingScreen>
     showDialog(
       context: context,
       barrierDismissible: false, // 👈 prevents tap outside dismiss
-      builder: (context) => WillPopScope(
-        onWillPop: () async => false, // 👈 disables back button
-        child: AlertDialog(
-          title: const Text("Error"),
-          content: Text(message),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop(); // close dialog
-                _navigateToDashboard();
-              },
-              child: const Text("OK"),
+      builder:
+          (context) => WillPopScope(
+            onWillPop: () async => false, // 👈 disables back button
+            child: AlertDialog(
+              title: const Text("Error"),
+              content: Text(message),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(context).pop(); // close dialog
+                    _navigateToDashboard();
+                  },
+                  child: const Text("OK"),
+                ),
+              ],
             ),
-          ],
-        ),
-      ),
+          ),
     );
   }
-
 
   String? getProfileData(List<Map<String, String>> result, String key) {
     try {
       final entry = result.firstWhere(
-            (map) => map.containsKey(key),
+        (map) => map.containsKey(key),
         orElse: () => {key: 'Not Found'},
       );
       return entry[key];
@@ -492,9 +506,9 @@ class _BluetoothGeneratingScreenState extends State<BluetoothGeneratingScreen>
             width: 3,
             decoration: BoxDecoration(
               color:
-              completedSteps > step
-                  ? AppColor.buttonGreenColor
-                  : const Color(0xFFE0E0E0),
+                  completedSteps > step
+                      ? AppColor.buttonGreenColor
+                      : const Color(0xFFE0E0E0),
             ),
           ),
       ],
@@ -555,7 +569,7 @@ class _BluetoothGeneratingScreenState extends State<BluetoothGeneratingScreen>
     );
   }
 
-  void processRawData(String deviceRawData) async  {
+  void processRawData(String deviceRawData) async {
     deviceRawData = deviceRawData.replaceAll("/analize", "");
     final match = RegExp(r'H(\d{3,5})').firstMatch(deviceRawData);
     final int hardwareId = int.tryParse(match?.group(1) ?? '0') ?? 0;
@@ -634,10 +648,11 @@ class _BluetoothGeneratingScreenState extends State<BluetoothGeneratingScreen>
     }
   }
 
-
-
   void processRawData1(String deviceRawData) async {
-
+    _savedRawData = deviceRawData; // 👇 1. SAVE THE BACKUP DATA HERE
+    _isApiRunning = true; // 👇 2. MARK API AS RUNNING
+    _apiRequestId++; // 👇 3. INCREMENT TICKET NUMBER
+    final int thisRequestId = _apiRequestId; // 👇 SAVE THIS RUN'S TICKET
 
     ResultService resultService = ResultService();
     final profile = widget.profileDetails;
@@ -649,7 +664,6 @@ class _BluetoothGeneratingScreenState extends State<BluetoothGeneratingScreen>
     String region = profile.region.toString();
 
     try {
-
       final NewResultModel result = await resultService.fetchResults1(
         testdata: testdata,
         subjectId: subId,
@@ -660,28 +674,44 @@ class _BluetoothGeneratingScreenState extends State<BluetoothGeneratingScreen>
         blowData: BlowValuesHelper().getBlowString(widget.blowValuesList),
       );
 
+      // 👇 4. IGNORE IF A NEWER REQUEST WAS FIRED
+      if (thisRequestId != _apiRequestId) return;
+
+      _isApiRunning = false; // API finished successfully
       _navigateToResultScreen1(result);
-
     } catch (e) {
+      // 👇 5. IGNORE ERRORS FROM OLD GHOST REQUESTS
+      if (thisRequestId != _apiRequestId) return;
 
-      if(e.toString().contains("Error in breath sample")){
-        _showErrorDialog("Error in breath sample");
+      _isApiRunning = false; // API finished with error
+
+      // THE COVER-UP (Check if minimized)
+      final appState = WidgetsBinding.instance.lifecycleState;
+      final isMinimized =
+          appState == AppLifecycleState.paused ||
+          appState == AppLifecycleState.inactive ||
+          appState == AppLifecycleState.hidden;
+
+      if (isMinimized) {
+        _needsRetry = true;
+        print("🤫 API died while minimized. Flagging for retry.");
+      } else {
+        if (e.toString().contains("Error in breath sample")) {
+          _showErrorDialog("Error in breath sample");
+        } else {
+          _showErrorDialog(e.toString());
+        }
       }
-
-      _showErrorDialog(e.toString());
     }
   }
 
-
-
-
   void processClinicalDiabeticScore(
-      double acetone,
-      double ethanol,
-      double blow,
-      int hardwareId,
-      double h2,
-      ) async {
+    double acetone,
+    double ethanol,
+    double blow,
+    int hardwareId,
+    double h2,
+  ) async {
     final clinicalService = ClinicalDiabeticScore();
     final clinicalResult = await clinicalService.processDiabeticScore(
       acetone: acetone,
@@ -697,15 +727,15 @@ class _BluetoothGeneratingScreenState extends State<BluetoothGeneratingScreen>
 
     double sugarScore =
         double.tryParse(clinicalResult['Dibetic_Score']?.toString() ?? "0") ??
-            0.0;
+        0.0;
     double blowScore =
         double.tryParse(clinicalResult['Blow_Score']?.toString() ?? "0") ?? 0.0;
     double gutScore =
         double.tryParse(clinicalResult['Gut_Score_per']?.toString() ?? "0") ??
-            0.0;
+        0.0;
     double liverScore =
         double.tryParse(clinicalResult['score_liver']?.toString() ?? "0") ??
-            0.0;
+        0.0;
 
     int timestamp =
         int.tryParse(clinicalResult['timestamp']?.toString() ?? '0') ?? 0;
@@ -743,14 +773,12 @@ class _BluetoothGeneratingScreenState extends State<BluetoothGeneratingScreen>
       MaterialPageRoute(
         builder:
             (context) => ResultScreenClinicalApp(
-          lifeStyleJsonResponse: lifestyleJson,
-          profileDetails: widget.profileDetails,
-        ),
+              lifeStyleJsonResponse: lifestyleJson,
+              profileDetails: widget.profileDetails,
+            ),
       ),
     );
   }
-
-
 
   void _navigateToResultScreen1(NewResultModel lifestyleJson) {
     if (Get.isOverlaysOpen) {
@@ -762,7 +790,7 @@ class _BluetoothGeneratingScreenState extends State<BluetoothGeneratingScreen>
     Navigator.of(context).popUntil((route) => route.isFirst);
     _abortProcess();
     Get.offAll(
-          () => ChangeNotifierProvider(
+      () => ChangeNotifierProvider(
         create: (_) => ResultViewModel()..initialize(widget.profileDetails),
         child: ResultScreen(
           userResultData: lifestyleJson,
@@ -773,19 +801,12 @@ class _BluetoothGeneratingScreenState extends State<BluetoothGeneratingScreen>
     );
   }
 
-
-
   Future<void> saveCurrentTime() async {
     final prefs = await SharedPreferences.getInstance();
     final now = DateTime.now().millisecondsSinceEpoch;
 
     await prefs.setInt('last_reading_time', now);
   }
-
-
-
-
-
 
   void _abortProcess() {
     if (_isConnected) {
@@ -814,16 +835,16 @@ class _BluetoothGeneratingScreenState extends State<BluetoothGeneratingScreen>
     return 0; // Default to 0 in case of error
   }
 
-// void _showCancelTestDialog() {
-//   showCancelTestBox(
-//       context: context,
-//       cancelTestButtonPressed: () {
-//         saveReadingAbortTime().then((_) {
-//           Get.back();
-//           _setCancelOrDisconnectFlag();
-//           abortProcess();
-//           _navigateToDashboard();
-//         });
-//       });
-// }
+  // void _showCancelTestDialog() {
+  //   showCancelTestBox(
+  //       context: context,
+  //       cancelTestButtonPressed: () {
+  //         saveReadingAbortTime().then((_) {
+  //           Get.back();
+  //           _setCancelOrDisconnectFlag();
+  //           abortProcess();
+  //           _navigateToDashboard();
+  //         });
+  //       });
+  // }
 }

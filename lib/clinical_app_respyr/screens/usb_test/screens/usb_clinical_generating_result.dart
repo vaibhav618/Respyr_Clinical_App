@@ -44,10 +44,18 @@ class UsbClinicalGeneratingResult extends StatefulWidget {
       _UsbClinicalGeneratingResultState();
 }
 
+// 👇 ADDED WidgetsBindingObserver
 class _UsbClinicalGeneratingResultState
     extends State<UsbClinicalGeneratingResult>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   late AnimationController _controller;
+
+  // 👇 ADDED Hidden Variables for Retry Logic & Ghost Tracking
+  bool _needsRetry = false;
+  String _savedRawData = "";
+  bool _isApiRunning = false;
+  int _apiRequestId = 0;
+  bool _hasNavigated = false; // 👇 Prevents double routing
 
   int completedSteps = 0;
   bool isErrorOccurred = false;
@@ -81,7 +89,8 @@ class _UsbClinicalGeneratingResultState
   @override
   void initState() {
     super.initState();
-
+    print("🚦 [INIT] UsbClinicalGeneratingResult initialized."); // 👈 LOG
+    WidgetsBinding.instance.addObserver(this); // 👇 ADDED OBSERVER LISTENER
     _controller = AnimationController(vsync: this);
 
     _initialUsbConnection();
@@ -112,6 +121,78 @@ class _UsbClinicalGeneratingResultState
     debugPrint("profileName: $profileName");
     debugPrint("loginId: $loginId");
     debugPrint("profileId: $profileId");
+  }
+
+  // 👇 UPGRADED LIFECYCLE HOOK: Catch missed Success states and frozen requests
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    print("📱 [LIFECYCLE] State changed to: $state"); // 👈 LOG
+    print(
+      "📱 [LIFECYCLE] Current Vars -> _isApiRunning: $_isApiRunning | _needsRetry: $_needsRetry | _hasNavigated: $_hasNavigated",
+    ); // 👈 LOG
+
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.hidden) {
+      if (_isApiRunning && _savedRawData.isNotEmpty) {
+        _needsRetry = true;
+        print(
+          "🛑 [LIFECYCLE] APP WENT TO SLEEP WHILE API RUNNING! Flagged _needsRetry = true.",
+        ); // 👈 LOG
+      }
+    }
+
+    if (state == AppLifecycleState.resumed) {
+      final cubitState = context.read<NewResultCubit>().state;
+      print(
+        "📱 [LIFECYCLE] App Woke Up! Current Cubit State: ${cubitState.runtimeType}",
+      ); // 👈 LOG
+
+      // 👇 1. Did the API finish successfully while the UI was asleep?
+      if (cubitState is NewResultSuccess) {
+        print(
+          "🎉 [LIFECYCLE] SUCCESS CAUGHT ON WAKE! Triggering Navigation.",
+        ); // 👈 LOG
+        setState(() {
+          _isApiRunning = false;
+          completedSteps = 3;
+        });
+        _navigateToResultScreen(cubitState.result);
+        return;
+      }
+
+      // 👇 2. Error handling & retries
+      if (cubitState is NewResultFailure && _savedRawData.isNotEmpty) {
+        print(
+          "🚀 [LIFECYCLE] WOKE UP WITH ERROR ON SCREEN. Auto-Retrying.",
+        ); // 👈 LOG
+        _retryApiCall();
+      } else if (_needsRetry && _savedRawData.isNotEmpty) {
+        print(
+          "🚀 [LIFECYCLE] WOKE UP FROM SILENT FAIL. Retrying the dead API call.",
+        ); // 👈 LOG
+        _retryApiCall();
+      } else if (_isApiRunning && _savedRawData.isNotEmpty) {
+        print(
+          "⚡ [LIFECYCLE] Old request is frozen. Firing a fresh one.",
+        ); // 👈 LOG
+        _retryApiCall();
+      } else {
+        print("🤷‍♂️ [LIFECYCLE] Woke up, but no action needed."); // 👈 LOG
+      }
+    }
+  }
+
+  // 👇 INSTANT RETRY - No more delay!
+  void _retryApiCall() {
+    print("🔄 [RETRY] _retryApiCall triggered. Firing instantly."); // 👈 LOG
+    setState(() {
+      _needsRetry = false;
+      isErrorOccurred = false;
+      completedSteps = 2; // Reset UI to show the spinner
+    });
+
+    _callApi(context, _savedRawData);
   }
 
   void _handleDisconnected() {
@@ -160,7 +241,6 @@ class _UsbClinicalGeneratingResultState
       },
     );
   }
-
 
   Future<void> _setCancelOrDisconnectFlag() async {
     final storage = GetStorage();
@@ -308,13 +388,13 @@ class _UsbClinicalGeneratingResultState
         'Best pressure: $bestPressure, Max pressure: $maxPressure, Blow time: $blowTime',
       );
     }
+    print("⚙️ [PROCESS] processFinalData triggered."); // 👈 LOG
     String finalData = rawData.replaceAll("Best_pr", bestPressure);
     String finalData2 = finalData.replaceAll("MAXPR", maxPressure);
     String finalData3 = finalData2.replaceAll("BDur", blowTime);
 
     if (!isDataBeingProcessing) {
       isDataBeingProcessing = true; // ← Add this
-      // processRawData(finalData3);
 
       debugPrint("Called");
       debugPrint("deviceRawData :$finalData3");
@@ -418,9 +498,23 @@ class _UsbClinicalGeneratingResultState
   Widget build(BuildContext context) {
     return InternetConnectivityHandler(
       onConnectivityChanged: (hasInternet) {
+        print(
+          "🌐 [INTERNET] Status changed. Has Internet: $hasInternet",
+        ); // 👈 LOG
         setState(() {
           _hasInternet = hasInternet;
         });
+
+        // 👇 THE NEW MAGIC: Auto-retry if internet returns while looking at an error
+        if (hasInternet && _savedRawData.isNotEmpty) {
+          final cubitState = context.read<NewResultCubit>().state;
+          if (cubitState is NewResultFailure) {
+            print(
+              "🌐 [INTERNET] RESTORED! Auto-retrying API from error screen...",
+            ); // 👈 LOG
+            _retryApiCall();
+          }
+        }
       },
       onRetry: () async {
         await _exitToDashboard();
@@ -440,11 +534,59 @@ class _UsbClinicalGeneratingResultState
         },
         child: BlocListener<NewResultCubit, NewResultState>(
           listener: (context, state) {
-            setState(() {
-              completedSteps = 3;
-            });
+            print(
+              "📦 [BLOC] Listener received state: ${state.runtimeType}",
+            ); // 👈 LOG
+            final appState = WidgetsBinding.instance.lifecycleState;
+            final isMinimized =
+                appState == AppLifecycleState.paused ||
+                appState == AppLifecycleState.inactive ||
+                appState == AppLifecycleState.hidden;
+
+            // 👇 THE FIX: ALWAYS process Success, even if minimized!
             if (state is NewResultSuccess) {
+              print(
+                "✅ [BLOC] SUCCESS Detected! isMinimized = $isMinimized",
+              ); // 👈 LOG
+              if (isMinimized) {
+                print(
+                  "⚠️ [BLOC] App is minimized. Waiting for wake up to navigate.",
+                ); // 👈 LOG
+                return;
+              }
+
+              setState(() {
+                _isApiRunning = false;
+                completedSteps = 3;
+              });
               _navigateToResultScreen(state.result);
+              return; // Stop here!
+            }
+
+            // 👇 Only suppress Failures when minimized
+            if (state is NewResultFailure) {
+              print(
+                "❌ [BLOC] FAILURE Detected! Error: ${state.error}",
+              ); // 👈 LOG
+              if (state.error == "Background Reset") {
+                print(
+                  "⏭️ [BLOC] Ignoring intentional background reset.",
+                ); // 👈 LOG
+                return;
+              }
+
+              if (isMinimized) {
+                _needsRetry = true;
+                print(
+                  "🤫 [BLOC] APP IS MINIMIZED. Silencing the error.",
+                ); // 👈 LOG
+                return;
+              } else {
+                setState(() {
+                  _isApiRunning = false;
+                  completedSteps = 3;
+                });
+              }
             }
           },
 
@@ -467,8 +609,21 @@ class _UsbClinicalGeneratingResultState
                 builder: (context, state) {
                   responseTimer?.cancel();
 
-                  if (state is NewResultFailure) {
-                    final isProfileError = state.error.contains("Profile data is incomplete.",);
+                  // 👇 THE ULTIMATE UI FIX: Block the error from rendering if the app is minimizing
+                  final currentAppState =
+                      WidgetsBinding.instance.lifecycleState;
+                  final isCurrentlySleeping =
+                      currentAppState == AppLifecycleState.paused ||
+                      currentAppState == AppLifecycleState.inactive ||
+                      currentAppState == AppLifecycleState.hidden;
+
+                  if (state is NewResultFailure &&
+                      !_needsRetry &&
+                      state.error != "Background Reset" &&
+                      !isCurrentlySleeping) {
+                    final isProfileError = state.error.contains(
+                      "Profile data is incomplete.",
+                    );
                     final iconAsset =
                         isProfileError
                             ? "assets/sagar/undraw_warning_tl76.svg"
@@ -526,7 +681,7 @@ class _UsbClinicalGeneratingResultState
                                   ),
                                   TextSpan(
                                     text:
-                                        'Please try to take test again. If it still happens, please contact the support team.',
+                                        '\nPlease wait, it will automatically retry when internet is restored or the app is reopened.',
                                     style: GoogleFonts.poppins(
                                       color: const Color(0xFF535359),
                                       fontSize: 12,
@@ -549,7 +704,7 @@ class _UsbClinicalGeneratingResultState
                               backgroundColor: const Color(0xFF308BF9),
                             ),
                             child: Text(
-                              "Try Again (recommended)",
+                              "Cancel Test",
                               style: GoogleFonts.poppins(
                                 color: Colors.white,
                                 fontSize: 12,
@@ -563,6 +718,7 @@ class _UsbClinicalGeneratingResultState
                     );
                   }
 
+                  // 👇 If we are sleeping or retrying, force the UI to stay on the spinner!
                   return Center(
                     child: Stack(
                       children: [
@@ -609,6 +765,13 @@ class _UsbClinicalGeneratingResultState
 
   void _callApi(BuildContext context, String deviceRawData) {
     try {
+      _apiRequestId++; // 👇 3. INCREMENT TICKET NUMBER
+      print(
+        "🛠️ [API] _callApi triggered. Request ID: $_apiRequestId",
+      ); // 👈 LOG
+      _savedRawData = deviceRawData; // 👇 1. SAVE THE BACKUP DATA HERE
+      _isApiRunning = true; // 👇 2. MARK API AS RUNNING
+
       deviceRawData = deviceRawData.replaceAll("/analize", "");
       final profile = widget.profileDetails;
       if (profile.clinicName == null ||
@@ -643,15 +806,23 @@ class _UsbClinicalGeneratingResultState
         region: region,
         blowData: BlowValuesHelper().getBlowString(widget.blowValuesList),
       );
-
-
-
     } catch (e) {
+      print("❌ [API] Error in _callApi: $e"); // 👈 LOG
       if (_isDisposed) return;
     }
   }
 
   void _navigateToResultScreen(NewResultModel lifestyleJson) {
+    print(
+      "🟢 [NAVIGATION] _navigateToResultScreen called. _hasNavigated: $_hasNavigated",
+    ); // 👈 LOG
+    // 👇 PREVENT DOUBLE ROUTING BUG
+    if (_hasNavigated) {
+      print("🛑 [NAVIGATION] Blocked. Already navigated."); // 👈 LOG
+      return;
+    }
+    _hasNavigated = true;
+
     if (Get.isOverlaysOpen) {
       Get.back();
     }
@@ -671,7 +842,6 @@ class _UsbClinicalGeneratingResultState
     );
   }
 
-
   Future<bool> _showCancelTestDialog(context) async {
     bool didCancel = false;
 
@@ -688,6 +858,10 @@ class _UsbClinicalGeneratingResultState
 
   @override
   void dispose() {
+    print("🗑️ [DISPOSE] UsbClinicalGeneratingResult disposed."); // 👈 LOG
+    WidgetsBinding.instance.removeObserver(
+      this,
+    ); // 👇 REMOVED OBSERVER LISTENER
     _isDisposed = true;
     _controller.dispose();
     _usbDataSubscription?.cancel();
@@ -698,6 +872,9 @@ class _UsbClinicalGeneratingResultState
 
   void startWaitForResponse() {
     responseTimer = Timer(const Duration(minutes: 1), () {
+      print(
+        "⏰ [TIMER] 1 Minute Timeout Reached! Emitting NoResponse.",
+      ); // 👈 LOG
       context.read<NewResultCubit>().emitNoResponse(
         408,
         "Timeout! No response from the server",

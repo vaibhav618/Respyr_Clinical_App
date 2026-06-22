@@ -21,7 +21,8 @@ class QuickSummaryTable extends StatefulWidget {
 }
 
 class _QuickSummaryTableState extends State<QuickSummaryTable> {
-  static const double cellHeight = 50;
+  // 👇 INCREASED TO 75 TO ACCOMMODATE SYSTEM TEXT SCALING AND WRAPPING
+  static const double cellHeight = 75;
 
   // Mock data, replace this with backend API call
   List<Map<String, dynamic>> rightTableData = [];
@@ -174,79 +175,81 @@ class _QuickSummaryTableState extends State<QuickSummaryTable> {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Sticky Left Column
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _leftCell("Score & Percentage", false),
+    // 👇 WRAPPED THE ROW IN A VERTICAL SINGLECHILDSCROLLVIEW TO FIX OVERFLOW
+    return SingleChildScrollView(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Sticky Left Column
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _leftCell("Score & Percentage", false),
 
-            ...leftScoreData.map((data) {
-              final String title = data[0] as String;
-              final double value = data[1] as double;
-              return _leftCell(title, true, value);
-            }),
-            _leftSubCell(""),
-            _leftSubCell(""),
-            _leftSubCell(""),
-            _leftSubCell(""),
-          ],
-        ),
+              ...leftScoreData.map((data) {
+                final String title = data[0] as String;
+                final double value = data[1] as double;
+                return _leftCell(title, true, value);
+              }),
+              _leftSubCell(""),
+              _leftSubCell(""),
+              _leftSubCell(""),
+              _leftSubCell(""),
+            ],
+          ),
 
-        // Scrollable Right Section
-        Expanded(
-          child:
-              rightTableData.isNotEmpty
-                  ? Scrollbar(
-                    controller: widget.scrollController,
-                    thumbVisibility: true,
-                    trackVisibility: true,
-                    radius: Radius.circular(15),
-                    child: SingleChildScrollView(
+          // Scrollable Right Section
+          Expanded(
+            child:
+                rightTableData.isNotEmpty
+                    ? Scrollbar(
                       controller: widget.scrollController,
-                      scrollDirection: Axis.horizontal,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Header Row
-                          Row(
-                            children: [
-                              _headerCell("Main Marker", 100),
-                              _headerCell("Value", 70),
-                              _headerCell("Unit", 70),
-                              _headerCell("Quick interpretation", 150),
-                            ],
-                          ),
-                          // Data Rows
-                          ...rightTableData.map((item) {
-                            return Row(
+                      thumbVisibility: true,
+                      trackVisibility: true,
+                      radius: Radius.circular(15),
+                      child: SingleChildScrollView(
+                        controller: widget.scrollController,
+                        scrollDirection: Axis.horizontal,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Header Row
+                            Row(
                               children: [
-                                _mainMarkerCell(item["marker"] ?? ""),
-                                _dataCell(
-                                  item["value"] is num
-                                      ? (item["value"] as num).toStringAsFixed(
-                                        3,
-                                      )
-                                      : item["value"]?.toString() ?? "0.0",
-                                ),
-
-                                _dataCell(item["unit"] ?? ""),
-                                _interpretationCell(
-                                  item["interpretation"] ?? "",
-                                ),
+                                _headerCell("Main Marker", 100),
+                                _headerCell("Value", 70),
+                                _headerCell("Unit", 70),
+                                _headerCell("Quick interpretation", 150),
                               ],
-                            );
-                          }),
-                          SizedBox(height: 10),
-                        ],
+                            ),
+                            // Data Rows
+                            ...rightTableData.map((item) {
+                              return Row(
+                                children: [
+                                  _mainMarkerCell(item["marker"] ?? ""),
+                                  _dataCell(
+                                    item["value"] is num
+                                        ? (item["value"] as num)
+                                            .toStringAsFixed(3)
+                                        : item["value"]?.toString() ?? "0.0",
+                                  ),
+
+                                  _dataCell(item["unit"] ?? ""),
+                                  _interpretationCell(
+                                    item["interpretation"] ?? "",
+                                  ),
+                                ],
+                              );
+                            }),
+                            SizedBox(height: 10),
+                          ],
+                        ),
                       ),
-                    ),
-                  )
-                  : const SizedBox.shrink(),
-        ),
-      ],
+                    )
+                    : const SizedBox.shrink(),
+          ),
+        ],
+      ),
     );
   }
 
@@ -266,56 +269,61 @@ class _QuickSummaryTableState extends State<QuickSummaryTable> {
           right: BorderSide(color: Color(0xFFC7C6CE), width: 0.5),
         ),
       ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            text,
-            style: GoogleFonts.poppins(
-              color: const Color(0xFF252525),
-              fontSize: 12,
-              fontWeight: heading ? FontWeight.w400 : FontWeight.w600,
-              height: 1.10,
-              letterSpacing: -0.24,
+      // 👇 WRAPPED IN NEVER-SCROLLABLE SCROLL VIEW TO SWALLOW RENDERFLEX OVERFLOWS
+      child: SingleChildScrollView(
+        physics: const NeverScrollableScrollPhysics(),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              text,
+              style: GoogleFonts.poppins(
+                color: const Color(0xFF252525),
+                fontSize: 12,
+                fontWeight: heading ? FontWeight.w400 : FontWeight.w600,
+                height: 1.10,
+                letterSpacing: -0.24,
+              ),
             ),
-          ),
-          SizedBox(height: 5),
-          if (heading == true)
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: MainAxisAlignment.start,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              spacing: 5,
-              children: [
-                Text(
-                  '${score.toStringAsFixed(0)}%',
-                  style: GoogleFonts.poppins(
-                    color: const Color(0xFF252525),
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    height: 1.10,
-                    letterSpacing: -0.24,
+            SizedBox(height: 5),
+            if (heading == true)
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                spacing: 5,
+                children: [
+                  Text(
+                    '${score.toStringAsFixed(0)}%',
+                    style: GoogleFonts.poppins(
+                      color: const Color(0xFF252525),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      height: 1.10,
+                      letterSpacing: -0.24,
+                    ),
                   ),
-                ),
-                Container(
-                  height: 10,
-                  width: 1,
-                  color: AppColor.primaryBlackColor,
-                ),
-                Text(
-                  scoreStatus,
-                  style: GoogleFonts.poppins(
-                    color: clinicalStatusScoreColor,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    height: 1.10,
-                    letterSpacing: -0.24,
+                  Container(
+                    height: 10,
+                    width: 1,
+                    color: AppColor.primaryBlackColor,
                   ),
-                ),
-              ],
-            ),
-        ],
+                  Text(
+                    scoreStatus,
+                    style: GoogleFonts.poppins(
+                      color: clinicalStatusScoreColor,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      height: 1.10,
+                      letterSpacing: -0.24,
+                    ),
+                  ),
+                ],
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -343,13 +351,16 @@ class _QuickSummaryTableState extends State<QuickSummaryTable> {
           bottom: BorderSide(color: Color(0xFFC7C6CE), width: 0.25),
         ),
       ),
-      child: Text(
-        text,
-        style: GoogleFonts.poppins(
-          color: const Color(0xFF252525),
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-          height: 1.10,
+      child: SingleChildScrollView(
+        physics: const NeverScrollableScrollPhysics(),
+        child: Text(
+          text,
+          style: GoogleFonts.poppins(
+            color: const Color(0xFF252525),
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            height: 1.10,
+          ),
         ),
       ),
     );
@@ -367,14 +378,17 @@ class _QuickSummaryTableState extends State<QuickSummaryTable> {
         ),
         color: Colors.white,
       ),
-      child: Text(
-        text,
-        style: GoogleFonts.poppins(
-          color: const Color(0xFF252525),
-          fontSize: 10,
-          fontWeight: FontWeight.w400,
-          height: 1.10,
-          letterSpacing: -0.20,
+      child: SingleChildScrollView(
+        physics: const NeverScrollableScrollPhysics(),
+        child: Text(
+          text,
+          style: GoogleFonts.poppins(
+            color: const Color(0xFF252525),
+            fontSize: 10,
+            fontWeight: FontWeight.w400,
+            height: 1.10,
+            letterSpacing: -0.20,
+          ),
         ),
       ),
     );
@@ -391,14 +405,17 @@ class _QuickSummaryTableState extends State<QuickSummaryTable> {
           bottom: BorderSide(color: Color(0xFFC7C6CE), width: 0.25),
         ),
       ),
-      child: Text(
-        text,
-        style: GoogleFonts.poppins(
-          color: const Color(0xFF252525),
-          fontSize: 10,
-          fontWeight: FontWeight.w400,
-          height: 1.10,
-          letterSpacing: -0.20,
+      child: SingleChildScrollView(
+        physics: const NeverScrollableScrollPhysics(),
+        child: Text(
+          text,
+          style: GoogleFonts.poppins(
+            color: const Color(0xFF252525),
+            fontSize: 10,
+            fontWeight: FontWeight.w400,
+            height: 1.10,
+            letterSpacing: -0.20,
+          ),
         ),
       ),
     );
@@ -415,14 +432,17 @@ class _QuickSummaryTableState extends State<QuickSummaryTable> {
           bottom: BorderSide(color: Color(0xFFC7C6CE), width: 0.25),
         ),
       ),
-      child: Text(
-        text,
-        style: GoogleFonts.poppins(
-          color: const Color(0xFF252525),
-          fontSize: 10,
-          fontWeight: FontWeight.w400,
-          height: 1.10,
-          letterSpacing: -0.20,
+      child: SingleChildScrollView(
+        physics: const NeverScrollableScrollPhysics(),
+        child: Text(
+          text,
+          style: GoogleFonts.poppins(
+            color: const Color(0xFF252525),
+            fontSize: 10,
+            fontWeight: FontWeight.w400,
+            height: 1.10,
+            letterSpacing: -0.20,
+          ),
         ),
       ),
     );
