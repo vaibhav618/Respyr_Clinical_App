@@ -44,14 +44,24 @@
     <uses-permission android:name="android.permission.CAMERA"/>
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
 
+    <!-- Injected by flutter_foreground_task for reboot auto-restart, which we
+         deliberately don't use — strip it from the merged manifest. -->
+    <uses-permission
+        android:name="android.permission.RECEIVE_BOOT_COMPLETED"
+        tools:node="remove" />
 
 
 
 
+
+    <!-- Backups off: clinical data + auth tokens must not be extractable via
+         adb backup / device-to-device transfer. -->
     <application
         android:name="${applicationName}"
         android:label="Respyr Clinical"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:allowBackup="false"
+        tools:replace="android:allowBackup">
         
         <activity
             android:name="com.humorstech.respyr_clinical.MainActivity"
@@ -96,6 +106,13 @@
             android:foregroundServiceType="connectedDevice|dataSync"
             android:exported="false"
             tools:replace="android:foregroundServiceType" />
+
+        <!-- The generation service must NOT auto-restart after reboot (a reading
+             cannot survive a reboot anyway). Removing the library's exported
+             receiver also closes the unprotected-receiver security finding. -->
+        <receiver
+            android:name="com.pravera.flutter_foreground_task.service.RebootReceiver"
+            tools:node="remove" />
     </application>
 
     <!-- Used by Flutter engine for text processing -->
