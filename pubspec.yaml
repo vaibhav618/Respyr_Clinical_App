@@ -78,6 +78,8 @@ dependencies:
   # ✅ FIX: must be <= 1.1.0 for Flutter 3.29's vector_math pin
   fl_chart:
 
+  equatable: any
+  device_info_plus: any
 dev_dependencies:
   flutter_test:
     sdk: flutter

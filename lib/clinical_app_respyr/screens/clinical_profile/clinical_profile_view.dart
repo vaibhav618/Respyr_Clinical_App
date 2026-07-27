@@ -83,8 +83,7 @@ class _ClinicalProfileViewState extends State<ClinicalProfileView> {
     final int weight = _weightValue;
     final int? height = _cmValue;
 
-    if (parseAge != null &&
-        parseAge > 0 &&
+    if (parseAge > 0 &&
         weight > 0 &&
         height != null &&
         height > 0) {
