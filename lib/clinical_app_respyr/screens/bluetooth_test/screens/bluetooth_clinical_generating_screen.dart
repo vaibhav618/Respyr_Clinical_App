@@ -52,9 +52,16 @@ class BluetoothGeneratingScreen extends StatefulWidget {
       _BluetoothGeneratingScreenState();
 }
 
+// 👇 ADDED WidgetsBindingObserver
 class _BluetoothGeneratingScreenState extends State<BluetoothGeneratingScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   late AnimationController _controller;
+
+  // 👇 ADDED Hidden Variables for Retry Logic & Ghost Tracking
+  bool _needsRetry = false;
+  String _savedRawData = "";
+  bool _isApiRunning = false;
+  int _apiRequestId = 0;
 
   int completedSteps = 0;
   bool isErrorOccurred = false;
@@ -106,6 +113,7 @@ class _BluetoothGeneratingScreenState extends State<BluetoothGeneratingScreen>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this); // lifecycle retry-on-resume
     // Keep the app alive (and BLE + network flowing) if the user backgrounds
     // the app while the reading is being received/generated. Stopped in dispose.
     GenerationForegroundService.startForReading();
@@ -148,6 +156,9 @@ class _BluetoothGeneratingScreenState extends State<BluetoothGeneratingScreen>
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(
+      this,
+    ); // 👇 REMOVED OBSERVER LISTENER
     _isDisposed = true;
 
     // On error/abort/disconnect exits, release the foreground service now. On a
@@ -164,6 +175,29 @@ class _BluetoothGeneratingScreenState extends State<BluetoothGeneratingScreen>
     _receivedDataSubscription = null;
 
     super.dispose();
+  }
+
+  // 👇 ADDED LIFECYCLE HOOK FOR RESURRECTION & GHOST REQUESTS
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      if (_needsRetry && _savedRawData.isNotEmpty) {
+        setState(() {
+          _needsRetry = false;
+          isErrorOccurred = false;
+        });
+        print("🚀🚀🚀 APP WOKE UP. Retrying the dead API call! 🚀🚀🚀");
+        processRawData1(_savedRawData);
+      } else if (_isApiRunning && _savedRawData.isNotEmpty) {
+        setState(() {
+          isErrorOccurred = false;
+        });
+        print(
+          "⚡⚡⚡ APP WOKE UP. Old request is frozen. Firing a fresh one! ⚡⚡⚡",
+        );
+        processRawData1(_savedRawData);
+      }
+    }
   }
 
   void _handleDisconnection() {
@@ -629,6 +663,11 @@ class _BluetoothGeneratingScreenState extends State<BluetoothGeneratingScreen>
   }
 
   void processRawData1(String deviceRawData) async {
+    _savedRawData = deviceRawData; // backup so resume-retry can re-submit
+    _isApiRunning = true;
+    _apiRequestId++; // ticket: responses from stale requests are ignored
+    final int thisRequestId = _apiRequestId;
+
     ResultService resultService = ResultService();
     final profile = widget.profileDetails;
     String testdata = deviceRawData;
@@ -649,11 +688,32 @@ class _BluetoothGeneratingScreenState extends State<BluetoothGeneratingScreen>
         blowData: BlowValuesHelper().getBlowString(widget.blowValuesList),
       );
 
+      // 👇 4. IGNORE IF A NEWER REQUEST WAS FIRED
+      if (thisRequestId != _apiRequestId) return;
+
+      _isApiRunning = false; // API finished successfully
       _navigateToResultScreen1(result);
     } catch (e) {
+      // Ignore errors from stale (ghost) requests — a newer one owns the UI.
+      if (thisRequestId != _apiRequestId) return;
+
+      _isApiRunning = false;
       if (!mounted) return;
 
       final msg = e.toString();
+
+      // If the app is minimized, don't show a dialog nobody can see — flag the
+      // reading for a silent retry when the app resumes.
+      final appState = WidgetsBinding.instance.lifecycleState;
+      final isMinimized =
+          appState == AppLifecycleState.paused ||
+          appState == AppLifecycleState.inactive ||
+          appState == AppLifecycleState.hidden;
+      if (isMinimized) {
+        _needsRetry = true;
+        print("🤫 API died while minimized. Flagging for retry.");
+        return;
+      }
 
       if (msg.contains("Error in breath sample")) {
         _showErrorDialog("Error in breath sample");
