@@ -2,11 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:respyr_clinical/authentication/screens/login_screen.dart';
 import 'package:respyr_clinical/authentication/sign_in/presentation/widgets/sign_in_option_button.dart';
 
 import '../../../../router/app_routers.dart';
-import '../../../corporate/corporate_login/presentation/screens/corporate_login.dart';
 import '../../bloc/sign_in_bloc.dart';
 import '../../bloc/sign_in_event.dart';
 import '../../bloc/sign_in_state.dart';
@@ -46,7 +44,7 @@ class _SignInView extends StatelessWidget {
           if (state.selectedType == "clinical") {
             Navigator.pushNamed(context, AppRoutes.clinicalLogin);
           } else if (state.selectedType == "corporate") {
-            Navigator.pushNamed(context, AppRoutes.corporateLogin );
+            Navigator.pushNamed(context, AppRoutes.corporateLogin);
           }
         }
       },
@@ -58,7 +56,9 @@ class _SignInView extends StatelessWidget {
           title: SvgPicture.asset("assets/respyr_logo.svg"),
         ),
         body: BlocBuilder<SignInBloc, SignInState>(
-          buildWhen: (p, c) => p.status != c.status || p.selectedType != c.selectedType,
+          buildWhen:
+              (p, c) =>
+                  p.status != c.status || p.selectedType != c.selectedType,
           builder: (context, state) {
             return Column(
               mainAxisSize: MainAxisSize.max,
@@ -86,9 +86,10 @@ class _SignInView extends StatelessWidget {
                     child: signInOptionButton(
                       state: state,
                       title: "Clinical",
-                      onClick: () => context.read<SignInBloc>().add(
-                        const SignInClinicalPressed(),
-                      ),
+                      onClick:
+                          () => context.read<SignInBloc>().add(
+                            const SignInClinicalPressed(),
+                          ),
                     ),
                   ),
                 ),
@@ -116,9 +117,10 @@ class _SignInView extends StatelessWidget {
                     child: signInOptionButton(
                       state: state,
                       title: "Corporate",
-                      onClick: () => context.read<SignInBloc>().add(
-                        const SignInCorporatePressed(),
-                      ),
+                      onClick:
+                          () => context.read<SignInBloc>().add(
+                            const SignInCorporatePressed(),
+                          ),
                     ),
                   ),
                 ),

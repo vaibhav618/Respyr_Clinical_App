@@ -1,10 +1,10 @@
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
+import 'package:respyr_clinical/shared/urls.dart';
 
 class ClinicalPatientProfileApi {
-  final String baseUrl =
-      'https://humorstech.com/humors_app/app_final/create_patient_profile.php';
+  final String baseUrl = Urls.createPatientProfile;
   Future<Map<String, dynamic>> clinicalProfileInfo({
     required String clinicalName,
     required String profileName,

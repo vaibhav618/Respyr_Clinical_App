@@ -1,11 +1,12 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:respyr_clinical/shared/urls.dart';
 import '../models/ticket_model.dart';
 
 class TicketRepository {
   Future<List<Ticket>> fetchTickets(String loginId) async {
     final url = Uri.parse(
-      'https://humorstech.com/humors_app/app_final/clinical/api/fetch/fetch_issues2.php',
+      Urls.fetchIssues,
     );
 
     final response = await http.post(url, body: {'login_id': loginId});

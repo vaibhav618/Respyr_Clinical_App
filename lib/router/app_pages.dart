@@ -14,7 +14,6 @@ import 'package:respyr_clinical/authentication/corporate/corporate_sign_up/prese
 import 'package:respyr_clinical/authentication/corporate/corporate_sign_up/presentation/account_creation_success.dart';
 import 'package:respyr_clinical/authentication/corporate/set_password/presentation/screens/set_password.dart';
 
-import '../authentication/screens/login_screen.dart';
 import '../authentication/sign_in/presentation/screens/sign_in.dart';
 import '../clinical_dashboard/bloc/health_score_bloc.dart';
 import '../clinical_dashboard/service/overall_data_by_date_service.dart';
@@ -40,7 +39,6 @@ class AppPages {
 
         Widget child;
 
-
         if (savedRole == "clinical") {
           child = const Splash();
         } else if (savedRole == "corporate") {
@@ -49,15 +47,15 @@ class AppPages {
           child = const SignIn();
         }
 
-        return UpgradeAlert(
-          upgrader: Upgrader(),
-          child: child,
-        );
+        return UpgradeAlert(upgrader: Upgrader(), child: child);
       },
     ),
 
     GetPage(name: AppRoutes.signIn, page: () => const SignIn()),
-    GetPage(name: AppRoutes.clinicalLogin, page: () => const LoginWithPassword()),
+    GetPage(
+      name: AppRoutes.clinicalLogin,
+      page: () => const LoginWithPassword(),
+    ),
     GetPage(name: AppRoutes.corporateLogin, page: () => const CorporateLogin()),
 
     GetPage(
@@ -81,14 +79,10 @@ class AppPages {
     GetPage(
       name: AppRoutes.corporateProfile,
       page: () {
-        final CorporateUserData? data =
-        Get.arguments as CorporateUserData?;
-        return CorporateProfile(
-          corporateUserData: data!,
-        );
+        final CorporateUserData? data = Get.arguments as CorporateUserData?;
+        return CorporateProfile(corporateUserData: data!);
       },
     ),
-
 
     GetPage(
       name: AppRoutes.accountCreationSuccess,
@@ -105,7 +99,6 @@ class AppPages {
       page: () => const CorporateForgotPassword(),
     ),
 
-
     GetPage(
       name: AppRoutes.corporateDashboard,
       page: () {
@@ -113,26 +106,23 @@ class AppPages {
 
         // ✅ allow both keys (corporate_id / clinic_name), so your earlier code won't break
         final corporateId =
-        (args?['corporate_id'] ?? args?['clinic_name'] ?? '').toString();
+            (args?['corporate_id'] ?? args?['clinic_name'] ?? '').toString();
 
         final email = (args?['email'] ?? '').toString();
 
-        return CorporateDashboard(
-          email: email,
-          corporateId: corporateId,
-        );
+        return CorporateDashboard(email: email, corporateId: corporateId);
       },
     ),
-
 
     GetPage(
       name: AppRoutes.finalResultPage,
       page: () {
         final args = Get.arguments as Map<String, dynamic>?;
 
-        final NewResultModel lifestyleJson = args?['lifestyle_json'] as NewResultModel;
+        final NewResultModel lifestyleJson =
+            args?['lifestyle_json'] as NewResultModel;
         final ResultProfileDataModel profileDetails =
-        args?['profile_details'] as ResultProfileDataModel;
+            args?['profile_details'] as ResultProfileDataModel;
 
         final List<double> blowValuesList =
             (args?['blow_values_list'] as List?)?.cast<double>() ?? <double>[];
@@ -153,7 +143,6 @@ class AppPages {
       },
     ),
 
-
     GetPage(
       name: AppRoutes.mainDashboard,
       page: () {
@@ -166,22 +155,22 @@ class AppPages {
         }
 
         final storage = GetStorage();
-        final role = (profileDetails.role ?? 'clinical').toString().toLowerCase();
+        final role =
+            (profileDetails.role ?? 'clinical').toString().toLowerCase();
         storage.write('role', role);
         return BlocProvider(
           create: (_) => HealthScoreBloc(OverallDataByDateService()),
-          child: role == 'corporate'
-              ? CorporateDashboard(
-            email: (profileDetails.email ?? 'NA'),
-            corporateId: (profileDetails.clinicName ?? ''),
-          )
-              : ClinicalDashboardMain(
-            loginId: profileDetails.clinicName ?? '',
-          ),
+          child:
+              role == 'corporate'
+                  ? CorporateDashboard(
+                    email: (profileDetails.email ?? 'NA'),
+                    corporateId: (profileDetails.clinicName ?? ''),
+                  )
+                  : ClinicalDashboardMain(
+                    loginId: profileDetails.clinicName ?? '',
+                  ),
         );
       },
     ),
-
-
   ];
 }

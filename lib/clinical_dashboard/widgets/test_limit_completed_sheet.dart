@@ -1,4 +1,3 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -25,7 +24,7 @@ class TestLimitReached {
                   onPressed: () => Navigator.pop(context),
                 ),
               ),
-              SizedBox(height: 30,),
+              SizedBox(height: 30),
               Text(
                 "You’ve reached your test limit",
                 style: GoogleFonts.poppins(
@@ -38,7 +37,8 @@ class TestLimitReached {
               ),
 
               SizedBox(height: 30),
-              Text("For further assistance, contact our support team at help@respyr.com or call 99025 52385.",
+              Text(
+                "For further assistance, contact our support team at help@respyr.com or call 99025 52385.",
                 style: GoogleFonts.poppins(
                   color: const Color(0xFF535359),
                   fontSize: 15,
@@ -46,24 +46,26 @@ class TestLimitReached {
                 ),
               ),
               SizedBox(height: 50),
-              
+
               SizedBox(
                 width: double.infinity,
                 height: 52,
-                child: ElevatedButton(onPressed: (){},
-                  style:ElevatedButton.styleFrom(
+                child: ElevatedButton(
+                  onPressed: () {},
+                  style: ElevatedButton.styleFrom(
                     elevation: 0,
                     backgroundColor: const Color(0xFF308BF9),
-                    padding: EdgeInsets.symmetric(vertical: 8)
-                  ) ,
-                    child: Text("Contact support",
-                      style: GoogleFonts.poppins(
-                        color: Colors.white,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w400,
-                        height: 1.10,
-                      ),
+                    padding: EdgeInsets.symmetric(vertical: 8),
+                  ),
+                  child: Text(
+                    "Contact support",
+                    style: GoogleFonts.poppins(
+                      color: Colors.white,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w400,
+                      height: 1.10,
                     ),
+                  ),
                 ),
               ),
               SizedBox(height: 20),

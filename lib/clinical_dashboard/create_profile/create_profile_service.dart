@@ -1,12 +1,12 @@
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:respyr_clinical/shared/urls.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../log_manager/log_manager.dart';
 
 class CreateProfileService {
-  final String baseUrl = "https://humorstech.com/humors_app/app_final/clinical/api/insert/";
+  final String baseUrl = Urls.clinicalInsertBase;
   final String endpoint = "create_user_profile.php";
 
   Future<Map<String, dynamic>> createProfile({
@@ -47,7 +47,8 @@ class CreateProfileService {
       event: 'CREATE_PROFILE_ATTEMPT',
       apiUrl: uri.toString(),
       status: 'ATTEMPT',
-      details: 'Attempting to create profile: $profileName in clinic: $clinicName',
+      details:
+          'Attempting to create profile: $profileName in clinic: $clinicName',
     );
 
     try {
@@ -60,7 +61,9 @@ class CreateProfileService {
 
       if (response.statusCode == 200) {
         // Log success or API-level error inside 200
-        if (decoded is Map && (decoded['status'] == 'success' || decoded['status'] == 'SUCCESS')) {
+        if (decoded is Map &&
+            (decoded['status'] == 'success' ||
+                decoded['status'] == 'SUCCESS')) {
           LogManager().logEvent(
             event: 'CREATE_PROFILE_SUCCESS',
             apiUrl: uri.toString(),
@@ -72,33 +75,34 @@ class CreateProfileService {
             event: 'CREATE_PROFILE_API_ERROR',
             apiUrl: uri.toString(),
             status: 'FAILED',
-            details: 'API error while creating $profileName: ${decoded['message'] ?? 'Unknown error'}',
+            details:
+                'API error while creating $profileName: ${decoded['message'] ?? 'Unknown error'}',
           );
         }
 
-        return {
-          'status_code': response.statusCode,
-          'body': decoded,
-        };
+        return {'status_code': response.statusCode, 'body': decoded};
       } else {
         // Log HTTP error but preserve backend error message
         LogManager().logEvent(
           event: 'CREATE_PROFILE_FAILED',
           apiUrl: uri.toString(),
           status: 'FAILED',
-          details: decoded is Map
-              ? 'API Error: ${decoded['message']}'
-              : 'HTTP ${response.statusCode}: ${response.reasonPhrase ?? 'Unknown error'} for $profileName',
+          details:
+              decoded is Map
+                  ? 'API Error: ${decoded['message']}'
+                  : 'HTTP ${response.statusCode}: ${response.reasonPhrase ?? 'Unknown error'} for $profileName',
         );
 
         return {
           'status_code': response.statusCode,
-          'body': decoded is Map
-              ? decoded
-              : {
-            'status': 'error',
-            'message': 'HTTP ${response.statusCode}: ${response.reasonPhrase ?? 'Unknown error'}',
-          }
+          'body':
+              decoded is Map
+                  ? decoded
+                  : {
+                    'status': 'error',
+                    'message':
+                        'HTTP ${response.statusCode}: ${response.reasonPhrase ?? 'Unknown error'}',
+                  },
         };
       }
     } catch (e) {
@@ -111,10 +115,7 @@ class CreateProfileService {
       );
       return {
         'status_code': 500,
-        'body': {
-          'status': 'error',
-          'message': 'Exception: $e',
-        }
+        'body': {'status': 'error', 'message': 'Exception: $e'},
       };
     }
   }
@@ -135,7 +136,8 @@ class CreateProfileResponse {
     LogManager().logEvent(
       event: 'CREATE_PROFILE_RESPONSE_PARSED',
       status: 'SUCCESS',
-      details: 'Profile response parsed with status: ${json['status']} and message: ${json['message']}',
+      details:
+          'Profile response parsed with status: ${json['status']} and message: ${json['message']}',
     );
     return CreateProfileResponse(
       status: json['status'],
@@ -175,13 +177,18 @@ class ProfileData {
       profileName: json['profile_name'],
       gender: json['gender'],
       region: json['region'],
-      age: json['age'] is int ? json['age'] : int.tryParse(json['age'].toString()) ?? 0,
-      height: json['height'] is double
-          ? json['height']
-          : double.tryParse(json['height'].toString()) ?? 0.0,
-      weight: json['weight'] is double
-          ? json['weight']
-          : double.tryParse(json['weight'].toString()) ?? 0.0,
+      age:
+          json['age'] is int
+              ? json['age']
+              : int.tryParse(json['age'].toString()) ?? 0,
+      height:
+          json['height'] is double
+              ? json['height']
+              : double.tryParse(json['height'].toString()) ?? 0.0,
+      weight:
+          json['weight'] is double
+              ? json['weight']
+              : double.tryParse(json['weight'].toString()) ?? 0.0,
       dttm: json['dttm'],
     );
   }

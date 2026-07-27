@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:respyr_clinical/shared/urls.dart';
 
 class ClinicLogoWidget extends StatelessWidget {
   final String clinicName;
@@ -30,7 +31,7 @@ class ClinicLogoWidget extends StatelessWidget {
 
   Future<Uint8List?> _fetchLogo(String clinicName) async {
     final uri = Uri.parse(
-      "https://humorstech.com/humors_app/app_final/clinical/fetch_logo1.php?clinic_name=$clinicName",
+      "${Urls.fetchLogo}?clinic_name=$clinicName",
     );
 
     try {

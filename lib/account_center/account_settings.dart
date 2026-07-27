@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../clinical_dashboard/widgets/clinical_logo_widget.dart';
 import '../widgets/appbar.dart';
 
 class AccountSettings extends StatefulWidget {
@@ -11,7 +10,14 @@ class AccountSettings extends StatefulWidget {
   final String clinicEmailInfo;
   final String clinicLocationInfo;
   final Widget clinicalLogo;
-  const AccountSettings({super.key, required this.clinicName, required this.clinicPhoneInfo, required this.clinicEmailInfo, required this.clinicLocationInfo, required this.clinicalLogo});
+  const AccountSettings({
+    super.key,
+    required this.clinicName,
+    required this.clinicPhoneInfo,
+    required this.clinicEmailInfo,
+    required this.clinicLocationInfo,
+    required this.clinicalLogo,
+  });
 
   @override
   State<AccountSettings> createState() => _AccountSettingsState();
@@ -29,14 +35,17 @@ class _AccountSettingsState extends State<AccountSettings> {
           children: [
             Spacer(),
             widget.clinicalLogo,
-            SizedBox(height: 50,),
+            SizedBox(height: 50),
             rowItem(widget.clinicName, "assets/admin_icon.svg"),
-            SizedBox(height: 10,),
+            SizedBox(height: 10),
             rowItem(widget.clinicPhoneInfo, "assets/hugeicons_call.svg"),
-            SizedBox(height: 10,),
+            SizedBox(height: 10),
             rowItem(widget.clinicEmailInfo, "assets/email_icon.svg"),
-            SizedBox(height: 10,),
-            rowItem(widget.clinicLocationInfo, "assets/hugeicons_location-05.svg"),
+            SizedBox(height: 10),
+            rowItem(
+              widget.clinicLocationInfo,
+              "assets/hugeicons_location-05.svg",
+            ),
             Spacer(),
             Spacer(),
             Spacer(),
@@ -46,21 +55,20 @@ class _AccountSettingsState extends State<AccountSettings> {
     );
   }
 
-  Widget rowItem(String title, String svgPath ){
+  Widget rowItem(String title, String svgPath) {
     return Container(
       width: double.infinity,
       decoration: ShapeDecoration(
         color: const Color(0xFFF0F0F0),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
       padding: EdgeInsets.symmetric(horizontal: 20, vertical: 14),
       child: Row(
         children: [
-          SvgPicture.asset(svgPath, color: const Color(0xFF959595),),
-          SizedBox(width: 20,),
-          Text(title,
+          SvgPicture.asset(svgPath, color: const Color(0xFF959595)),
+          SizedBox(width: 20),
+          Text(
+            title,
             style: GoogleFonts.poppins(
               color: const Color(0xFF959595),
               fontSize: 15,
@@ -68,7 +76,6 @@ class _AccountSettingsState extends State<AccountSettings> {
               letterSpacing: -0.30,
             ),
           ),
-
         ],
       ),
     );

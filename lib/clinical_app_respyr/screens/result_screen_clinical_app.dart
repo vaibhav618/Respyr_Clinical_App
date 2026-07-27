@@ -83,7 +83,7 @@ class _ResultScreenClinicalAppState extends State<ResultScreenClinicalApp> {
   }
 
   void _updateBmr() {
-    final int? parseAge = age;
+    final int parseAge = age;
     final int weight = _weightValue;
     final int? height = _cmValue;
 
@@ -343,7 +343,7 @@ class _ResultScreenClinicalAppState extends State<ResultScreenClinicalApp> {
                                   child: CustomResultScore(
                                     progress: gutScore / 100,
                                     svgPath: ResSvg.gutVital,
-                                    textTitle: 'Gut\nScore',
+                                    textTitle: 'Gut\nFermentation\nScore',
                                     scoreType: 'gut',
                                   ),
                                 ),
@@ -355,7 +355,7 @@ class _ResultScreenClinicalAppState extends State<ResultScreenClinicalApp> {
                                   child: CustomResultScore(
                                     progress: liverScore / 100,
                                     svgPath: ResSvg.liver,
-                                    textTitle: 'Liver\nScore',
+                                    textTitle: 'Liver\nLoad\nScore',
                                     scoreType: 'liver',
                                   ),
                                 ),
@@ -381,7 +381,11 @@ class _ResultScreenClinicalAppState extends State<ResultScreenClinicalApp> {
                             "sugar",
                           ),
                           const SizedBox(height: 10),
-                          _diabeticScoreCard("Gut Score", gutScore, "gut"),
+                          _diabeticScoreCard(
+                            "Gut Fermentation Score",
+                            gutScore,
+                            "gut",
+                          ),
                           const SizedBox(height: 10),
                           _diabeticScoreCard(
                             "Respiratory Score",
@@ -390,7 +394,7 @@ class _ResultScreenClinicalAppState extends State<ResultScreenClinicalApp> {
                           ),
                           const SizedBox(height: 10),
                           _diabeticScoreCard(
-                            "Liver Score",
+                            "Liver Stress Score",
                             liverScore,
                             "liver",
                           ),

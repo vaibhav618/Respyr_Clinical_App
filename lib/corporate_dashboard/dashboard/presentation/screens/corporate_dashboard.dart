@@ -6,13 +6,13 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:respyr_clinical/common/auth_logout.dart';
-import 'package:respyr_clinical/widgets/logout_bpx.dart';
+import 'package:respyr_clinical/shared/urls.dart';
 
 import '../../../../clinical_app_respyr/screens/bluetooth_test/screens/bluetooth_clinical_device_connectivity.dart';
 import '../../../../clinical_dashboard/helper/abort_device_manager.dart';
 import '../../../../clinical_dashboard/widgets/bottom_navigation.dart';
-import '../../../../clinical_dashboard/widgets/check_abort_sheet.dart' show CheckAbortSheet;
+import '../../../../clinical_dashboard/widgets/check_abort_sheet.dart'
+    show CheckAbortSheet;
 import '../../../../clinical_dashboard/widgets/connection_option_sheet.dart';
 import '../../../../common/floating_message.dart';
 import '../../../../device_connectivity/presentation/pages/device_connectivity_screen.dart';
@@ -189,12 +189,12 @@ class _CorporateDashboardState extends State<CorporateDashboard>
         }
       },
       child: BlocProvider<CorporateProfileBloc>(
-        create: (_) => CorporateProfileBloc(
-          repo: CorporateProfileRepository(
-            endpointUrl:
-            "https://humorstech.com/humors_app/app_final/clinical/fetch_corporate_profile.php",
-          ),
-        )..add(CorporateProfileFetchRequested(widget.email)),
+        create:
+            (_) => CorporateProfileBloc(
+              repo: CorporateProfileRepository(
+                endpointUrl: Urls.fetchCorporateProfile,
+              ),
+            )..add(CorporateProfileFetchRequested(widget.email)),
         child: Builder(
           builder: (blocContext) {
             // ✅ store bloc-scoped context
@@ -217,7 +217,7 @@ class _CorporateDashboardState extends State<CorporateDashboard>
                     FloatingMessage.show(
                       context,
                       message:
-                      "No internet connection. Please turn it ON and tap Retry.",
+                          "No internet connection. Please turn it ON and tap Retry.",
                       type: FloatingMessageType.warning,
                       duration: const Duration(seconds: 3),
                       fromTop: false,
@@ -228,9 +228,10 @@ class _CorporateDashboardState extends State<CorporateDashboard>
               child: BlocBuilder<CorporateProfileBloc, CorporateProfileState>(
                 builder: (blocContext, profileState) {
                   final bottomBarHeight = kBottomNavigationBarHeight;
-                  final bottomPadding = (_showBottomBar
-                      ? bottomBarHeight + _bottomBarExtraGap
-                      : _bottomBarExtraGap);
+                  final bottomPadding =
+                      (_showBottomBar
+                          ? bottomBarHeight + _bottomBarExtraGap
+                          : _bottomBarExtraGap);
 
                   return Scaffold(
                     backgroundColor: Colors.white,
@@ -251,15 +252,15 @@ class _CorporateDashboardState extends State<CorporateDashboard>
                               curve: _animCurve,
                               child: BottomNavigationBarWidget(
                                 activeIndex: 0,
-                                onDashboardTap: () =>
-                                    _refreshProfile(blocContext),
+                                onDashboardTap:
+                                    () => _refreshProfile(blocContext),
                                 label3: "Profile",
                                 onTakeTestTap: () {
                                   if (!_hasInternet) {
                                     FloatingMessage.show(
                                       context,
                                       message:
-                                      "Please turn ON internet and try again.",
+                                          "Please turn ON internet and try again.",
                                       type: FloatingMessageType.warning,
                                       duration: const Duration(seconds: 3),
                                       fromTop: false,
@@ -284,7 +285,9 @@ class _CorporateDashboardState extends State<CorporateDashboard>
 
                                   if (!mounted) return;
                                   checkDeviceAbortStatus(
-                                      profileDetails, context);
+                                    profileDetails,
+                                    context,
+                                  );
                                 },
                                 onProfileTap: () {
                                   Navigator.pushNamed(
@@ -309,9 +312,9 @@ class _CorporateDashboardState extends State<CorporateDashboard>
   }
 
   Future<void> checkDeviceAbortStatus(
-      ResultProfileDataModel profileModel,
-      BuildContext context,
-      ) async {
+    ResultProfileDataModel profileModel,
+    BuildContext context,
+  ) async {
     final isDeviceAborted = await AbortDeviceManager.getAbortStatus();
     if (!mounted) return;
 
@@ -332,9 +335,9 @@ class _CorporateDashboardState extends State<CorporateDashboard>
   }
 
   void _showConnectionOption(
-      ResultProfileDataModel profileModel,
-      BuildContext context,
-      ) {
+    ResultProfileDataModel profileModel,
+    BuildContext context,
+  ) {
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -357,8 +360,9 @@ class _CorporateDashboardState extends State<CorporateDashboard>
               return;
             }
 
-            final remaining =
-            await getRemainingCooldownSeconds(cooldownSeconds: 40);
+            final remaining = await getRemainingCooldownSeconds(
+              cooldownSeconds: 40,
+            );
 
             if (!context.mounted) return;
 
@@ -370,9 +374,10 @@ class _CorporateDashboardState extends State<CorporateDashboard>
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (_) => BluetoothClinicalDeviceConnectivity(
-                  profileDetails: profileModel,
-                ),
+                builder:
+                    (_) => BluetoothClinicalDeviceConnectivity(
+                      profileDetails: profileModel,
+                    ),
               ),
             );
           },
@@ -393,10 +398,11 @@ class _CorporateDashboardState extends State<CorporateDashboard>
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (_) => UsbDeviceConnectivity(
-                  isClinicalTest: true,
-                  profileDetails: profileModel,
-                ),
+                builder:
+                    (_) => UsbDeviceConnectivity(
+                      isClinicalTest: true,
+                      profileDetails: profileModel,
+                    ),
               ),
             );
           },
@@ -411,9 +417,10 @@ class _CorporateDashboardState extends State<CorporateDashboard>
 
     if (last == null) return 0;
 
-    final diff = DateTime.now()
-        .difference(DateTime.fromMillisecondsSinceEpoch(last))
-        .inSeconds;
+    final diff =
+        DateTime.now()
+            .difference(DateTime.fromMillisecondsSinceEpoch(last))
+            .inSeconds;
 
     final remaining = cooldownSeconds - diff;
     return remaining > 0 ? remaining : 0;
@@ -460,30 +467,29 @@ class _CorporateDashboardState extends State<CorporateDashboard>
   }) {
     return NestedScrollView(
       controller: _scrollController,
-      headerSliverBuilder: (context, innerBoxIsScrolled) => [
-        SliverToBoxAdapter(
-          child: Column(
-            children: [
-              if (profileState.user != null)
-                AppBar(state: profileState)
-              else
-                const SizedBox(height: 56),
-            ],
-          ),
-        ),
-        SliverPersistentHeader(
-          pinned: true,
-          delegate: _PinnedHeaderDelegate(
-            height: _calendarHeight,
-            child: HorizontalCalender(
-              onDateChanged: _onDateChanged,
+      headerSliverBuilder:
+          (context, innerBoxIsScrolled) => [
+            SliverToBoxAdapter(
+              child: Column(
+                children: [
+                  if (profileState.user != null)
+                    AppBar(state: profileState)
+                  else
+                    const SizedBox(height: 56),
+                ],
+              ),
             ),
-          ),
-        ),
-        const SliverToBoxAdapter(
-          child: SizedBox(height: _contentTopGapAfterCalendar),
-        ),
-      ],
+            SliverPersistentHeader(
+              pinned: true,
+              delegate: _PinnedHeaderDelegate(
+                height: _calendarHeight,
+                child: HorizontalCalender(onDateChanged: _onDateChanged),
+              ),
+            ),
+            const SliverToBoxAdapter(
+              child: SizedBox(height: _contentTopGapAfterCalendar),
+            ),
+          ],
       body: Builder(
         builder: (_) {
           if (profileState.status == CorporateProfileStatus.loading) {
@@ -608,10 +614,7 @@ class _FloatingBottomNav extends StatelessWidget {
             duration: fadeDuration,
             curve: curve,
             opacity: visible ? 1 : 0,
-            child: IgnorePointer(
-              ignoring: !visible,
-              child: child,
-            ),
+            child: IgnorePointer(ignoring: !visible, child: child),
           ),
         ),
       ),
@@ -623,10 +626,7 @@ class _PinnedHeaderDelegate extends SliverPersistentHeaderDelegate {
   final Widget child;
   final double height;
 
-  const _PinnedHeaderDelegate({
-    required this.child,
-    required this.height,
-  });
+  const _PinnedHeaderDelegate({required this.child, required this.height});
 
   @override
   double get minExtent => height;
@@ -636,10 +636,10 @@ class _PinnedHeaderDelegate extends SliverPersistentHeaderDelegate {
 
   @override
   Widget build(
-      BuildContext context,
-      double shrinkOffset,
-      bool overlapsContent,
-      ) {
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
     return Material(
       color: Colors.white,
       elevation: overlapsContent ? 3 : 0,

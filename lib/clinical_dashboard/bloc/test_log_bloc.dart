@@ -4,7 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../log_manager/log_manager.dart';
 import '../model/test_log_model.dart';
 import '../repositories/test_log_repository.dart';
-import '../utils/urls.dart';
+import 'package:respyr_clinical/shared/urls.dart';
 import 'package:http/http.dart' as http;
 
 class TestLogBloc extends Bloc<TestLogEvent, TestLogState> {

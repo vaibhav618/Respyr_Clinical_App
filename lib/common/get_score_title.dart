@@ -14,8 +14,8 @@ String getScoreTitle({
   const consumerTitles = {
     ScoreType.sugar: "Sugar Score",
     ScoreType.respiratory: "Respiratory Score",
-    ScoreType.liver: "Liver Score",
-    ScoreType.gut: "Gut Score",
+    ScoreType.liver: "Liver Stress Score",
+    ScoreType.gut: "Gut Fermentation Score",
   };
 
   return (isCorporate ? corporateTitles : consumerTitles)[score] ?? "Unknown";

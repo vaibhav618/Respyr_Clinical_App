@@ -538,7 +538,11 @@ class _BluetoothClinicalDeviceConnectivityState
       debugPrint("💾 Saving new signal to SharedPreferences: $signal");
       await prefs.setString("isFirstReading", signal);
 
-      if (canUpdateUi) {
+      // Re-check liveness here: several awaits (_sendData, SharedPreferences)
+      // occur after `canUpdateUi` was captured, so the widget may have been
+      // disposed in the meantime. Using the stale flag would call setState()
+      // after dispose().
+      if (mounted && !_isDisposed) {
         setState(() {
           isHardwareIdProcessed = true;
           isHardwareIdProcessing = false;

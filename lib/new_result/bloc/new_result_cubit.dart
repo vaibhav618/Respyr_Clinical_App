@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:http/http.dart' as http;
+import 'package:respyr_clinical/shared/urls.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../log_manager/log_manager.dart';
 import '../data/model/result_model.dart';
@@ -22,7 +23,7 @@ class NewResultCubit extends Cubit<NewResultState> {
     // Log attempt
     LogManager().logEvent(
       event: 'FETCH_RESULT_ATTEMPT',
-      apiUrl: "https://humorstech.com/humors_app/app_final/clinical/api/fetch/result_analysis2.php",
+      apiUrl: Urls.resultAnalysis2,
       status: 'ATTEMPT',
       details: 'Attempting to fetch result for subject: $subjectId, region: $region',
     );
@@ -35,7 +36,7 @@ class NewResultCubit extends Cubit<NewResultState> {
         // Log missing token
         LogManager().logEvent(
           event: 'FETCH_RESULT_UNAUTHORIZED',
-          apiUrl: "https://humorstech.com/humors_app/app_final/clinical/api/fetch/result_analysis.php",
+          apiUrl: Urls.resultAnalysis,
           status: 'FAILED',
           details: 'JWT token missing when fetching result for subject: $subjectId',
         );
@@ -44,7 +45,7 @@ class NewResultCubit extends Cubit<NewResultState> {
       }
 
       final response = await http.post(
-        Uri.parse("https://humorstech.com/humors_app/app_final/clinical/api/fetch/result_analysis2.php"),
+        Uri.parse(Urls.resultAnalysis2),
         headers: {
           "Authorization": "Bearer $token",
           "Content-Type": "application/x-www-form-urlencoded",
@@ -70,7 +71,7 @@ class NewResultCubit extends Cubit<NewResultState> {
           // Log success
           LogManager().logEvent(
             event: 'FETCH_RESULT_SUCCESS',
-            apiUrl: "https://humorstech.com/humors_app/app_final/clinical/api/fetch/result_analysis2.php",
+            apiUrl: Urls.resultAnalysis2,
             status: 'SUCCESS',
             details: 'Result fetched successfully for subject: $subjectId',
           );
@@ -80,7 +81,7 @@ class NewResultCubit extends Cubit<NewResultState> {
           // Log API error
           LogManager().logEvent(
             event: 'FETCH_RESULT_FAILED',
-            apiUrl: "https://humorstech.com/humors_app/app_final/clinical/api/fetch/result_analysis2.php",
+            apiUrl: Urls.resultAnalysis2,
             status: 'FAILED',
             details: 'API error: ${json['message'] ?? 'Unknown error'} for subject: $subjectId',
           );
@@ -90,7 +91,7 @@ class NewResultCubit extends Cubit<NewResultState> {
         // Log HTTP error
         LogManager().logEvent(
           event: 'FETCH_RESULT_FAILED',
-          apiUrl: "https://humorstech.com/humors_app/app_final/clinical/api/fetch/result_analysis2.php",
+          apiUrl: Urls.resultAnalysis2,
           status: 'FAILED',
           details: 'HTTP ${response.statusCode}: ${response.reasonPhrase ?? 'Unknown error'} for subject: $subjectId',
         );
@@ -102,7 +103,7 @@ class NewResultCubit extends Cubit<NewResultState> {
       // Log exception
       LogManager().logEvent(
         event: 'FETCH_RESULT_EXCEPTION',
-        apiUrl: "https://humorstech.com/humors_app/app_final/clinical/api/fetch/result_analysis2.php",
+        apiUrl: Urls.resultAnalysis2,
         status: 'EXCEPTION',
         details: 'Exception: $e for subject: $subjectId',
       );
@@ -128,7 +129,7 @@ class NewResultCubit extends Cubit<NewResultState> {
     // Log attempt
     LogManager().logEvent(
       event: 'FETCH_HISTORY_ATTEMPT',
-      apiUrl: "https://humorstech.com/humors_app/app_final/clinical/api/fetch/fetch_history.php",
+      apiUrl: Urls.fetchHistory,
       status: 'ATTEMPT',
       details: 'Fetching history for loginId: $loginId, profileId: $profileId',
     );
@@ -141,7 +142,7 @@ class NewResultCubit extends Cubit<NewResultState> {
         // Log missing token
         LogManager().logEvent(
           event: 'FETCH_HISTORY_UNAUTHORIZED',
-          apiUrl: "https://humorstech.com/humors_app/app_final/clinical/api/fetch/fetch_history.php",
+          apiUrl: Urls.fetchHistory,
           status: 'FAILED',
           details: 'JWT token missing for history fetch loginId: $loginId',
         );
@@ -150,7 +151,7 @@ class NewResultCubit extends Cubit<NewResultState> {
       }
 
       final uri = Uri.parse(
-        "https://humorstech.com/humors_app/app_final/clinical/api/fetch/fetch_history.php",
+        Urls.fetchHistory,
       );
 
       final response = await http.post(
@@ -205,7 +206,7 @@ class NewResultCubit extends Cubit<NewResultState> {
       // Log exception
       LogManager().logEvent(
         event: 'FETCH_HISTORY_EXCEPTION',
-        apiUrl: "https://humorstech.com/humors_app/app_final/clinical/api/fetch/fetch_history.php",
+        apiUrl: Urls.fetchHistory,
         status: 'EXCEPTION',
         details: 'Exception: $e for loginId: $loginId',
       );

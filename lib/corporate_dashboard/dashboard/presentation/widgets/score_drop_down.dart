@@ -1,4 +1,3 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 class SimpleDropdown extends StatelessWidget {
@@ -15,19 +14,17 @@ class SimpleDropdown extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    assert(items.contains(selectedValue),
-    'selectedValue must exist in items');
+    assert(items.contains(selectedValue), 'selectedValue must exist in items');
 
     return DropdownButton<String>(
       value: selectedValue,
-      items: items
-          .map(
-            (item) => DropdownMenuItem<String>(
-          value: item,
-          child: Text(item),
-        ),
-      )
-          .toList(),
+      items:
+          items
+              .map(
+                (item) =>
+                    DropdownMenuItem<String>(value: item, child: Text(item)),
+              )
+              .toList(),
       onChanged: (v) {
         if (v != null) onChanged(v);
       },

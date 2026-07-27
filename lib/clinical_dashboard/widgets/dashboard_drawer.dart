@@ -9,7 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../help_support/screens/help_center.dart';
 import '../clinic_details/model/clinical_details_model.dart';
-import '../utils/urls.dart';
+import 'package:respyr_clinical/shared/urls.dart';
 import 'clinical_logo_widget.dart';
 
 class DashboardDrawer {

@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../model/subject_profile_model.dart';
-import '../utils/urls.dart';
+import 'package:respyr_clinical/shared/urls.dart';
 
 
 class SubjectProfileRepository {

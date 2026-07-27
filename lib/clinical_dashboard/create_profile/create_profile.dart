@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:numberpicker/numberpicker.dart';
 import 'package:respyr_clinical/clinical_app_respyr/screens/bluetooth_test/screens/bluetooth_clinical_device_connectivity.dart';
 import 'package:respyr_clinical/clinical_dashboard/bloc/health_score_bloc.dart';
 import 'package:respyr_clinical/clinical_dashboard/service/overall_data_by_date_service.dart';
@@ -20,10 +21,7 @@ import '../../new_result/data/model/result_profile_data_model.dart';
 import '../utils/user_region_manager.dart';
 import '../widgets/account_creation_success.dart';
 import '../widgets/connection_option_sheet.dart';
-import '../widgets/region_selector.dart';
 import 'create_profile_service.dart';
-
-
 
 class CreateProfile extends StatefulWidget {
   final String loginId;
@@ -38,8 +36,14 @@ class _CreateProfileState extends State<CreateProfile> {
 
   final nameController = TextEditingController();
   final ageController = TextEditingController();
-  final heightController = TextEditingController();
-  final weightController = TextEditingController();
+
+  // Height/weight are chosen from a wheel picker. The wheel starts at these
+  // sensible defaults, but the bar shows a hint until the user actually picks a
+  // value (tracked by the *Set flags).
+  double heightValue = 170; // cm by default
+  double weightValue = 70; // kg
+  bool _heightSet = false;
+  bool _weightSet = false;
 
   bool nameError = false;
   bool ageError = false;
@@ -59,17 +63,58 @@ class _CreateProfileState extends State<CreateProfile> {
   bool _hasInternet = true;
   bool _isNavigating = false;
 
+  // Inline pickers that expand under the Height / Weight / Region bars.
+  bool _heightPickerOpen = false;
+  bool _weightPickerOpen = false;
+  bool _regionPickerOpen = false;
+  final GlobalKey _heightPickerKey = GlobalKey();
+  final GlobalKey _weightPickerKey = GlobalKey();
+  final GlobalKey _regionPickerKey = GlobalKey();
+
   final FocusNode bottomButtonFocusNode = FocusNode();
+
+  // Collapsing title: the large "Subject details" header cross-fades into the
+  // app bar as it scrolls under. Opacity is driven continuously from the scroll
+  // offset (0 → 1 over the fade band) so the title tracks the finger with no
+  // animation lag. 0 = header fully in body, 1 = title fully in app bar.
+  final ScrollController _scrollController = ScrollController();
+  double _titleT = 0;
+
+  // Scroll offsets over which the hand-off happens. Below _fadeStart the title
+  // lives entirely in the body; above _fadeEnd it lives entirely in the app bar.
+  static const double _fadeStart = 12;
+  static const double _fadeEnd = 52;
 
   // ✅ added (cooldown toast timer)
   Timer? _cooldownToastTimer;
 
+  // ── Theme tokens (same palette, centralised for the refreshed UI) ──────────
+  static const Color _fieldFill = Color(0xFFF9FCFF);
+  static const Color _fieldBorder = Color(0xFFE4F0FF);
+  static const Color _hintColor = Color(0xFF9AA0A6);
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+  }
+
+  void _onScroll() {
+    final double offset =
+        _scrollController.hasClients ? _scrollController.offset : 0;
+    final double t =
+        ((offset - _fadeStart) / (_fadeEnd - _fadeStart)).clamp(0.0, 1.0);
+    // Only rebuild on a meaningful change so we don't setState every pixel.
+    if ((t - _titleT).abs() > 0.01) {
+      setState(() => _titleT = t);
+    }
+  }
+
   @override
   void dispose() {
+    _scrollController.dispose();
     nameController.dispose();
     ageController.dispose();
-    heightController.dispose();
-    weightController.dispose();
     _cooldownToastTimer?.cancel(); // ✅ added
     super.dispose();
   }
@@ -80,42 +125,57 @@ class _CreateProfileState extends State<CreateProfile> {
   }
 
   void selectHeightType(String type) {
-    selectedHeightType = type;
+    if (type == selectedHeightType) return;
     setState(() {
-      heightError = false; // clear visual error when switching units
+      // Convert the current value so the slider position stays meaningful.
+      if (type == 'feet' && selectedHeightType == 'cm') {
+        heightValue = double.parse(
+          (heightValue / 30.48).toStringAsFixed(1),
+        ).clamp(3.0, 8.0);
+      } else if (type == 'cm' && selectedHeightType == 'feet') {
+        heightValue = (heightValue * 30.48).roundToDouble().clamp(100, 220);
+      }
       selectedHeightType = type;
+      heightError = false; // clear visual error when switching units
     });
   }
 
-  InputDecoration getInputDecoration(String hintText, bool isError) {
+  InputDecoration getInputDecoration(
+    String hintText,
+    bool isError, {
+    IconData? prefixIcon,
+    String? suffixText,
+  }) {
+    OutlineInputBorder border(Color color) => OutlineInputBorder(
+      borderSide: BorderSide(color: color, width: 1.3),
+      borderRadius: BorderRadius.circular(12),
+    );
+
     return InputDecoration(
       hintText: hintText,
-      hintStyle: GoogleFonts.poppins(
+      hintStyle: GoogleFonts.poppins(fontSize: 13, color: _hintColor),
+      filled: true,
+      fillColor: _fieldFill,
+      prefixIcon:
+          prefixIcon == null
+              ? null
+              : Icon(
+                prefixIcon,
+                size: 20,
+                color: isError ? Colors.red : AppColor.primaryBlueColor,
+              ),
+      suffixText: suffixText,
+      suffixStyle: GoogleFonts.poppins(
         fontSize: 12,
-        color: const Color(0xFF252525),
+        fontWeight: FontWeight.w500,
+        color: AppColor.textLightColor,
       ),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 20),
-      enabledBorder: OutlineInputBorder(
-        borderSide: BorderSide(
-          color: isError ? Colors.red : const Color(0xFFE4F0FF),
-        ),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderSide: BorderSide(
-          color: isError ? Colors.red : const Color(0xFF308BF9),
-        ),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      errorStyle: const TextStyle(color: Colors.red, fontSize: 12),
-      errorBorder: OutlineInputBorder(
-        borderSide: const BorderSide(color: Colors.red),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      focusedErrorBorder: OutlineInputBorder(
-        borderSide: const BorderSide(color: Colors.red),
-        borderRadius: BorderRadius.circular(10),
-      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      enabledBorder: border(isError ? Colors.red : _fieldBorder),
+      focusedBorder: border(isError ? Colors.red : AppColor.primaryBlueColor),
+      errorStyle: GoogleFonts.poppins(color: Colors.red, fontSize: 11),
+      errorBorder: border(Colors.red),
+      focusedErrorBorder: border(Colors.red),
     );
   }
 
@@ -125,9 +185,10 @@ class _CreateProfileState extends State<CreateProfile> {
     final last = prefs.getInt('last_reading_time');
     if (last == null) return 0;
 
-    final diff = DateTime.now()
-        .difference(DateTime.fromMillisecondsSinceEpoch(last))
-        .inSeconds;
+    final diff =
+        DateTime.now()
+            .difference(DateTime.fromMillisecondsSinceEpoch(last))
+            .inSeconds;
 
     final remaining = cooldownSeconds - diff;
     return remaining > 0 ? remaining : 0;
@@ -178,13 +239,17 @@ class _CreateProfileState extends State<CreateProfile> {
     final genderSelected =
         selectedGender != null && selectedGender != 'not_selected';
 
-    if (!formValid || !regionSelected || !genderSelected) {
+    if (!formValid ||
+        !regionSelected ||
+        !genderSelected ||
+        !_heightSet ||
+        !_weightSet) {
       setState(() {
         nameError = nameController.text.trim().isEmpty;
         ageError = ageController.text.trim().isEmpty;
-        heightError = heightController.text.trim().isEmpty;
-        weightError = weightController.text.trim().isEmpty;
         regionError = !regionSelected;
+        heightError = !_heightSet;
+        weightError = !_weightSet;
       });
       // Form will show the inline validator messages thanks to autovalidateMode
       return;
@@ -195,8 +260,6 @@ class _CreateProfileState extends State<CreateProfile> {
     try {
       final name = nameController.text.trim();
       final age = ageController.text.trim();
-      final height = heightController.text.trim();
-      final weight = weightController.text.trim();
 
       final parsedAge = int.tryParse(age);
       if (parsedAge == null || parsedAge < 18 || parsedAge > 75) {
@@ -208,54 +271,15 @@ class _CreateProfileState extends State<CreateProfile> {
         return;
       }
 
-      final rawHeight = double.tryParse(height);
-      if (rawHeight == null) {
-        showError("Invalid height format.");
-        setState(() => isLoading = false);
-        return;
-      }
-
-      bool isHeightValid = true;
-      if (selectedHeightType == 'cm') {
-        if (rawHeight < 43.18 || rawHeight > 304.8) isHeightValid = false;
-      } else {
-        if (rawHeight < 1.5 || rawHeight > 10.0) isHeightValid = false;
-      }
-
-      if (!isHeightValid) {
-        showError("Height must be between 43.18-304.8 cm or 1.5-10.0 feet.");
-        setState(() {
-          heightError = true;
-          isLoading = false;
-        });
-        return;
-      }
-      final heightInCm =
-      selectedHeightType == 'feet' ? rawHeight * 30.48 : rawHeight;
-
-      final rawWeight = double.tryParse(weight);
-      if (rawWeight == null) {
-        showError("Invalid weight format.");
-        setState(() {
-          weightError = true;
-          isLoading = false;
-        });
-        return;
-      }
-      if (rawWeight < 30 || rawWeight > 200) {
-        showError("Weight must be between 30-200 kg.");
-        setState(() {
-          weightError = true;
-          isLoading = false;
-        });
-        return;
-      }
+      // Height/weight come from sliders, so they're always within valid range.
+      final double heightInCm =
+          selectedHeightType == 'feet' ? heightValue * 30.48 : heightValue;
 
       LogManager().logEvent(
         event: 'CREATE_PROFILE_ATTEMPT',
         status: 'ATTEMPT',
         details:
-        'User attempting to create profile: $name, gender: $selectedGender, region: $selectedRegionKey',
+            'User attempting to create profile: $name, gender: $selectedGender, region: $selectedRegionKey',
       );
 
       final createProfileService = CreateProfileService();
@@ -265,7 +289,7 @@ class _CreateProfileState extends State<CreateProfile> {
         gender: selectedGender!,
         age: age,
         height: heightInCm.toStringAsFixed(2),
-        weight: weight,
+        weight: weightValue.toStringAsFixed(0),
         region: selectedRegionKey!,
         phone: "NA",
         email: "NA",
@@ -325,21 +349,20 @@ class _CreateProfileState extends State<CreateProfile> {
     Navigator.pushAndRemoveUntil(
       context,
       MaterialPageRoute(
-        builder: (_) => BlocProvider(
-          create: (_) => HealthScoreBloc(OverallDataByDateService()),
-          child: ClinicalDashboardMain(
-            loginId: widget.loginId,
-          ),
-        ),
+        builder:
+            (_) => BlocProvider(
+              create: (_) => HealthScoreBloc(OverallDataByDateService()),
+              child: ClinicalDashboardMain(loginId: widget.loginId),
+            ),
       ),
-          (route) => false,
+      (route) => false,
     );
   }
 
   void _showConnectionOption(
-      ResultProfileDataModel profileModel,
-      BuildContext context,
-      ) {
+    ResultProfileDataModel profileModel,
+    BuildContext context,
+  ) {
     // ... your bottom sheet code (unchanged)
     showModalBottomSheet(
       context: context,
@@ -353,8 +376,9 @@ class _CreateProfileState extends State<CreateProfile> {
             _isNavigating = true;
 
             // ✅ added: cooldown check before navigating
-            final remaining =
-            await getRemainingCooldownSeconds(cooldownSeconds: 40);
+            final remaining = await getRemainingCooldownSeconds(
+              cooldownSeconds: 40,
+            );
             if (remaining > 0) {
               _isNavigating = false;
               await showCooldownToast(remaining);
@@ -369,12 +393,13 @@ class _CreateProfileState extends State<CreateProfile> {
             Navigator.pushAndRemoveUntil(
               context,
               MaterialPageRoute(
-                builder: (_) => BluetoothClinicalDeviceConnectivity(
-                  // isClinicalTest: true,
-                  profileDetails: profileModel,
-                ),
+                builder:
+                    (_) => BluetoothClinicalDeviceConnectivity(
+                      // isClinicalTest: true,
+                      profileDetails: profileModel,
+                    ),
               ),
-                  (route) => false,
+              (route) => false,
             );
           },
           onUsbTap: () {
@@ -383,12 +408,13 @@ class _CreateProfileState extends State<CreateProfile> {
             Navigator.pushAndRemoveUntil(
               context,
               MaterialPageRoute(
-                builder: (_) => UsbDeviceConnectivity(
-                  isClinicalTest: true,
-                  profileDetails: profileModel,
-                ),
+                builder:
+                    (_) => UsbDeviceConnectivity(
+                      isClinicalTest: true,
+                      profileDetails: profileModel,
+                    ),
               ),
-                  (route) => false,
+              (route) => false,
             );
           },
         );
@@ -413,10 +439,27 @@ class _CreateProfileState extends State<CreateProfile> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.white,
-        elevation: 2,
-        title: Text(
-          "Create new subject",
-          style: GoogleFonts.poppins(fontSize: 15, fontWeight: FontWeight.w600),
+        scrolledUnderElevation: 0,
+        elevation: 0,
+        title: Opacity(
+          opacity: _titleT,
+          // Slides up a few px as it fades in, so it reads as rising into the
+          // bar rather than blinking on.
+          child: Transform.translate(
+            offset: Offset(0, (1 - _titleT) * 6),
+            child: Text(
+              "Subject details",
+              style: GoogleFonts.poppins(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: AppColor.primaryBlackColor,
+              ),
+            ),
+          ),
+        ),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(height: 1, color: const Color(0xFFF0F4FA)),
         ),
       ),
       body: InternetConnectivityHandler(
@@ -433,16 +476,27 @@ class _CreateProfileState extends State<CreateProfile> {
             children: [
               Expanded(
                 child: SingleChildScrollView(
+                  controller: _scrollController,
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: Form(
                     key: _formKey,
                     autovalidateMode: AutovalidateMode.onUserInteraction,
                     child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const SizedBox(height: 20),
+                        const SizedBox(height: 16),
+                        // Fades out in lock-step with the app bar title fading
+                        // in, so the two titles cross-fade during the collapse.
+                        Opacity(
+                          opacity: (1 - _titleT).clamp(0.0, 1.0),
+                          child: _buildHeader(),
+                        ),
+                        const SizedBox(height: 24),
                         _buildTextField(
                           controller: nameController,
-                          hint: "Enter your full name *",
+                          label: "Full name",
+                          icon: Icons.person_outline_rounded,
+                          hint: "Enter subject's full name",
                           isError: nameError,
                           validator: (value) {
                             value = value?.trim();
@@ -462,10 +516,13 @@ class _CreateProfileState extends State<CreateProfile> {
                             if (nameError) setState(() => nameError = false);
                           },
                         ),
-                        const SizedBox(height: 20),
+                        const SizedBox(height: 18),
                         _buildTextField(
                           controller: ageController,
-                          hint: "Enter your age *",
+                          label: "Age",
+                          icon: Icons.calendar_today_outlined,
+                          hint: "Enter age",
+                          suffixText: "yrs",
                           isError: ageError,
                           inputType: TextInputType.number,
                           validator: (value) {
@@ -485,55 +542,15 @@ class _CreateProfileState extends State<CreateProfile> {
                             if (ageError) setState(() => ageError = false);
                           },
                         ),
-                        const SizedBox(height: 20),
+                        const SizedBox(height: 18),
                         _buildGenderSelector(),
-                        const SizedBox(height: 20),
+                        const SizedBox(height: 18),
                         _buildHeightField(),
-                        const SizedBox(height: 20),
-                        _buildTextField(
-                          controller: weightController,
-                          hint: "Enter your weight (Kg) *",
-                          isError: weightError,
-                          inputType: TextInputType.number,
-                          validator: (value) {
-                            if (value == null || value.trim().isEmpty) {
-                              return 'Weight is required';
-                            }
-                            final weight = double.tryParse(value.trim());
-                            if (weight == null) {
-                              return 'Enter a valid number for weight';
-                            }
-                            if (weight < 30 || weight > 200) {
-                              return 'Weight must be between 30 kg and 200 kg';
-                            }
-                            return null;
-                          },
-                          onChanged: () {
-                            if (weightError) {
-                              setState(() => weightError = false);
-                            }
-                          },
-                        ),
-                        const SizedBox(height: 20),
-                        _buildRegionSelector(
-                          isError: regionError,
-                          selectedRegionKey: selectedRegionKey,
-                          onPressed: () async {
-                            FocusScope.of(context).unfocus();
-                            final result =
-                            await RegionSelector.showRegionPicker(
-                              context,
-                              selectedRegionKey,
-                            );
-                            if (result != null) {
-                              setState(() {
-                                selectedRegionKey = result;
-                                regionError = false;
-                              });
-                            }
-                          },
-                        ),
-                        const SizedBox(height: 20),
+                        const SizedBox(height: 18),
+                        _buildWeightField(),
+                        const SizedBox(height: 18),
+                        _buildRegionSelector(),
+                        const SizedBox(height: 24),
                       ],
                     ),
                   ),
@@ -541,10 +558,16 @@ class _CreateProfileState extends State<CreateProfile> {
               ),
 
               // Submit button
-              Padding(
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  border: Border(
+                    top: BorderSide(color: const Color(0xFFF0F4FA), width: 1),
+                  ),
+                ),
                 padding: const EdgeInsets.symmetric(
                   horizontal: 20,
-                  vertical: 16,
+                  vertical: 14,
                 ),
                 child: _buildBottomSubmitButton(),
               ),
@@ -555,56 +578,162 @@ class _CreateProfileState extends State<CreateProfile> {
     );
   }
 
-  Widget _buildRegionSelector({
-    required bool isError,
-    required String? selectedRegionKey,
-    required VoidCallback onPressed,
-  }) {
+  Widget _buildHeader() {
+    return Row(
+      children: [
+        Container(
+          height: 48,
+          width: 48,
+          decoration: BoxDecoration(
+            color: AppColor.primaryBlueColor.withValues(alpha: 0.10),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(
+            Icons.person_add_alt_1_rounded,
+            color: AppColor.primaryBlueColor,
+            size: 24,
+          ),
+        ),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                "Subject details",
+                style: GoogleFonts.poppins(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: AppColor.primaryBlackColor,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                "Fill in the details below to create a new profile.",
+                style: GoogleFonts.poppins(
+                  fontSize: 12,
+                  color: AppColor.textLightColor,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _fieldLabel(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8, left: 2),
+      child: Text(
+        text,
+        style: GoogleFonts.poppins(
+          fontSize: 13,
+          fontWeight: FontWeight.w500,
+          color: AppColor.primaryBlackColor,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRegionSelector() {
+    final String? label =
+        selectedRegionKey == null || selectedRegionKey == "not_selected"
+            ? null
+            : getRegionLabelFromValue(selectedRegionKey);
+    final bool hasValue = label != null;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          decoration: ShapeDecoration(
-            color: Colors.white,
-            shape: RoundedRectangleBorder(
-              side: BorderSide(
-                width: 1,
-                color: isError ? Colors.red : const Color(0xFFF0F0F0),
-              ),
-              borderRadius: BorderRadius.circular(10),
-            ),
-          ),
-          width: double.infinity,
-          child: ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.transparent,
-              shadowColor: Colors.transparent,
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              alignment: Alignment.centerLeft,
-            ),
-            onPressed: onPressed,
-            child: Text(
-              selectedRegionKey == null
-                  ? "Select Region *"
-                  : getRegionLabelFromValue(selectedRegionKey) ??
-                  "Select Region *",
-              textAlign: TextAlign.left,
-              style: GoogleFonts.poppins(
-                color: const Color(0xFF252525),
-                fontSize: 12,
-              ),
-            ),
-          ),
+        _fieldLabel("Region"),
+        _selectorBar(
+          icon: Icons.location_on_outlined,
+          valueText: hasValue ? label : "Select region",
+          open: _regionPickerOpen,
+          isError: regionError,
+          isPlaceholder: !hasValue,
+          onTap: _toggleRegionPicker,
         ),
-        if (isError)
+        AnimatedSize(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeInOut,
+          alignment: Alignment.topCenter,
+          child: _regionPickerOpen
+              ? _inlineRegionPicker()
+              : const SizedBox(width: double.infinity),
+        ),
+        if (regionError && !_regionPickerOpen)
           Padding(
             padding: const EdgeInsets.only(top: 8, left: 6),
             child: Text(
               "Please select a region",
-              style: const TextStyle(color: Colors.red, fontSize: 12),
+              style: GoogleFonts.poppins(color: Colors.red, fontSize: 11),
             ),
           ),
       ],
+    );
+  }
+
+  Widget _inlineRegionPicker() {
+    final entries = UserRegionManager().regionMap.entries.toList();
+    return Container(
+      key: _regionPickerKey,
+      width: double.infinity,
+      margin: const EdgeInsets.only(top: 8),
+      constraints: const BoxConstraints(maxHeight: 220),
+      decoration: BoxDecoration(
+        color: _fieldFill,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _fieldBorder, width: 1.3),
+      ),
+      child: ListView.separated(
+        shrinkWrap: true,
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        itemCount: entries.length,
+        separatorBuilder: (_, __) =>
+            Divider(height: 1, color: _fieldBorder, indent: 14, endIndent: 14),
+        itemBuilder: (ctx, i) {
+          final entry = entries[i];
+          final bool selected = entry.value == selectedRegionKey;
+          return InkWell(
+            onTap: () {
+              setState(() {
+                selectedRegionKey = entry.value;
+                regionError = false;
+                _regionPickerOpen = false;
+              });
+            },
+            child: Padding(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      entry.key,
+                      style: GoogleFonts.poppins(
+                        fontSize: 13,
+                        fontWeight:
+                            selected ? FontWeight.w600 : FontWeight.w400,
+                        color: selected
+                            ? AppColor.primaryBlueColor
+                            : AppColor.primaryBlackColor,
+                      ),
+                    ),
+                  ),
+                  if (selected)
+                    Icon(
+                      Icons.check_rounded,
+                      size: 18,
+                      color: AppColor.primaryBlueColor,
+                    ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
     );
   }
 
@@ -613,24 +742,41 @@ class _CreateProfileState extends State<CreateProfile> {
     required String hint,
     required bool isError,
     required String? Function(String?)? validator,
+    String? label,
+    IconData? icon,
+    String? suffixText,
     TextInputType inputType = TextInputType.text,
     VoidCallback? onChanged,
   }) {
-    return TextFormField(
-      controller: controller,
-      keyboardType: inputType,
-      style: GoogleFonts.poppins(fontSize: 12),
-      decoration: getInputDecoration(hint, isError),
-      validator: validator,
-      onChanged: (val) {
-        if (onChanged != null) onChanged();
-      },
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (label != null) _fieldLabel(label),
+        TextFormField(
+          controller: controller,
+          keyboardType: inputType,
+          style: GoogleFonts.poppins(
+            fontSize: 13,
+            color: AppColor.primaryBlackColor,
+          ),
+          decoration: getInputDecoration(
+            hint,
+            isError,
+            prefixIcon: icon,
+            suffixText: suffixText,
+          ),
+          validator: validator,
+          onChanged: (val) {
+            if (onChanged != null) onChanged();
+          },
+        ),
+      ],
     );
   }
 
   static String? getRegionLabelFromValue(String? value) {
     final match = UserRegionManager().regionMap.entries.firstWhere(
-          (entry) => entry.value == value,
+      (entry) => entry.value == value,
       orElse: () => const MapEntry('', ''),
     );
     return match.key.isNotEmpty ? match.key : null;
@@ -640,148 +786,429 @@ class _CreateProfileState extends State<CreateProfile> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text("Select your gender", style: GoogleFonts.poppins(fontSize: 12)),
-        const SizedBox(height: 10),
+        _fieldLabel("Gender"),
         Row(
-          children: ["Male", "Female"].map((gender) {
-            return Padding(
-              padding: const EdgeInsets.only(right: 15),
-              child: ElevatedButton(
-                onPressed: () => selectGender(gender),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: selectedGender == gender
-                      ? const Color(0xFF252525)
-                      : Colors.transparent,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    side: const BorderSide(color: Color(0xFF252525)),
-                  ),
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  elevation: 0,
-                ),
-                child: Text(
-                  gender,
-                  style: GoogleFonts.poppins(
-                    color: selectedGender == gender
-                        ? Colors.white
-                        : const Color(0xFF252525),
-                    fontSize: 12,
-                  ),
-                ),
-              ),
-            );
-          }).toList(),
+          children: [
+            _genderCard("Male", Icons.male_rounded),
+            const SizedBox(width: 14),
+            _genderCard("Female", Icons.female_rounded),
+          ],
         ),
       ],
+    );
+  }
+
+  Widget _genderCard(String gender, IconData icon) {
+    final bool selected = selectedGender == gender;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => selectGender(gender),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          decoration: BoxDecoration(
+            color: selected ? AppColor.primaryBlueColor : _fieldFill,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              width: 1.3,
+              color: selected ? AppColor.primaryBlueColor : _fieldBorder,
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                size: 20,
+                color: selected ? Colors.white : AppColor.textLightColor,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                gender,
+                style: GoogleFonts.poppins(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: selected ? Colors.white : AppColor.primaryBlackColor,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // After a picker expands, scroll it into view so it isn't hidden below the
+  // fold (waits for the expand animation to finish first).
+  void _revealPicker(GlobalKey key) {
+    Future.delayed(const Duration(milliseconds: 220), () {
+      if (!mounted) return;
+      final ctx = key.currentContext;
+      if (ctx == null || !ctx.mounted) return;
+      Scrollable.ensureVisible(
+        ctx,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+        alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtEnd,
+      );
+    });
+  }
+
+  void _toggleHeightPicker() {
+    FocusScope.of(context).unfocus();
+    setState(() {
+      _heightPickerOpen = !_heightPickerOpen;
+      if (_heightPickerOpen) {
+        _weightPickerOpen = false;
+        _regionPickerOpen = false;
+      }
+    });
+    if (_heightPickerOpen) _revealPicker(_heightPickerKey);
+  }
+
+  void _toggleWeightPicker() {
+    FocusScope.of(context).unfocus();
+    setState(() {
+      _weightPickerOpen = !_weightPickerOpen;
+      if (_weightPickerOpen) {
+        _heightPickerOpen = false;
+        _regionPickerOpen = false;
+      }
+    });
+    if (_weightPickerOpen) _revealPicker(_weightPickerKey);
+  }
+
+  void _toggleRegionPicker() {
+    FocusScope.of(context).unfocus();
+    setState(() {
+      _regionPickerOpen = !_regionPickerOpen;
+      if (_regionPickerOpen) {
+        _heightPickerOpen = false;
+        _weightPickerOpen = false;
+      }
+    });
+    if (_regionPickerOpen) _revealPicker(_regionPickerKey);
+  }
+
+  Widget _inlineHeightPicker() {
+    final bool isCm = selectedHeightType == 'cm';
+    return Container(
+      key: _heightPickerKey,
+      width: double.infinity,
+      margin: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+      decoration: BoxDecoration(
+        color: _fieldFill,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _fieldBorder, width: 1.3),
+      ),
+      child: Column(
+        children: [
+          Align(
+            alignment: Alignment.centerRight,
+            child: _unitPills(
+              selected: selectedHeightType,
+              onChanged: (u) => selectHeightType(u),
+            ),
+          ),
+          const SizedBox(height: 4),
+          isCm
+              ? NumberPicker(
+                  value: heightValue.round().clamp(100, 220).toInt(),
+                  minValue: 100,
+                  maxValue: 220,
+                  itemCount: 3,
+                  itemHeight: 44,
+                  textMapper: (v) => "$v cm",
+                  selectedTextStyle: _pickerSelectedStyle,
+                  textStyle: _pickerUnselectedStyle,
+                  decoration: _pickerHighlightDecoration,
+                  onChanged: (v) => setState(() {
+                    heightValue = v.toDouble();
+                    _heightSet = true;
+                    heightError = false;
+                  }),
+                )
+              : DecimalNumberPicker(
+                  value: heightValue.clamp(3.0, 8.0).toDouble(),
+                  minValue: 3,
+                  maxValue: 8,
+                  decimalPlaces: 1,
+                  itemCount: 3,
+                  itemHeight: 44,
+                  selectedTextStyle: _pickerSelectedStyle,
+                  textStyle: _pickerUnselectedStyle,
+                  integerDecoration: _pickerHighlightDecoration,
+                  decimalDecoration: _pickerHighlightDecoration,
+                  onChanged: (v) => setState(() {
+                    heightValue = v;
+                    _heightSet = true;
+                    heightError = false;
+                  }),
+                ),
+        ],
+      ),
+    );
+  }
+
+  Widget _inlineWeightPicker() {
+    return Container(
+      key: _weightPickerKey,
+      width: double.infinity,
+      margin: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+      decoration: BoxDecoration(
+        color: _fieldFill,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _fieldBorder, width: 1.3),
+      ),
+      // Wrap in a Column (like the Height card) so the wheel keeps its natural
+      // centered width instead of stretching full-width — that way only the
+      // centre captures the scroll and the sides scroll the screen.
+      child: Column(
+        children: [
+          NumberPicker(
+            value: weightValue.round().clamp(30, 200).toInt(),
+            minValue: 30,
+            maxValue: 200,
+            itemCount: 3,
+            itemHeight: 44,
+            textMapper: (v) => "$v kg",
+            selectedTextStyle: _pickerSelectedStyle,
+            textStyle: _pickerUnselectedStyle,
+            decoration: _pickerHighlightDecoration,
+            onChanged: (v) => setState(() {
+              weightValue = v.toDouble();
+              _weightSet = true;
+              weightError = false;
+            }),
+          ),
+        ],
+      ),
     );
   }
 
   Widget _buildHeightField() {
-    return Row(
+    final bool isCm = selectedHeightType == 'cm';
+    final String valueText = !_heightSet
+        ? "Enter height"
+        : isCm
+            ? "${heightValue.round()} cm"
+            : "${heightValue.toStringAsFixed(1)} ft";
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(
-          child: TextFormField(
-            controller: heightController,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            style: GoogleFonts.poppins(fontSize: 12),
-            decoration: getInputDecoration(
-              "Enter your height *",
-              heightError,
-            ).copyWith(errorMaxLines: 3),
-            validator: (value) {
-              if (value == null || value.trim().isEmpty) {
-                return 'Height is required';
-              }
-              final h = double.tryParse(value.trim());
-              if (h == null) {
-                return 'Enter a valid number for height';
-              }
-              if (selectedHeightType == 'cm') {
-                if (h < 43.18 || h > 304.8) {
-                  return 'Height must be between 43.18 cm and 304.8 cm';
-                }
-              } else {
-                if (h < 1.5 || h > 10.0) {
-                  return 'Height must be between 1.5 and 10.0 feet';
-                }
-              }
-              return null;
-            },
-            onChanged: (_) {
-              if (heightError) setState(() => heightError = false);
-            },
-          ),
+        _fieldLabel("Height"),
+        _selectorBar(
+          icon: Icons.height_rounded,
+          valueText: valueText,
+          open: _heightPickerOpen,
+          onTap: _toggleHeightPicker,
+          isError: heightError,
+          isPlaceholder: !_heightSet,
         ),
-        const SizedBox(width: 20),
-        ...["cm", "feet"]
-            .map(
-              (unit) => Padding(
-            padding: const EdgeInsets.only(right: 10),
-            child: ElevatedButton(
-              onPressed: () => selectHeightType(unit),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: selectedHeightType == unit
-                    ? const Color(0xFF252525)
-                    : Colors.transparent,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  side: const BorderSide(color: Color(0xFF252525)),
-                ),
-                elevation: 0,
-                padding: const EdgeInsets.symmetric(horizontal: 10),
-              ),
-              child: Text(
-                unit,
-                style: GoogleFonts.poppins(
-                  color: selectedHeightType == unit
-                      ? Colors.white
-                      : const Color(0xFF252525),
-                  fontSize: 12,
-                ),
-              ),
-            ),
-          ),
-        )
-            .toList(),
+        AnimatedSize(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeInOut,
+          alignment: Alignment.topCenter,
+          child: _heightPickerOpen
+              ? _inlineHeightPicker()
+              : const SizedBox(width: double.infinity),
+        ),
+        if (heightError && !_heightPickerOpen) _fieldError("Please select height"),
       ],
     );
   }
 
-  Widget _buildBottomSubmitButton() {
-    return Align(
-      alignment: Alignment.bottomCenter,
+  Widget _buildWeightField() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _fieldLabel("Weight"),
+        _selectorBar(
+          icon: Icons.monitor_weight_outlined,
+          valueText: !_weightSet ? "Enter weight" : "${weightValue.round()} kg",
+          open: _weightPickerOpen,
+          onTap: _toggleWeightPicker,
+          isError: weightError,
+          isPlaceholder: !_weightSet,
+        ),
+        AnimatedSize(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeInOut,
+          alignment: Alignment.topCenter,
+          child: _weightPickerOpen
+              ? _inlineWeightPicker()
+              : const SizedBox(width: double.infinity),
+        ),
+        if (weightError && !_weightPickerOpen) _fieldError("Please select weight"),
+      ],
+    );
+  }
+
+  Widget _fieldError(String message) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 8, left: 6),
+      child: Text(
+        message,
+        style: GoogleFonts.poppins(color: Colors.red, fontSize: 11),
+      ),
+    );
+  }
+
+  Widget _selectorBar({
+    required IconData icon,
+    required String valueText,
+    required bool open,
+    required VoidCallback onTap,
+    bool isError = false,
+    bool isPlaceholder = false,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
       child: Container(
-        color: Colors.white,
         width: double.infinity,
-        height: 52,
-        child: ElevatedButton(
-          focusNode: bottomButtonFocusNode,
-          onPressed: isLoading ? null : () => handleSubmit(),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF308BF9),
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(2000),
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 5),
-          ),
-          child: isLoading
-              ? const SizedBox(
-            height: 18,
-            width: 18,
-            child: CircularProgressIndicator(
-              color: Colors.white,
-              strokeWidth: 2,
-            ),
-          )
-              : Text(
-            "Continue",
-            style: GoogleFonts.poppins(
-              fontSize: 14,
-              color: Colors.white,
-            ),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        decoration: BoxDecoration(
+          color: _fieldFill,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            width: 1.3,
+            color: isError
+                ? Colors.red
+                : (open ? AppColor.primaryBlueColor : _fieldBorder),
           ),
         ),
+        child: Row(
+          children: [
+            Icon(
+              icon,
+              size: 20,
+              color: isError ? Colors.red : AppColor.primaryBlueColor,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                valueText,
+                style: GoogleFonts.poppins(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: isPlaceholder
+                      ? _hintColor
+                      : AppColor.primaryBlackColor,
+                ),
+              ),
+            ),
+            AnimatedRotation(
+              turns: open ? 0.5 : 0,
+              duration: const Duration(milliseconds: 200),
+              child: Icon(
+                Icons.keyboard_arrow_down_rounded,
+                color: AppColor.textLightColor,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _unitPills({
+    required String selected,
+    required ValueChanged<String> onChanged,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: _fieldBorder, width: 1.2),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: ["cm", "feet"].map((unit) {
+          final bool sel = selected == unit;
+          return GestureDetector(
+            onTap: () => onChanged(unit),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+              decoration: BoxDecoration(
+                color: sel ? AppColor.primaryBlueColor : Colors.transparent,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                unit,
+                style: GoogleFonts.poppins(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: sel ? Colors.white : AppColor.textLightColor,
+                ),
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  TextStyle get _pickerSelectedStyle => GoogleFonts.poppins(
+        fontSize: 20,
+        fontWeight: FontWeight.w600,
+        color: AppColor.primaryBlueColor,
+      );
+
+  TextStyle get _pickerUnselectedStyle => GoogleFonts.poppins(
+        fontSize: 15,
+        color: const Color(0xFFB0B7C3),
+      );
+
+  BoxDecoration get _pickerHighlightDecoration => BoxDecoration(
+        border: Border.symmetric(
+          horizontal: BorderSide(
+            color: AppColor.primaryBlueColor.withValues(alpha: 0.35),
+            width: 1.3,
+          ),
+        ),
+      );
+
+  Widget _buildBottomSubmitButton() {
+    return SizedBox(
+      width: double.infinity,
+      height: 54,
+      child: ElevatedButton(
+        focusNode: bottomButtonFocusNode,
+        onPressed: isLoading ? null : () => handleSubmit(),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: AppColor.primaryBlueColor,
+          disabledBackgroundColor: AppColor.primaryBlueColor.withValues(
+            alpha: 0.6,
+          ),
+          elevation: 0,
+          shadowColor: Colors.transparent,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+        ),
+        child:
+            isLoading
+                ? const SizedBox(
+                  height: 20,
+                  width: 20,
+                  child: CircularProgressIndicator(
+                    color: Colors.white,
+                    strokeWidth: 2,
+                  ),
+                )
+                : Text(
+                  "Continue",
+                  style: GoogleFonts.poppins(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
+                ),
       ),
     );
   }

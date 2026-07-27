@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell($adb = \"$env:LOCALAPPDATA\\\\Android\\\\Sdk\\\\platform-tools\\\\adb.exe\"; & $adb devices; Write-Output \"=== new capture file exists/growing? ===\"; if \\(Test-Path \"$env:TEMP\\\\respyr_logcat7.log\"\\) { $sz = \\(Get-Item \"$env:TEMP\\\\respyr_logcat7.log\"\\).Length; Write-Output \"logcat7.log size: $sz bytes\" } else { Write-Output \"not created yet\" })"
+    ]
+  }
+}

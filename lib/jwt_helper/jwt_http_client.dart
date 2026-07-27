@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:respyr_clinical/authentication/screens/login_with_password.dart';
 
-
-import '../authentication/screens/login_screen.dart';
 import '../utils/logout.dart'; // ✅ update with correct path
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -36,27 +34,32 @@ class JwtHttpClient extends http.BaseClient {
         showDialog(
           context: context,
           barrierDismissible: false, // ❌ user can't dismiss the dialog
-          builder: (_) => AlertDialog(
-            title: const Text("Session Expired"),
-            content: const Text("Your session has expired. Please login again."),
-            actions: [
-              TextButton(
-                onPressed: () async {
-                  Navigator.of(context).pop(); // close dialog
+          builder:
+              (_) => AlertDialog(
+                title: const Text("Session Expired"),
+                content: const Text(
+                  "Your session has expired. Please login again.",
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () async {
+                      Navigator.of(context).pop(); // close dialog
 
-                  // ✅ Clear all app data
-                  await clearAllAppData();
+                      // ✅ Clear all app data
+                      await clearAllAppData();
 
-                  // ✅ Navigate to login and remove all routes
-                  Navigator.of(context).pushAndRemoveUntil(
-                    MaterialPageRoute(builder: (_) => const LoginWithPassword()),
+                      // ✅ Navigate to login and remove all routes
+                      Navigator.of(context).pushAndRemoveUntil(
+                        MaterialPageRoute(
+                          builder: (_) => const LoginWithPassword(),
+                        ),
                         (route) => false,
-                  );
-                },
-                child: const Text("OK"),
+                      );
+                    },
+                    child: const Text("OK"),
+                  ),
+                ],
               ),
-            ],
-          ),
         );
       }
     });

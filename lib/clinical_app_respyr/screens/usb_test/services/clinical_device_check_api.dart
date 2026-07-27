@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:respyr_clinical/clinical_app_respyr/screens/usb_test/services/clinical_usb_communication_services.dart';
+import 'package:respyr_clinical/shared/urls.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 Future<void> clinicalDeviceCheckApi(String deviceId) async {
@@ -8,7 +9,7 @@ Future<void> clinicalDeviceCheckApi(String deviceId) async {
   ClinicalUsbCommunicationServices();
 
   final String url =
-      'https://humorstech.com/humors_app/app_final/clinical/api/fetch/fetch_last_data_time2.php?hwid=$deviceId';
+      '${Urls.fetchLastDataTime}?hwid=$deviceId';
 
   final prefs = await SharedPreferences.getInstance();
   String signal = '{';

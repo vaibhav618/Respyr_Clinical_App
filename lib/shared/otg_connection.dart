@@ -8,6 +8,7 @@ import 'package:flutter_svg/svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:respyr_clinical/shared/colors.dart';
 import 'package:respyr_clinical/shared/text_string.dart';
+import 'package:respyr_clinical/shared/urls.dart';
 
 import 'package:url_launcher/url_launcher.dart';
 
@@ -399,7 +400,7 @@ class SupportButtonState extends State<SupportButton> {
 
 class SupportLinks {
   static final Uri whatsappUrl = Uri.parse(
-    "https://wa.me/8296380628?text=Hi%2C%20I%20need%20some%20help",
+    Urls.supportWhatsApp,
   );
 
   static final Uri emailUrl = Uri.parse(

@@ -14,9 +14,11 @@ import 'package:respyr_clinical/clinical_app_respyr/screens/result_screen_clinic
 import 'package:respyr_clinical/clinical_app_respyr/services/clinical_score_api.dart';
 import 'package:respyr_clinical/clinical_app_respyr/services/device_battery_utils.dart';
 import 'package:respyr_clinical/clinical_app_respyr/services/disconnected_error.dart';
+import 'package:respyr_clinical/clinical_app_respyr/services/generation_foreground_service.dart';
 import 'package:respyr_clinical/clinical_app_respyr/services/raw_data_service.dart';
 import 'package:respyr_clinical/clinical_dashboard/views/clinical_dashboard.dart';
 import 'package:respyr_clinical/shared/colors.dart';
+import 'package:respyr_clinical/shared/urls.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../../clinical_dashboard/bloc/health_score_bloc.dart';
@@ -41,7 +43,8 @@ class BluetoothGeneratingScreen extends StatefulWidget {
     required this.maxPressure,
     required this.bestPressure,
     required this.blowDuration,
-    required this.profileDetails, required this.blowValuesList,
+    required this.profileDetails,
+    required this.blowValuesList,
   });
 
   @override
@@ -59,8 +62,6 @@ class _BluetoothGeneratingScreenState extends State<BluetoothGeneratingScreen>
   String bestPressure = '';
   String maxPressure = '';
   String blowTime = '';
-
-
 
   final storage = GetStorage();
 
@@ -95,6 +96,9 @@ class _BluetoothGeneratingScreenState extends State<BluetoothGeneratingScreen>
   bool _hasShownDisconnectedDialog = false;
   bool received120 = false;
   bool navigationToResultScreen = false;
+  // True once we've navigated to the result screen, so dispose() doesn't hard-
+  // stop the foreground service (it must linger until the user foregrounds).
+  bool _navigatingToResult = false;
   StringBuffer rawDataBuffer = StringBuffer();
   String errorText = "";
   String rawData = "";
@@ -102,6 +106,9 @@ class _BluetoothGeneratingScreenState extends State<BluetoothGeneratingScreen>
   @override
   void initState() {
     super.initState();
+    // Keep the app alive (and BLE + network flowing) if the user backgrounds
+    // the app while the reading is being received/generated. Stopped in dispose.
+    GenerationForegroundService.startForReading();
     _isConnected = _bleManager.isConnected;
     _controller = AnimationController(vsync: this);
 
@@ -142,6 +149,14 @@ class _BluetoothGeneratingScreenState extends State<BluetoothGeneratingScreen>
   @override
   void dispose() {
     _isDisposed = true;
+
+    // On error/abort/disconnect exits, release the foreground service now. On a
+    // successful result we DON'T hard-stop here — stopWhenForegrounded() (called
+    // in the result-navigation methods) keeps the app alive until the user
+    // returns to view the result, then stops it.
+    if (!_navigatingToResult) {
+      GenerationForegroundService.stop();
+    }
 
     _controller.dispose();
 
@@ -191,12 +206,9 @@ class _BluetoothGeneratingScreenState extends State<BluetoothGeneratingScreen>
     }
     Get.offAllNamed(
       AppRoutes.mainDashboard,
-      arguments: {
-        'profile_details': widget.profileDetails,
-      },
+      arguments: {'profile_details': widget.profileDetails},
     );
   }
-
 
   Future<void> _setCancelOrDisconnectFlag() async {
     final storage = GetStorage();
@@ -212,7 +224,7 @@ class _BluetoothGeneratingScreenState extends State<BluetoothGeneratingScreen>
     });
 
     _bleManager.connectionStatusStream.listen(
-          (isConnected) {
+      (isConnected) {
         if (!mounted) return;
 
         setState(() {
@@ -252,19 +264,17 @@ class _BluetoothGeneratingScreenState extends State<BluetoothGeneratingScreen>
     if (_receivedDataSubscription == null ||
         _receivedDataSubscription!.isPaused) {
       _receivedDataSubscription = _bleManager.receivedDataStream.listen(
-            (data) {
+        (data) {
           if (_isDisposed) return;
 
           try {
-
-            final regex =    RegExp(r'\{\d+(\.\d+)?\}');
+            final regex = RegExp(r'\{\d+(\.\d+)?\}');
             final blowDataPattern = regex.hasMatch(data);
             final containsAnalise = data.contains("analize");
 
-
             if (data == "120") {
               received120 =
-              true; // ✅ Ensure this is set BEFORE checking dialogs
+                  true; // ✅ Ensure this is set BEFORE checking dialogs
               _isDisconnectPop = false; // Prevent the dialog from showing
 
               if (Get.isOverlaysOpen) {
@@ -272,7 +282,7 @@ class _BluetoothGeneratingScreenState extends State<BluetoothGeneratingScreen>
               }
 
               return; // ✅ STOP further processing
-            }else if(blowDataPattern || containsAnalise){
+            } else if (blowDataPattern || containsAnalise) {
               return;
             }
 
@@ -296,45 +306,36 @@ class _BluetoothGeneratingScreenState extends State<BluetoothGeneratingScreen>
             final containsBDur = accumulatedData.contains("BDur");
             final containsBestPr = accumulatedData.contains("Best_pr");
 
-
             final containsStar = accumulatedData.contains("*");
-
-
-
 
             if (kDebugMode) {
               print(
                 "🔎 Conditions: containsDollar=$containsDollar, "
-                    "containsMaxPressure=$containsMaxPressure, "
-                    "containsBDur=$containsBDur, containsBestPr=$containsBestPr, "
-                    "containsNumber=$containsNumber, containsStar=$containsStar",
+                "containsMaxPressure=$containsMaxPressure, "
+                "containsBDur=$containsBDur, containsBestPr=$containsBestPr, "
+                "containsNumber=$containsNumber, containsStar=$containsStar",
               );
             }
 
-            if(blowDataPattern){
-              print("blowDataPattern"+ accumulatedData);
+            if (blowDataPattern) {
+              print("blowDataPattern$accumulatedData");
               accumulatedData.replaceAll(regex, "");
             }
 
-            if(containsAnalise){
-              print("blowDataPattern"+ accumulatedData);
+            if (containsAnalise) {
+              print("blowDataPattern$accumulatedData");
               accumulatedData.replaceAll("analize", "");
             }
-
-
 
             if (containsDollar ||
                 containsMaxPressure ||
                 containsBDur ||
                 containsBestPr ||
                 containsNumber ||
-                containsStar ) {
+                containsStar) {
               if (accumulatedData.contains("*")) {
-
-
-
-                print("accumulatedData : " + accumulatedData);
-                print("rawData : f" + rawData);
+                print("accumulatedData : $accumulatedData");
+                print("rawData : f$rawData");
 
                 processFinalData(accumulatedData.trim());
                 rawDataBuffer.clear();
@@ -357,11 +358,6 @@ class _BluetoothGeneratingScreenState extends State<BluetoothGeneratingScreen>
                 _receivedDataSubscription = null;
               }
             }
-
-
-
-
-
           } catch (e) {
             if (_isDisposed) return;
             if (kDebugMode) {
@@ -393,7 +389,7 @@ class _BluetoothGeneratingScreenState extends State<BluetoothGeneratingScreen>
     String finalData2 = finalData.replaceAll("MAXPR", maxPressure);
     String finalData3 = finalData2.replaceAll("BDur", blowTime);
 
-    print("finalData3 : " + finalData3);
+    print("finalData3 : $finalData3");
 
     if (!isDataBeingProcessing) {
       isDataBeingProcessing = true;
@@ -406,30 +402,30 @@ class _BluetoothGeneratingScreenState extends State<BluetoothGeneratingScreen>
     showDialog(
       context: context,
       barrierDismissible: false, // 👈 prevents tap outside dismiss
-      builder: (context) => WillPopScope(
-        onWillPop: () async => false, // 👈 disables back button
-        child: AlertDialog(
-          title: const Text("Error"),
-          content: Text(message),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop(); // close dialog
-                _navigateToDashboard();
-              },
-              child: const Text("OK"),
+      builder:
+          (context) => WillPopScope(
+            onWillPop: () async => false, // 👈 disables back button
+            child: AlertDialog(
+              title: const Text("Error"),
+              content: Text(message),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(context).pop(); // close dialog
+                    _navigateToDashboard();
+                  },
+                  child: const Text("OK"),
+                ),
+              ],
             ),
-          ],
-        ),
-      ),
+          ),
     );
   }
-
 
   String? getProfileData(List<Map<String, String>> result, String key) {
     try {
       final entry = result.firstWhere(
-            (map) => map.containsKey(key),
+        (map) => map.containsKey(key),
         orElse: () => {key: 'Not Found'},
       );
       return entry[key];
@@ -492,9 +488,9 @@ class _BluetoothGeneratingScreenState extends State<BluetoothGeneratingScreen>
             width: 3,
             decoration: BoxDecoration(
               color:
-              completedSteps > step
-                  ? AppColor.buttonGreenColor
-                  : const Color(0xFFE0E0E0),
+                  completedSteps > step
+                      ? AppColor.buttonGreenColor
+                      : const Color(0xFFE0E0E0),
             ),
           ),
       ],
@@ -555,13 +551,11 @@ class _BluetoothGeneratingScreenState extends State<BluetoothGeneratingScreen>
     );
   }
 
-  void processRawData(String deviceRawData) async  {
+  void processRawData(String deviceRawData) async {
     deviceRawData = deviceRawData.replaceAll("/analize", "");
     final match = RegExp(r'H(\d{3,5})').firstMatch(deviceRawData);
     final int hardwareId = int.tryParse(match?.group(1) ?? '0') ?? 0;
-    final rawDataService = RawDataService(
-      'https://humorstech.com/humorscalculation/production.php',
-    );
+    final rawDataService = RawDataService(Urls.productionCalculation);
     try {
       // print('third Step started : $completedSteps');
       if (_isDisposed) return;
@@ -634,11 +628,7 @@ class _BluetoothGeneratingScreenState extends State<BluetoothGeneratingScreen>
     }
   }
 
-
-
   void processRawData1(String deviceRawData) async {
-
-
     ResultService resultService = ResultService();
     final profile = widget.profileDetails;
     String testdata = deviceRawData;
@@ -649,7 +639,6 @@ class _BluetoothGeneratingScreenState extends State<BluetoothGeneratingScreen>
     String region = profile.region.toString();
 
     try {
-
       final NewResultModel result = await resultService.fetchResults1(
         testdata: testdata,
         subjectId: subId,
@@ -661,27 +650,87 @@ class _BluetoothGeneratingScreenState extends State<BluetoothGeneratingScreen>
       );
 
       _navigateToResultScreen1(result);
-
     } catch (e) {
+      if (!mounted) return;
 
-      if(e.toString().contains("Error in breath sample")){
+      final msg = e.toString();
+
+      if (msg.contains("Error in breath sample")) {
         _showErrorDialog("Error in breath sample");
+        return;
       }
 
-      _showErrorDialog(e.toString());
+      // A transient network/DNS drop (e.g. during a call) must not throw away
+      // an already-captured reading. Offer to re-submit the same data instead.
+      if (_isNetworkError(msg)) {
+        _showRetryableErrorDialog(
+          "No internet connection.\nPlease check your network and try again.",
+          () => processRawData1(deviceRawData),
+        );
+        return;
+      }
+
+      _showErrorDialog(msg);
     }
   }
 
+  bool _isNetworkError(String message) {
+    final m = message.toLowerCase();
+    return m.contains("socketexception") ||
+        m.contains("failed host lookup") ||
+        m.contains("no address associated") ||
+        m.contains("network is unreachable") ||
+        m.contains("connection refused") ||
+        m.contains("connection closed") ||
+        m.contains("connection reset") ||
+        m.contains("software caused connection abort") ||
+        m.contains("connection abort") ||
+        m.contains("broken pipe") ||
+        m.contains("connection timed out") ||
+        m.contains("handshakeexception") ||
+        m.contains("timeoutexception") ||
+        m.contains("clientexception");
+  }
 
-
+  void _showRetryableErrorDialog(String message, VoidCallback onRetry) {
+    if (!mounted) return;
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder:
+          (context) => WillPopScope(
+            onWillPop: () async => false,
+            child: AlertDialog(
+              title: const Text("Network Error"),
+              content: Text(message),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    _navigateToDashboard();
+                  },
+                  child: const Text("Cancel"),
+                ),
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    onRetry();
+                  },
+                  child: const Text("Retry"),
+                ),
+              ],
+            ),
+          ),
+    );
+  }
 
   void processClinicalDiabeticScore(
-      double acetone,
-      double ethanol,
-      double blow,
-      int hardwareId,
-      double h2,
-      ) async {
+    double acetone,
+    double ethanol,
+    double blow,
+    int hardwareId,
+    double h2,
+  ) async {
     final clinicalService = ClinicalDiabeticScore();
     final clinicalResult = await clinicalService.processDiabeticScore(
       acetone: acetone,
@@ -697,15 +746,15 @@ class _BluetoothGeneratingScreenState extends State<BluetoothGeneratingScreen>
 
     double sugarScore =
         double.tryParse(clinicalResult['Dibetic_Score']?.toString() ?? "0") ??
-            0.0;
+        0.0;
     double blowScore =
         double.tryParse(clinicalResult['Blow_Score']?.toString() ?? "0") ?? 0.0;
     double gutScore =
         double.tryParse(clinicalResult['Gut_Score_per']?.toString() ?? "0") ??
-            0.0;
+        0.0;
     double liverScore =
         double.tryParse(clinicalResult['score_liver']?.toString() ?? "0") ??
-            0.0;
+        0.0;
 
     int timestamp =
         int.tryParse(clinicalResult['timestamp']?.toString() ?? '0') ?? 0;
@@ -730,6 +779,10 @@ class _BluetoothGeneratingScreenState extends State<BluetoothGeneratingScreen>
   }
 
   void _navigateToResultScreen(String lifestyleJson) {
+    // Result is ready — keep the app alive until the user returns to view it
+    // (if they minimized during generation), then release the service.
+    _navigatingToResult = true;
+    GenerationForegroundService.stopWhenForegrounded();
     if (Get.isOverlaysOpen) {
       Get.back(); // Close any open overlays/dialogs
     }
@@ -743,16 +796,18 @@ class _BluetoothGeneratingScreenState extends State<BluetoothGeneratingScreen>
       MaterialPageRoute(
         builder:
             (context) => ResultScreenClinicalApp(
-          lifeStyleJsonResponse: lifestyleJson,
-          profileDetails: widget.profileDetails,
-        ),
+              lifeStyleJsonResponse: lifestyleJson,
+              profileDetails: widget.profileDetails,
+            ),
       ),
     );
   }
 
-
-
   void _navigateToResultScreen1(NewResultModel lifestyleJson) {
+    // Result is ready — keep the app alive until the user returns to view it
+    // (if they minimized during generation), then release the service.
+    _navigatingToResult = true;
+    GenerationForegroundService.stopWhenForegrounded();
     if (Get.isOverlaysOpen) {
       Get.back(); // Close any open overlays/dialogs
     }
@@ -762,7 +817,7 @@ class _BluetoothGeneratingScreenState extends State<BluetoothGeneratingScreen>
     Navigator.of(context).popUntil((route) => route.isFirst);
     _abortProcess();
     Get.offAll(
-          () => ChangeNotifierProvider(
+      () => ChangeNotifierProvider(
         create: (_) => ResultViewModel()..initialize(widget.profileDetails),
         child: ResultScreen(
           userResultData: lifestyleJson,
@@ -773,19 +828,12 @@ class _BluetoothGeneratingScreenState extends State<BluetoothGeneratingScreen>
     );
   }
 
-
-
   Future<void> saveCurrentTime() async {
     final prefs = await SharedPreferences.getInstance();
     final now = DateTime.now().millisecondsSinceEpoch;
 
     await prefs.setInt('last_reading_time', now);
   }
-
-
-
-
-
 
   void _abortProcess() {
     if (_isConnected) {
@@ -814,16 +862,16 @@ class _BluetoothGeneratingScreenState extends State<BluetoothGeneratingScreen>
     return 0; // Default to 0 in case of error
   }
 
-// void _showCancelTestDialog() {
-//   showCancelTestBox(
-//       context: context,
-//       cancelTestButtonPressed: () {
-//         saveReadingAbortTime().then((_) {
-//           Get.back();
-//           _setCancelOrDisconnectFlag();
-//           abortProcess();
-//           _navigateToDashboard();
-//         });
-//       });
-// }
+  // void _showCancelTestDialog() {
+  //   showCancelTestBox(
+  //       context: context,
+  //       cancelTestButtonPressed: () {
+  //         saveReadingAbortTime().then((_) {
+  //           Get.back();
+  //           _setCancelOrDisconnectFlag();
+  //           abortProcess();
+  //           _navigateToDashboard();
+  //         });
+  //       });
+  // }
 }

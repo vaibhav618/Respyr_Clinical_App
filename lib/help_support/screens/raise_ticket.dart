@@ -10,7 +10,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:http/http.dart' as http;
 import 'package:respyr_clinical/help_support/widgets/issue_tag_fill.dart';
 
-import '../../clinical_dashboard/utils/urls.dart';
+import 'package:respyr_clinical/shared/urls.dart';
 import '../models/issue_cat_list.dart';
 import '../models/issue_item.dart';
 import '../widgets/issue_bottom_sheet.dart';

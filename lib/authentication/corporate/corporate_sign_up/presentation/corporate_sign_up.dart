@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/svg.dart';
-import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:respyr_clinical/shared/urls.dart';
 
 import '../../../../clinical_dashboard/utils/user_region_manager.dart';
 import '../../../../common/floating_message.dart';
@@ -23,8 +23,7 @@ class CorporateSignUp extends StatelessWidget {
       create: (_) {
         final bloc = CorporateSignUpBloc(
           repo: CorporateSignUpRepository(
-            endpointUrl:
-            "https://humorstech.com/humors_app/app_final/clinical/insert_corporate_profile.php",
+            endpointUrl: Urls.insertCorporateProfile,
           ),
         );
         bloc.add(const CorporateGenderChanged("Male"));
@@ -77,8 +76,9 @@ class _CorporateSignUpViewState extends State<_CorporateSignUpView> {
   String? _validateEmail(String? value) {
     final v = (value ?? "").trim();
     if (v.isEmpty) return "Email address is required";
-    final emailRegex =
-    RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$');
+    final emailRegex = RegExp(
+      r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$',
+    );
     if (!emailRegex.hasMatch(v)) return "Invalid email format";
     return null;
   }
@@ -125,8 +125,11 @@ class _CorporateSignUpViewState extends State<_CorporateSignUpView> {
     return null;
   }
 
-  InputDecoration _inputDecoration(String hint,
-      {String? suffixText, Widget? suffixIcon}) {
+  InputDecoration _inputDecoration(
+    String hint, {
+    String? suffixText,
+    Widget? suffixIcon,
+  }) {
     return InputDecoration(
       counterText: '',
       hintText: hint,
@@ -175,37 +178,43 @@ class _CorporateSignUpViewState extends State<_CorporateSignUpView> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      builder: (ctx) => DraggableScrollableSheet(
-        initialChildSize: 0.6,
-        maxChildSize: 0.9,
-        expand: false,
-        builder: (_, controller) => Column(
-          children: [
-            const SizedBox(height: 12),
-            Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.grey[300],
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            Expanded(
-              child: ListView.builder(
-                controller: controller,
-                itemCount: regionLabels.length,
-                itemBuilder: (context, index) {
-                  return ListTile(
-                    title: Text(regionLabels[index],
-                        style: GoogleFonts.poppins(fontSize: 16)),
-                    onTap: () => Navigator.pop(context, regionLabels[index]),
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
-      ),
+      builder:
+          (ctx) => DraggableScrollableSheet(
+            initialChildSize: 0.6,
+            maxChildSize: 0.9,
+            expand: false,
+            builder:
+                (_, controller) => Column(
+                  children: [
+                    const SizedBox(height: 12),
+                    Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.grey[300],
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                    Expanded(
+                      child: ListView.builder(
+                        controller: controller,
+                        itemCount: regionLabels.length,
+                        itemBuilder: (context, index) {
+                          return ListTile(
+                            title: Text(
+                              regionLabels[index],
+                              style: GoogleFonts.poppins(fontSize: 16),
+                            ),
+                            onTap:
+                                () =>
+                                    Navigator.pop(context, regionLabels[index]),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+          ),
     );
 
     if (selectedLabel != null) {
@@ -213,7 +222,9 @@ class _CorporateSignUpViewState extends State<_CorporateSignUpView> {
       _regionController.text = selectedLabel;
 
       if (!mounted) return;
-      context.read<CorporateSignUpBloc>().add(CorporateRegionChanged(actualValue));
+      context.read<CorporateSignUpBloc>().add(
+        CorporateRegionChanged(actualValue),
+      );
 
       // ✅ immediate clear error
       _revalidate();
@@ -261,7 +272,9 @@ class _CorporateSignUpViewState extends State<_CorporateSignUpView> {
 
           WidgetsBinding.instance.addPostFrameCallback((_) {
             Navigator.pushReplacementNamed(
-                context, AppRoutes.accountCreationSuccess);
+              context,
+              AppRoutes.accountCreationSuccess,
+            );
           });
         }
       },
@@ -317,9 +330,9 @@ class _CorporateSignUpViewState extends State<_CorporateSignUpView> {
                             if (_emailServerError != null) {
                               setState(() => _emailServerError = null);
                             }
-                            context
-                                .read<CorporateSignUpBloc>()
-                                .add(CorporateEmailChanged(v));
+                            context.read<CorporateSignUpBloc>().add(
+                              CorporateEmailChanged(v),
+                            );
                             _revalidate();
                           },
                           decoration: _inputDecoration("Email address"),
@@ -334,9 +347,9 @@ class _CorporateSignUpViewState extends State<_CorporateSignUpView> {
                           textInputAction: TextInputAction.next,
                           validator: _validateName,
                           onChanged: (v) {
-                            context
-                                .read<CorporateSignUpBloc>()
-                                .add(CorporateNameChanged(v));
+                            context.read<CorporateSignUpBloc>().add(
+                              CorporateNameChanged(v),
+                            );
                             _revalidate();
                           },
                           decoration: _inputDecoration("Full name"),
@@ -351,9 +364,9 @@ class _CorporateSignUpViewState extends State<_CorporateSignUpView> {
                           obscureText: !_showPassword,
                           validator: _validatePassword,
                           onChanged: (v) {
-                            context
-                                .read<CorporateSignUpBloc>()
-                                .add(CorporatePasswordChanged(v));
+                            context.read<CorporateSignUpBloc>().add(
+                              CorporatePasswordChanged(v),
+                            );
                             _revalidate();
                           },
                           decoration: _inputDecoration(
@@ -365,8 +378,10 @@ class _CorporateSignUpViewState extends State<_CorporateSignUpView> {
                                     : Icons.visibility_off,
                                 color: Colors.grey,
                               ),
-                              onPressed: () =>
-                                  setState(() => _showPassword = !_showPassword),
+                              onPressed:
+                                  () => setState(
+                                    () => _showPassword = !_showPassword,
+                                  ),
                             ),
                           ),
                         ),
@@ -376,7 +391,9 @@ class _CorporateSignUpViewState extends State<_CorporateSignUpView> {
                         Text(
                           "Select gender",
                           style: GoogleFonts.poppins(
-                              fontSize: 14, fontWeight: FontWeight.w500),
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                         const SizedBox(height: 12),
 
@@ -387,9 +404,10 @@ class _CorporateSignUpViewState extends State<_CorporateSignUpView> {
                               icon: Icons.male,
                               isSelected: state.gender == "Male",
                               isDisabled: isLoading,
-                              onTap: () => context
-                                  .read<CorporateSignUpBloc>()
-                                  .add(const CorporateGenderChanged("Male")),
+                              onTap:
+                                  () => context.read<CorporateSignUpBloc>().add(
+                                    const CorporateGenderChanged("Male"),
+                                  ),
                             ),
                             const SizedBox(width: 12),
                             _GenderButton(
@@ -397,9 +415,10 @@ class _CorporateSignUpViewState extends State<_CorporateSignUpView> {
                               icon: Icons.female,
                               isSelected: state.gender == "Female",
                               isDisabled: isLoading,
-                              onTap: () => context
-                                  .read<CorporateSignUpBloc>()
-                                  .add(const CorporateGenderChanged("Female")),
+                              onTap:
+                                  () => context.read<CorporateSignUpBloc>().add(
+                                    const CorporateGenderChanged("Female"),
+                                  ),
                             ),
                           ],
                         ),
@@ -416,13 +435,15 @@ class _CorporateSignUpViewState extends State<_CorporateSignUpView> {
                                 keyboardType: TextInputType.number,
                                 validator: _validateHeight,
                                 onChanged: (v) {
-                                  context
-                                      .read<CorporateSignUpBloc>()
-                                      .add(CorporateHeightChanged(v));
+                                  context.read<CorporateSignUpBloc>().add(
+                                    CorporateHeightChanged(v),
+                                  );
                                   _revalidate();
                                 },
-                                decoration:
-                                _inputDecoration("Height", suffixText: "cm"),
+                                decoration: _inputDecoration(
+                                  "Height",
+                                  suffixText: "cm",
+                                ),
                               ),
                             ),
                             const SizedBox(width: 12),
@@ -430,17 +451,21 @@ class _CorporateSignUpViewState extends State<_CorporateSignUpView> {
                               child: TextFormField(
                                 enabled: !isLoading,
                                 controller: _weightController,
-                                keyboardType: const TextInputType.numberWithOptions(
-                                    decimal: true),
+                                keyboardType:
+                                    const TextInputType.numberWithOptions(
+                                      decimal: true,
+                                    ),
                                 validator: _validateWeight,
                                 onChanged: (v) {
-                                  context
-                                      .read<CorporateSignUpBloc>()
-                                      .add(CorporateWeightChanged(v));
+                                  context.read<CorporateSignUpBloc>().add(
+                                    CorporateWeightChanged(v),
+                                  );
                                   _revalidate();
                                 },
-                                decoration:
-                                _inputDecoration("Weight", suffixText: "kg"),
+                                decoration: _inputDecoration(
+                                  "Weight",
+                                  suffixText: "kg",
+                                ),
                               ),
                             ),
                           ],
@@ -454,9 +479,9 @@ class _CorporateSignUpViewState extends State<_CorporateSignUpView> {
                           keyboardType: TextInputType.number,
                           validator: _validateAge,
                           onChanged: (v) {
-                            context
-                                .read<CorporateSignUpBloc>()
-                                .add(CorporateAgeChanged(v));
+                            context.read<CorporateSignUpBloc>().add(
+                              CorporateAgeChanged(v),
+                            );
                             _revalidate();
                           },
                           decoration: _inputDecoration("Age"),
@@ -473,8 +498,9 @@ class _CorporateSignUpViewState extends State<_CorporateSignUpView> {
                           decoration: _inputDecoration(
                             "Select region",
                             suffixIcon: const Icon(
-                                Icons.keyboard_arrow_down_rounded,
-                                color: Colors.grey),
+                              Icons.keyboard_arrow_down_rounded,
+                              color: Colors.grey,
+                            ),
                           ),
                         ),
 
@@ -515,37 +541,42 @@ class _CorporateSignUpViewState extends State<_CorporateSignUpView> {
                 Expanded(
                   flex: 3,
                   child: ElevatedButton(
-                    onPressed: canTap
-                        ? () {
-                      if (_formKey.currentState!.validate()) {
-                        context
-                            .read<CorporateSignUpBloc>()
-                            .add(const CorporateSignUpSubmitted());
-                      }
-                    }
-                        : null,
+                    onPressed:
+                        canTap
+                            ? () {
+                              if (_formKey.currentState!.validate()) {
+                                context.read<CorporateSignUpBloc>().add(
+                                  const CorporateSignUpSubmitted(),
+                                );
+                              }
+                            }
+                            : null,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColor.primaryBlueColor,
                       minimumSize: const Size(double.infinity, 54),
                       shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(30)),
+                        borderRadius: BorderRadius.circular(30),
+                      ),
                       elevation: 0,
                     ),
-                    child: isLoading
-                        ? const SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(
-                          color: Colors.white, strokeWidth: 2),
-                    )
-                        : Text(
-                      "Create Account",
-                      style: GoogleFonts.poppins(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
-                      ),
-                    ),
+                    child:
+                        isLoading
+                            ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2,
+                              ),
+                            )
+                            : Text(
+                              "Create Account",
+                              style: GoogleFonts.poppins(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                              ),
+                            ),
                   ),
                 ),
               ],
@@ -581,14 +612,16 @@ class _GenderButton extends StatelessWidget {
           duration: const Duration(milliseconds: 200),
           padding: const EdgeInsets.symmetric(vertical: 14),
           decoration: BoxDecoration(
-            color: isSelected
-                ? AppColor.primaryBlueColor
-                : const Color(0xFFF8F8F8),
+            color:
+                isSelected
+                    ? AppColor.primaryBlueColor
+                    : const Color(0xFFF8F8F8),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: isSelected
-                  ? AppColor.primaryBlueColor
-                  : const Color(0xFFF0F0F0),
+              color:
+                  isSelected
+                      ? AppColor.primaryBlueColor
+                      : const Color(0xFFF0F0F0),
             ),
           ),
           child: Row(
@@ -596,8 +629,7 @@ class _GenderButton extends StatelessWidget {
             children: [
               Icon(
                 icon,
-                color:
-                isSelected ? Colors.white : const Color(0xFF535359),
+                color: isSelected ? Colors.white : const Color(0xFF535359),
                 size: 18,
               ),
               const SizedBox(width: 8),
@@ -605,8 +637,7 @@ class _GenderButton extends StatelessWidget {
                 label,
                 style: GoogleFonts.poppins(
                   fontSize: 14,
-                  fontWeight:
-                  isSelected ? FontWeight.w600 : FontWeight.w400,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
                   color: isSelected ? Colors.white : const Color(0xFF535359),
                 ),
               ),

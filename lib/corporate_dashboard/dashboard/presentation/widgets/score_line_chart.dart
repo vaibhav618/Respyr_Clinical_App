@@ -6,10 +6,7 @@ import '../../data/model/score_trend_model.dart';
 class ScoreTrendLineChart extends StatelessWidget {
   final List<ScoreTrendModel> data;
 
-  const ScoreTrendLineChart({
-    super.key,
-    required this.data,
-  });
+  const ScoreTrendLineChart({super.key, required this.data});
 
   static const int _window = 7;
 
@@ -18,7 +15,7 @@ class ScoreTrendLineChart extends StatelessWidget {
     const lineColor = Colors.blue;
 
     final List<ScoreTrendModel> recent =
-    data.length <= _window ? data : data.sublist(0, _window);
+        data.length <= _window ? data : data.sublist(0, _window);
 
     final labelStyle = GoogleFonts.poppins(
       color: const Color(0xFFA1A1A1),
@@ -44,11 +41,12 @@ class ScoreTrendLineChart extends StatelessWidget {
             show: true,
             drawHorizontalLine: false,
             verticalInterval: 1,
-            getDrawingVerticalLine: (value) => FlLine(
-              color: Colors.grey.shade300,
-              strokeWidth: 1,
-              dashArray: [6, 4],
-            ),
+            getDrawingVerticalLine:
+                (value) => FlLine(
+                  color: Colors.grey.shade300,
+                  strokeWidth: 1,
+                  dashArray: [6, 4],
+                ),
           ),
 
           titlesData: FlTitlesData(
@@ -114,8 +112,8 @@ class ScoreTrendLineChart extends StatelessWidget {
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    lineColor.withOpacity(0.22),
-                    lineColor.withOpacity(0.00),
+                    lineColor.withValues(alpha: 0.22),
+                    lineColor.withValues(alpha: 0.00),
                   ],
                 ),
               ),
@@ -134,8 +132,18 @@ class ScoreTrendLineChart extends StatelessWidget {
 
   String _monthShort(int m) {
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     return months[m - 1];
   }

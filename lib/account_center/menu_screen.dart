@@ -1,25 +1,19 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
-import 'package:respyr_clinical/clinic_registration/welcome_screen.dart';
-import 'package:respyr_clinical/clinical_dashboard/existing_profile/bloc/profile_bloc.dart';
-import 'package:respyr_clinical/clinical_dashboard/views/clinical_dashboard.dart';
 import 'package:respyr_clinical/widgets/internet_connectivity_check.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../authentication/screens/login_screen.dart';
 import '../clinical_dashboard/clinic_details/model/clinical_details_model.dart';
-import '../clinical_dashboard/utils/urls.dart';
+import 'package:respyr_clinical/shared/urls.dart';
 import '../clinical_dashboard/widgets/clinical_logo_widget.dart';
 import '../clinical_dashboard/widgets/test_details_widget.dart';
 import '../common/auth_logout.dart';
 import '../help_support/screens/help_center.dart';
-import '../utils/logout.dart';
 import '../widgets/logout_bpx.dart';
 
 class MenuScreen extends StatefulWidget {
@@ -326,7 +320,6 @@ class _MenuScreenState extends State<MenuScreen> {
                               context: context,
                               clinicName: widget.loginId,
                               onLogoutClick: () {
-
                                 AuthLogout.logout(context);
                               },
                               // onLogoutClick: () async {

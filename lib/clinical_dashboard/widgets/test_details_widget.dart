@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-
 class TestDetailsWidget extends StatelessWidget {
   final Map<String, dynamic>? clinicalTestCountData;
-  final int  totalSubjectsOnboarded;
+  final int totalSubjectsOnboarded;
 
   const TestDetailsWidget({
     super.key,
@@ -18,17 +17,22 @@ class TestDetailsWidget extends StatelessWidget {
     const String testNoKey = 'test_no';
     const String scoreCountKey = 'clinical_score_count';
 
-    final String isTestAllowed = clinicalTestCountData?[testAllowKey]?.toString().toLowerCase() ?? "false";
-    final int? testLimitCount = int.tryParse(clinicalTestCountData?[testNoKey]?.toString() ?? '');
-    final int? testTokenCount = int.tryParse(clinicalTestCountData?[scoreCountKey]?.toString() ?? '');
+    final String isTestAllowed =
+        clinicalTestCountData?[testAllowKey]?.toString().toLowerCase() ??
+        "false";
+    final int? testLimitCount = int.tryParse(
+      clinicalTestCountData?[testNoKey]?.toString() ?? '',
+    );
+    final int? testTokenCount = int.tryParse(
+      clinicalTestCountData?[scoreCountKey]?.toString() ?? '',
+    );
 
-
-    print("scoreCountKey :" + testTokenCount.toString() );
-    print("scoreCountKey :" + clinicalTestCountData.toString() );
+    print("scoreCountKey :$testTokenCount");
+    print("scoreCountKey :$clinicalTestCountData");
 
     final int used = testTokenCount ?? 0;
     final int total = testLimitCount ?? 1; // avoid divide by zero
-    final double progress = used / total;  // corrected
+    final double progress = used / total; // corrected
 
     return SizedBox(
       child: Padding(
@@ -88,24 +92,29 @@ class TestDetailsWidget extends StatelessWidget {
                   ),
                   SizedBox(height: 10),
                   Visibility(
-                    visible: isTestAllowed!="false",
+                    visible: isTestAllowed != "false",
                     child: LinearProgressIndicator(
                       value: progress.clamp(0.0, 1.0),
                       minHeight: 10,
                       borderRadius: BorderRadius.circular(5),
-                      color: progress.clamp(0.0, 1.0) <= 0.9 ? Color(0xFF3EAF58) : Color(0xFFEA5455),
+                      color:
+                          progress.clamp(0.0, 1.0) <= 0.9
+                              ? Color(0xFF3EAF58)
+                              : Color(0xFFEA5455),
                       backgroundColor: const Color(0xFFFFFFFF),
                     ),
                   ),
 
                   Visibility(
-                    visible: progress >=0.9,
+                    visible: progress >= 0.9,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        SizedBox(height: 10,),
-                        Text(progress==1.0 ? "You're out of tests. To continue testing without interruption, contact our team for support." :
-                        "Only ${total - used} tests are remaining. To continue testing without interruption, contact our team for support. ",
+                        SizedBox(height: 10),
+                        Text(
+                          progress == 1.0
+                              ? "You're out of tests. To continue testing without interruption, contact our team for support."
+                              : "Only ${total - used} tests are remaining. To continue testing without interruption, contact our team for support. ",
                           style: GoogleFonts.poppins(
                             color: const Color(0xFF5A5A5A),
                             fontSize: 12,
@@ -116,10 +125,9 @@ class TestDetailsWidget extends StatelessWidget {
                         ),
                       ],
                     ),
-                  )
+                  ),
                 ],
               ),
-
             ],
           ),
         ),

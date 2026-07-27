@@ -1,10 +1,8 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../service/overall_data_by_date_service.dart';
 import 'overall_data_by_date_event.dart';
 import 'overall_data_by_date_state.dart';
-
 
 class HealthScoreBloc extends Bloc<OverallDataByDateEvent, HealthScoreState> {
   final OverallDataByDateService service;

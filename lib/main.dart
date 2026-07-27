@@ -6,20 +6,18 @@ import 'package:http/http.dart' as http;
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter_foreground_task/flutter_foreground_task.dart';
+import 'package:respyr_clinical/clinical_app_respyr/services/generation_foreground_service.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
-import 'package:respyr_clinical/authentication/screens/login_screen.dart';
-import 'package:respyr_clinical/authentication/sign_in/presentation/screens/sign_in.dart';
 import 'package:respyr_clinical/clinical_app_respyr/screens/usb_test/services/clinical_usb_communication_services.dart';
 import 'package:respyr_clinical/device_connectivity/data/usb_repository_impl.dart';
 import 'package:respyr_clinical/device_connectivity/presentation/cubit/usb_connection_cubit.dart';
 import 'package:respyr_clinical/router/app_pages.dart';
 import 'package:respyr_clinical/router/app_routers.dart';
-import 'package:upgrader/upgrader.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
-import 'authentication/corporate/corporate_login/presentation/screens/corporate_login.dart';
-import 'splash/splash.dart';
+import 'package:respyr_clinical/shared/urls.dart';
 import 'authentication/services/clinical_name_getx_controller.dart';
 import 'log_manager/device_info.dart';
 
@@ -37,7 +35,7 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 
 /// Sends uncaught errors and crash logs to server
 Future<void> sendErrorToServer(String error, String stack) async {
-  const url = 'https://humorstech.com/log_manager/app_error_report.php';
+  const url = Urls.appErrorReport;
   final deviceDetails = await getDeviceDetails();
 
   final body = {'error': error, 'stack': stack, ...deviceDetails};
@@ -58,6 +56,12 @@ Future<void> main() async {
   await runZonedGuarded(
     () async {
       WidgetsFlutterBinding.ensureInitialized();
+
+      // Communication port for the result-generation foreground service.
+      FlutterForegroundTask.initCommunicationPort();
+      // Clear any foreground service the OS auto-restarted after a prior crash
+      // (it should only ever run while a reading is actively generating).
+      GenerationForegroundService.stop();
 
       await Firebase.initializeApp();
       await GetStorage.init();

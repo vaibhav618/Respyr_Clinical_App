@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:respyr_clinical/shared/urls.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../model/score_response_model.dart';
 
@@ -14,8 +15,7 @@ class ScoreApiException implements Exception {
 }
 
 class ScoreService {
-  final String apiUrl =
-      'https://humorstech.com/humors_app/app_final/clinical/api/fetch/raphacure/fetch_result.php?';
+  final String apiUrl = Urls.fetchRaphacureResult;
 
   Future<ScoreResponseModel> fetchScores(Map<String, dynamic> postData) async {
     final prefs = await SharedPreferences.getInstance();

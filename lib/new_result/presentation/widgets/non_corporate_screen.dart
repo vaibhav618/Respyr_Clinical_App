@@ -1,4 +1,3 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:respyr_clinical/new_result/presentation/widgets/quick_summary_card.dart';
@@ -57,10 +56,7 @@ class NonCorporateResultScreen extends StatelessWidget {
                   const SizedBox(height: 20),
 
                   if (bmi != null && bmr != null)
-                    BmiBmrCard(
-                      bodyMassIndex: bmi,
-                      basalMetabolicRate: bmr,
-                    ),
+                    BmiBmrCard(bodyMassIndex: bmi, basalMetabolicRate: bmr),
 
                   const SizedBox(height: 20),
 

@@ -8,23 +8,24 @@ enum FloatingMessageType { success, error, info, warning }
 class FloatingMessage {
   static OverlayEntry? _entry;
   static Timer? _timer;
-  static final ValueNotifier<String> _messageNotifier = ValueNotifier<String>("");
+  static final ValueNotifier<String> _messageNotifier = ValueNotifier<String>(
+    "",
+  );
 
   static void show(
-      BuildContext context, {
-        required String message,
-        FloatingMessageType type = FloatingMessageType.info,
-        Duration duration = const Duration(seconds: 2),
-        bool fromTop = false,
-        IconData? icon,
-        Color? backgroundColor,
-        Color? textColor,
-        double horizontalMargin = 16,
-        double verticalMargin = 24,
-        double borderRadius = 12,
-      }) {
+    BuildContext context, {
+    required String message,
+    FloatingMessageType type = FloatingMessageType.info,
+    Duration duration = const Duration(seconds: 2),
+    bool fromTop = false,
+    IconData? icon,
+    Color? backgroundColor,
+    Color? textColor,
+    double horizontalMargin = 16,
+    double verticalMargin = 24,
+    double borderRadius = 12,
+  }) {
     final overlay = Overlay.of(context);
-    if (overlay == null) return;
 
     // If already showing, just update message + reset timer
     if (_entry != null) {
@@ -40,16 +41,17 @@ class FloatingMessage {
     _messageNotifier.value = message;
 
     _entry = OverlayEntry(
-      builder: (_) => _FloatingMessageWidget(
-        messageListenable: _messageNotifier,
-        bg: bg,
-        fg: fg,
-        icon: ic,
-        fromTop: fromTop,
-        horizontalMargin: horizontalMargin,
-        verticalMargin: verticalMargin,
-        borderRadius: borderRadius,
-      ),
+      builder:
+          (_) => _FloatingMessageWidget(
+            messageListenable: _messageNotifier,
+            bg: bg,
+            fg: fg,
+            icon: ic,
+            fromTop: fromTop,
+            horizontalMargin: horizontalMargin,
+            verticalMargin: verticalMargin,
+            borderRadius: borderRadius,
+          ),
     );
 
     overlay.insert(_entry!);
@@ -155,7 +157,10 @@ class _FloatingMessageWidgetState extends State<_FloatingMessageWidget>
       left: widget.horizontalMargin,
       right: widget.horizontalMargin,
       top: widget.fromTop ? (media.padding.top + widget.verticalMargin) : null,
-      bottom: widget.fromTop ? null : (media.padding.bottom + widget.verticalMargin),
+      bottom:
+          widget.fromTop
+              ? null
+              : (media.padding.bottom + widget.verticalMargin),
       child: SafeArea(
         child: IgnorePointer(
           ignoring: true,
@@ -166,7 +171,10 @@ class _FloatingMessageWidgetState extends State<_FloatingMessageWidget>
               child: Material(
                 color: Colors.transparent,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
                   decoration: BoxDecoration(
                     color: widget.bg,
                     borderRadius: BorderRadius.circular(widget.borderRadius),
@@ -175,7 +183,7 @@ class _FloatingMessageWidgetState extends State<_FloatingMessageWidget>
                         color: Color(0x33000000),
                         blurRadius: 12,
                         offset: Offset(0, 6),
-                      )
+                      ),
                     ],
                   ),
                   child: Row(

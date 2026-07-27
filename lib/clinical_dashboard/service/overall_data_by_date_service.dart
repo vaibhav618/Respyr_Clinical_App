@@ -3,7 +3,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../log_manager/log_manager.dart';
 import '../model/OverallDataByDateModel.dart';
-import '../utils/urls.dart';
+import 'package:respyr_clinical/shared/urls.dart';
 
 class OverallDataByDateService {
   final String url = Urls.fetchOverallDataByDate;

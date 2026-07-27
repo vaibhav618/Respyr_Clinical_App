@@ -6,11 +6,11 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:device_info_plus/device_info_plus.dart';
+import 'package:respyr_clinical/shared/urls.dart';
 
 class UpdateService {
   static const MethodChannel _channel = MethodChannel('custom_update_channel');
-  static const String versionUrl =
-      'https://humorstech.com/humors_app/app_final/clinical/app_version.json';
+  static const String versionUrl = Urls.appVersionJson;
 
   static Future<void> checkForUpdate(
       BuildContext context, {

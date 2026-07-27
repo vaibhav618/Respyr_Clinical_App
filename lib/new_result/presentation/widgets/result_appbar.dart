@@ -1,5 +1,3 @@
-
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -9,18 +7,18 @@ import '../../../shared/colors.dart';
 import '../../data/model/result_model.dart';
 import '../../data/model/result_profile_data_model.dart';
 
-PreferredSizeWidget resultScreenAppbar(
-{
+PreferredSizeWidget resultScreenAppbar({
   required BuildContext context,
   required NewResultModel userResultData,
   required ResultProfileDataModel userProfileData,
-  required VoidCallback navigateToDashboard
-}
-) {
+  required VoidCallback navigateToDashboard,
+}) {
   final dummyTimeStamp = DateTime.fromMillisecondsSinceEpoch(
     userResultData.timestamp * 1000,
   );
-  final resultTime = DateFormat("dd MMMM yyyy • hh:mm a").format(dummyTimeStamp);
+  final resultTime = DateFormat(
+    "dd MMMM yyyy • hh:mm a",
+  ).format(dummyTimeStamp);
 
   return AppBar(
     title: Column(

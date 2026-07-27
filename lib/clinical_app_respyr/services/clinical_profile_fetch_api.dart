@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
+import 'package:respyr_clinical/shared/urls.dart';
 
 import '../../new_result/data/model/result_profile_data_model.dart';
 
@@ -9,7 +10,7 @@ class ClinicalProfileApi {
     String clinicalName,
   ) async {
     final String baseUrl =
-        'https://humorstech.com/humors_app/app_final/fetch_clinic_subjects_profile.php?clinic_name=$clinicalName';
+        '${Urls.fetchClinicSubjectsProfile}?clinic_name=$clinicalName';
     final response = await http.get(Uri.parse(baseUrl));
 
     if (response.statusCode == 200) {

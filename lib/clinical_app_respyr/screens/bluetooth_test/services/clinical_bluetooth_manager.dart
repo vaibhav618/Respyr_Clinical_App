@@ -32,6 +32,13 @@ class ClinicalBluetoothManager {
   StreamSubscription<BluetoothConnectionState>? _connectionSubscription;
   StreamSubscription<List<int>>? _notificationSubscription;
 
+  // Guards against concurrent service discovery. Without this, connect()'s
+  // discovery (:318) and sendData()'s recovery discovery (:152) can overlap,
+  // each attaching a notify listener and leaking the first one -> every packet
+  // is delivered twice (which corrupts the server payload).
+  Future<void>? _discoverInFlight;
+  bool _enablingNotify = false;
+
   bool get isConnected => _isConnected;
   Stream<bool> get connectionStatusStream => _connectionStatusController.stream;
   Stream<String> get receivedDataStream => _receivedDataController.stream;
@@ -325,6 +332,23 @@ class ClinicalBluetoothManager {
   }
 
   Future<void> _discoverServices() async {
+    // Single-flight: if a discovery is already running, await it instead of
+    // starting a second concurrent one (which would double the notify listener).
+    final inFlight = _discoverInFlight;
+    if (inFlight != null) {
+      await inFlight;
+      return;
+    }
+    final future = _discoverServicesImpl();
+    _discoverInFlight = future;
+    try {
+      await future;
+    } finally {
+      _discoverInFlight = null;
+    }
+  }
+
+  Future<void> _discoverServicesImpl() async {
     _isReadyForWrite = false;
 
     final device = _targetDevice;
@@ -415,6 +439,11 @@ class ClinicalBluetoothManager {
   }
 
   Future<void> _enableNotify(BluetoothCharacteristic c) async {
+    // Re-entrancy guard: never run two enable-notify sequences at once, or the
+    // first listener can leak and every packet gets delivered twice.
+    if (_enablingNotify) return;
+    _enablingNotify = true;
+
     // Clean old sub
     await _notificationSubscription?.cancel();
     _notificationSubscription = null;
@@ -461,6 +490,8 @@ class ClinicalBluetoothManager {
       });
     } catch (e) {
       if (kDebugMode) print("❌ Enable notify failed: $e");
+    } finally {
+      _enablingNotify = false;
     }
   }
 

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:respyr_clinical/shared/urls.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../log_manager/log_manager.dart';
@@ -15,7 +16,7 @@ Map<String, dynamic> data,
   required String loginId,
 }) async {
   final url = Uri.parse(
-    'https://humorstech.com/humors_app/app_final/clinical/api/fetch/check_test_counts.php',
+    Urls.checkTestCounts,
   );
 
   try {

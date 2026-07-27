@@ -1,4 +1,3 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:respyr_clinical/new_result/presentation/widgets/result_appbar.dart';
@@ -26,7 +25,8 @@ class CorporateResultScreen extends StatelessWidget {
     super.key,
     required this.navigateToDashboard,
     required this.userResultData,
-    required this.userProfileData, required this.corporateInterpretation,
+    required this.userProfileData,
+    required this.corporateInterpretation,
   });
 
   @override
@@ -35,12 +35,26 @@ class CorporateResultScreen extends StatelessWidget {
     final bmi = resultViewModel.bmi;
     final bmr = resultViewModel.bmr;
 
-
-
-    ScoreInterpretation energyUtilization = getScoreInterpretationByKey(corporateInterpretation, CorporateScoreKey.energyUtilization.apiKey)!;
-    ScoreInterpretation breathingEfficiency = getScoreInterpretationByKey(corporateInterpretation, CorporateScoreKey.breathingEfficiency.apiKey)!;
-    ScoreInterpretation digestiveBalance = getScoreInterpretationByKey(corporateInterpretation, CorporateScoreKey.digestiveBalance.apiKey)!;
-    ScoreInterpretation metabolicLoad = getScoreInterpretationByKey(corporateInterpretation, CorporateScoreKey.metabolicLoad.apiKey)!;
+    ScoreInterpretation energyUtilization =
+        getScoreInterpretationByKey(
+          corporateInterpretation,
+          CorporateScoreKey.energyUtilization.apiKey,
+        )!;
+    ScoreInterpretation breathingEfficiency =
+        getScoreInterpretationByKey(
+          corporateInterpretation,
+          CorporateScoreKey.breathingEfficiency.apiKey,
+        )!;
+    ScoreInterpretation digestiveBalance =
+        getScoreInterpretationByKey(
+          corporateInterpretation,
+          CorporateScoreKey.digestiveBalance.apiKey,
+        )!;
+    ScoreInterpretation metabolicLoad =
+        getScoreInterpretationByKey(
+          corporateInterpretation,
+          CorporateScoreKey.metabolicLoad.apiKey,
+        )!;
 
     return WillPopScope(
       onWillPop: () async {
@@ -66,10 +80,7 @@ class CorporateResultScreen extends StatelessWidget {
                   const SizedBox(height: 20),
 
                   if (bmi != null && bmr != null)
-                    BmiBmrCard(
-                      bodyMassIndex: bmi,
-                      basalMetabolicRate: bmr,
-                    ),
+                    BmiBmrCard(bodyMassIndex: bmi, basalMetabolicRate: bmr),
 
                   const SizedBox(height: 20),
 
@@ -98,7 +109,7 @@ class CorporateResultScreen extends StatelessWidget {
                     scoreVal: userResultData.respiratoryScore,
                     category: "respiratory",
                     userResultData: userResultData,
-                    corporateInterpretation: breathingEfficiency
+                    corporateInterpretation: breathingEfficiency,
                   ),
 
                   const SizedBox(height: 20),
@@ -112,8 +123,7 @@ class CorporateResultScreen extends StatelessWidget {
                     scoreVal: userResultData.sugarScore,
                     category: "sugar",
                     userResultData: userResultData,
-                      corporateInterpretation: energyUtilization
-
+                    corporateInterpretation: energyUtilization,
                   ),
 
                   const SizedBox(height: 20),
@@ -127,8 +137,7 @@ class CorporateResultScreen extends StatelessWidget {
                     scoreVal: userResultData.liverScore,
                     category: "liver",
                     userResultData: userResultData,
-                      corporateInterpretation: metabolicLoad
-
+                    corporateInterpretation: metabolicLoad,
                   ),
 
                   const SizedBox(height: 20),
@@ -142,8 +151,7 @@ class CorporateResultScreen extends StatelessWidget {
                     scoreVal: userResultData.gutScore,
                     category: "gut",
                     userResultData: userResultData,
-                      corporateInterpretation: digestiveBalance
-
+                    corporateInterpretation: digestiveBalance,
                   ),
 
                   const SizedBox(height: 50),

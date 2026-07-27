@@ -5,7 +5,6 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import 'package:respyr_clinical/authentication/screens/login_screen.dart';
 import '../../clinical_dashboard/bloc/health_score_bloc.dart';
 import '../../clinical_dashboard/views/clinical_dashboard.dart';
 import '../authentication/screens/login_with_password.dart';
@@ -14,8 +13,6 @@ import '../clinical_dashboard/service/overall_data_by_date_service.dart';
 import '../log_manager/log_manager.dart';
 import '../shared/get_stored_data_text.dart';
 import '../widgets/error.dart';
-
-
 
 class Splash extends StatefulWidget {
   const Splash({super.key});
@@ -70,7 +67,7 @@ class _SplashState extends State<Splash> with WidgetsBindingObserver {
       }
     });
 
-   _checkUserAndNavigate();
+    _checkUserAndNavigate();
   }
 
   @override
@@ -110,10 +107,7 @@ class _SplashState extends State<Splash> with WidgetsBindingObserver {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             const Spacer(),
-            SvgPicture.asset(
-              "assets/business_logo.svg",
-              height: 160,
-            ),
+            SvgPicture.asset("assets/business_logo.svg", height: 160),
             const Spacer(),
             Padding(
               padding: const EdgeInsets.only(bottom: 32),
@@ -190,14 +184,14 @@ class _SplashState extends State<Splash> with WidgetsBindingObserver {
   }
 
   Future<void> _getJwtTokenAndFetchData(String loginId) async {
-
     final result = await JwtApiHelper.fetchAndStoreJwtToken(loginId: loginId);
 
     if (!result.success) {
       setState(() {
         errorMessage = result.message;
         isLoading = false;
-        unauthorized = result.message?.toLowerCase().contains("unauthorized") ?? false;
+        unauthorized =
+            result.message?.toLowerCase().contains("unauthorized") ?? false;
       });
       return;
     }
@@ -207,13 +201,13 @@ class _SplashState extends State<Splash> with WidgetsBindingObserver {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
-          builder: (_) => BlocProvider(
-            create: (_) => HealthScoreBloc(OverallDataByDateService()),
-            child: ClinicalDashboardMain(loginId: loginId),
-          ),
+          builder:
+              (_) => BlocProvider(
+                create: (_) => HealthScoreBloc(OverallDataByDateService()),
+                child: ClinicalDashboardMain(loginId: loginId),
+              ),
         ),
       );
     }
   }
 }
-

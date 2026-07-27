@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:respyr_clinical/shared/urls.dart';
 
 class FCMManager{
 
@@ -8,7 +9,7 @@ class FCMManager{
     required String fcmToken,
     String? deviceId,
   }) async {
-    const String url = 'https://humorstech.com/humors_app/app_final/clinical/api/insert/save_fcm_token.php';
+    const String url = Urls.saveFcmToken;
 
     try {
        await http.post(

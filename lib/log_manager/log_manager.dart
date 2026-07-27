@@ -1,13 +1,14 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:respyr_clinical/shared/urls.dart';
 
 class LogManager {
   static final LogManager _instance = LogManager._internal();
   factory LogManager() => _instance;
   LogManager._internal();
 
-  String logApiEndpoint = 'https://humorstech.com/log_manager/logger.php';
+  String logApiEndpoint = Urls.logger;
   String? userId;
 
   void setUserId(String id) => userId = id;

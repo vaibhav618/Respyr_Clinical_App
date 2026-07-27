@@ -3,21 +3,16 @@ import 'dart:async';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:respyr_clinical/clinical_app_respyr/screens/bluetooth_test/screens/bluetooth_clinical_calibration_screen.dart';
 import 'package:respyr_clinical/clinical_app_respyr/screens/bluetooth_test/services/clinical_bluetooth_manager.dart';
-import 'package:respyr_clinical/clinical_app_respyr/services/device_battery_utils.dart';
 import 'package:respyr_clinical/clinical_app_respyr/services/disconnected_error.dart';
 import 'package:respyr_clinical/shared/audio_helper.dart';
 import 'package:respyr_clinical/shared/colors.dart';
 
-import '../../../../clinical_dashboard/bloc/health_score_bloc.dart';
-import '../../../../clinical_dashboard/service/overall_data_by_date_service.dart';
-import '../../../../clinical_dashboard/views/clinical_dashboard.dart';
 import '../../../../new_result/data/model/result_profile_data_model.dart';
 import '../../../../router/app_routers.dart';
 
@@ -174,20 +169,15 @@ class _BluetoothBreatheTubeState extends State<BluetoothBreatheTube> {
     _timer?.cancel();
   }
 
-
   void _navigateToDashboard() {
     if (Get.isOverlaysOpen) {
       Get.back();
     }
     Get.offAllNamed(
       AppRoutes.mainDashboard,
-      arguments: {
-        'profile_details': widget.profileDetails,
-      },
+      arguments: {'profile_details': widget.profileDetails},
     );
   }
-
-
 
   void abortProcess() {
     if (_isConnected) {

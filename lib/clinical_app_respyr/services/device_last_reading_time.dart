@@ -1,10 +1,10 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart';
+import 'package:respyr_clinical/shared/urls.dart';
 
 Future<String> fetchDeviceLastDataTime(String hwid) async {
-  const String baseUrl =
-      'https://humorstech.com/humors_app/app_final/clinical/api/fetch/fetch_last_data_time2.php';
+  const String baseUrl = Urls.fetchLastDataTime;
 
   final Uri uri = Uri.parse(baseUrl).replace(queryParameters: {'hwid': hwid});
 

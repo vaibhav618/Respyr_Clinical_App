@@ -3,7 +3,7 @@ import 'package:http/http.dart' as http;
 import 'package:respyr_clinical/splash/user_info_model.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../utils/urls.dart';
+import 'package:respyr_clinical/shared/urls.dart';
 
 
 class UserInfoService {

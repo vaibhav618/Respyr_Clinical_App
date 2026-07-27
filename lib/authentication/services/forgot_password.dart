@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:respyr_clinical/shared/urls.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 class ForgotPassword extends StatefulWidget {
@@ -62,7 +63,7 @@ class _ForgotPasswordState extends State<ForgotPassword> {
         ),
       )
       ..loadRequest(
-        Uri.parse('https://portal.respyr.in/clinical/login-port/forgot-password/?appshow=true'),
+        Uri.parse(Urls.forgotPasswordPortal),
       );
   }
 

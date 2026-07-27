@@ -1,9 +1,9 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:respyr_clinical/shared/urls.dart';
 
 class ClinicalDiabeticScore {
-  static const String baseUrl =
-      'https://humorstech.com/humors/json_curl/all_clinic_score.php';
+  static const String baseUrl = Urls.allClinicScore;
 
   Future<Map<String, dynamic>> processDiabeticScore({
     required double acetone,

@@ -27,6 +27,15 @@
     <!-- Internet -->
     <uses-permission android:name="android.permission.INTERNET" />
 
+    <!-- Foreground service: keeps result generation (BLE + network) alive while
+         the app is backgrounded, so the reading is not lost / the app is not
+         low-memory killed on aggressive OEMs. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+
     <!-- USB -->
     <uses-feature android:name="android.hardware.usb.host" />
 
@@ -41,7 +50,7 @@
 
     <application
         android:name="${applicationName}"
-        android:label="Respyr Business"
+        android:label="Respyr Clinical"
         android:icon="@mipmap/ic_launcher">
         
         <activity
@@ -79,6 +88,14 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />
         </provider>
+
+        <!-- flutter_foreground_task service. Do not change the name. Type covers
+             the connected BLE device and the result-upload network sync. -->
+        <service
+            android:name="com.pravera.flutter_foreground_task.service.ForegroundService"
+            android:foregroundServiceType="connectedDevice|dataSync"
+            android:exported="false"
+            tools:replace="android:foregroundServiceType" />
     </application>
 
     <!-- Used by Flutter engine for text processing -->

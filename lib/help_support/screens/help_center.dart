@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'issues.dart';
-import 'raise_ticket.dart';
 
 class HelpCenter extends StatefulWidget {
   final String loginId;
@@ -13,84 +12,81 @@ class HelpCenter extends StatefulWidget {
 }
 
 class _HelpCenterState extends State<HelpCenter> {
-
   final Map<String, String> respyrFaq = {
     "What is the Respyr1.0 device?":
-    "The Respyr1.0 device is clinically developed with cutting‑edge technology designed for the health screening of critical lifestyle disorders by analyzing specific biomarkers in human exhaled breath.",
+        "The Respyr1.0 device is clinically developed with cutting‑edge technology designed for the health screening of critical lifestyle disorders by analyzing specific biomarkers in human exhaled breath.",
     "Who is Respyr1.0 for?":
-    "We created Respyr1.0 to help individuals above the age of 18 years, who seek convenient health screening for lifestyle disorders. It is important to note that this is a health screening device, not a disease detection device.",
+        "We created Respyr1.0 to help individuals above the age of 18 years, who seek convenient health screening for lifestyle disorders. It is important to note that this is a health screening device, not a disease detection device.",
     "Who should not use Respyr1.0?":
-    "Pregnant women; Individuals with severe asthma; Those with cancer or undergoing cancer treatment; Individuals with communicable diseases.",
+        "Pregnant women; Individuals with severe asthma; Those with cancer or undergoing cancer treatment; Individuals with communicable diseases.",
     "How does the Respyr1.0 device connect to a phone?":
-    "The Respyr1.0 device connects to a phone via a USB Type‑C/micro connector cable.",
+        "The Respyr1.0 device connects to a phone via a USB Type‑C/micro connector cable.",
     "Is the Respyr1.0 device compatible with all phones?":
-    "At present, it is compatible with all Android phones.",
+        "At present, it is compatible with all Android phones.",
     "Is there a mobile app for the Respyr1.0 device?":
-    "Yes, a dedicated mobile app is available for the Respyr1.0 device.",
+        "Yes, a dedicated mobile app is available for the Respyr1.0 device.",
     "How do I use the Respyr1.0 device?":
-    "Connect the device to your phone using the provided USB cable. If prompted, click \"OK\" on your phone's notification to confirm the device connection. Exhale breath into the device when the device light indicator is green and follow the “on‑screen” app instructions.",
+        "Connect the device to your phone using the provided USB cable. If prompted, click \"OK\" on your phone's notification to confirm the device connection. Exhale breath into the device when the device light indicator is green and follow the “on‑screen” app instructions.",
     "How long does it take to get results?":
-    "Generally, results are provided rapidly after exhaling into the device, usually within 60 seconds.",
+        "Generally, results are provided rapidly after exhaling into the device, usually within 60 seconds.",
     "How to exhale breath into the device and what should be the exhaled duration?":
-    "Once the device is ready to receive a breath sample, take a deep breath (inhale) and hold for a second, then exhale into the device as per your capacity for a duration of minimum 4‑5 seconds.",
+        "Once the device is ready to receive a breath sample, take a deep breath (inhale) and hold for a second, then exhale into the device as per your capacity for a duration of minimum 4‑5 seconds.",
     "What factors should I consider for accurate and reliable readings with Respyr1.0?":
-    "• Fasting condition in the morning or 3 hrs post‑meal\n• Proper ventilation and no strong air currents\n• Avoid extreme temperatures\n• Stay relaxed, upright and stable during readings.",
+        "• Fasting condition in the morning or 3 hrs post‑meal\n• Proper ventilation and no strong air currents\n• Avoid extreme temperatures\n• Stay relaxed, upright and stable during readings.",
     "Is there a risk of cross‑contamination if the same device is used by different individuals?":
-    "No—Respyr1.0 includes an auto‑clean mechanism and UV LED to kill/inactivate microorganisms. Avoid sharing if someone is ill.",
+        "No—Respyr1.0 includes an auto‑clean mechanism and UV LED to kill/inactivate microorganisms. Avoid sharing if someone is ill.",
     "Is my personal health information safe?":
-    "Yes—respyr prioritizes privacy and data security, complying with relevant data protection regulations.",
+        "Yes—respyr prioritizes privacy and data security, complying with relevant data protection regulations.",
     "How do I clean the Respyr1.0 device?":
-    "It has an auto‑clean mechanism for the inner surface. Clean the outer surface with a soft, dry cloth.",
+        "It has an auto‑clean mechanism for the inner surface. Clean the outer surface with a soft, dry cloth.",
     "Is the Respyr1.0 device waterproof?":
-    "No—the device is not waterproof. Avoid water exposure and keep it dry and out of reach of children.",
+        "No—the device is not waterproof. Avoid water exposure and keep it dry and out of reach of children.",
     "Can I start or stop medication based on the results generated by the Respyr1.0 device?":
-    "No—the device does not recommend starting/stopping medication. Consult a healthcare professional.",
+        "No—the device does not recommend starting/stopping medication. Consult a healthcare professional.",
     "What should I do if the Respyr1.0 device indicates potential health issues?":
-    "Consult with a healthcare provider if any potential health concerns are indicated.",
+        "Consult with a healthcare provider if any potential health concerns are indicated.",
     "Should I inform my doctor about the results from the Respyr1.0 device?":
-    "Yes—it is recommended to share the results with your healthcare provider for a comprehensive assessment.",
+        "Yes—it is recommended to share the results with your healthcare provider for a comprehensive assessment.",
     "How can you get the Respyr1.0 app on your phone?":
-    "Download it from your mobile app store or the Respyr1.0 website.",
-    "How many profiles can you add?":
-    "You can add a maximum of 4 profiles.",
+        "Download it from your mobile app store or the Respyr1.0 website.",
+    "How many profiles can you add?": "You can add a maximum of 4 profiles.",
     "Where can I find 'delete my account'?":
-    "Go to Settings → Account Settings, and follow the instructions to delete your account.",
+        "Go to Settings → Account Settings, and follow the instructions to delete your account.",
 
     // Troubleshooting section
     "What should I do if the Respyr1.0 device is not connecting to my phone via USB?":
-    "Ensure the USB cable is securely connected, check OTG settings, try a different cable or phone port.",
+        "Ensure the USB cable is securely connected, check OTG settings, try a different cable or phone port.",
     "The device doesn't create a virtual COM port. What should I do?":
-    "Disconnect and reconnect the USB cable, restart the device and app, and check OS recognition.",
+        "Disconnect and reconnect the USB cable, restart the device and app, and check OS recognition.",
     "Why is the green indicator light not glowing?":
-    "The device may not be properly stabilized. Change location or contact support if the issue persists.",
+        "The device may not be properly stabilized. Change location or contact support if the issue persists.",
     "I blew into the device, but results are not generating. What should I do?":
-    "Check you’ve followed the procedure, your internet is on, no app switch or call interruption, and look for error messages.",
+        "Check you’ve followed the procedure, your internet is on, no app switch or call interruption, and look for error messages.",
     "What should I do if the results seem inaccurate or inconsistent?":
-    "Ensure you’ve followed the guidelines; contact customer support if issues continue.",
+        "Ensure you’ve followed the guidelines; contact customer support if issues continue.",
     "The Respyr app is not recognizing the device. How can I fix this?":
-    "Restart the app, reconnect USB, grant permissions, and accept device notification prompts.",
+        "Restart the app, reconnect USB, grant permissions, and accept device notification prompts.",
     "What should I do if the Respyr1.0 device freezes or stops responding?":
-    "Restart the device and app, disconnect/reconnect cable, and contact support if it persists.",
+        "Restart the device and app, disconnect/reconnect cable, and contact support if it persists.",
     "What should I do if the app keeps crashing?":
-    "Close and restart the app and device, and check for updates if crashes continue.",
+        "Close and restart the app and device, and check for updates if crashes continue.",
     "Why am I not receiving notifications from the app?":
-    "Enable notifications in device settings and within the app.",
+        "Enable notifications in device settings and within the app.",
     "What should I do if I encounter a bug or an issue in the app?":
-    "Report it via the in‑app “Report a Problem” or “Feedback” feature.",
+        "Report it via the in‑app “Report a Problem” or “Feedback” feature.",
     "How can I contact support for this app?":
-    "Use the “Contact Us” or “Support” option within the app or website to access email/chat/help center."
+        "Use the “Contact Us” or “Support” option within the app or website to access email/chat/help center.",
   };
-
-
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor:const Color(0xFFF5F7FA),
+      backgroundColor: const Color(0xFFF5F7FA),
       appBar: AppBar(
         backgroundColor: const Color(0xFFF5F7FA),
         surfaceTintColor: const Color(0xFFF5F7FA),
-        title: Text("Help Center",
+        title: Text(
+          "Help Center",
           style: GoogleFonts.poppins(
             color: const Color(0xFF252525),
             fontSize: 15,
@@ -102,81 +98,88 @@ class _HelpCenterState extends State<HelpCenter> {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-
           Expanded(
             child: SingleChildScrollView(
-                child:   Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text("FAQ",
-                        style: GoogleFonts.poppins(
-                          color: const Color(0xFF252525),
-                          fontSize: 34,
-                          fontWeight: FontWeight.w400,
-                          letterSpacing: -2.04,
-                        ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "FAQ",
+                      style: GoogleFonts.poppins(
+                        color: const Color(0xFF252525),
+                        fontSize: 34,
+                        fontWeight: FontWeight.w400,
+                        letterSpacing: -2.04,
                       ),
-                      Text("Here are some frequently asked question with solutions",
-                        style: GoogleFonts.poppins(
-                          color: const Color(0xFF535359),
-                          fontSize: 15,
-                          fontWeight: FontWeight.w400,
-                          letterSpacing: -0.30,
-                        ),
+                    ),
+                    Text(
+                      "Here are some frequently asked question with solutions",
+                      style: GoogleFonts.poppins(
+                        color: const Color(0xFF535359),
+                        fontSize: 15,
+                        fontWeight: FontWeight.w400,
+                        letterSpacing: -0.30,
                       ),
-                      SizedBox(height: 18,),
-                      ListView(
-                        shrinkWrap: true,
-                        physics: NeverScrollableScrollPhysics(),
-                        children: respyrFaq.entries.map((entry) {
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 14),
-                            child: ExpansionTile(
-                              shape:RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10)
-                              ) ,
-                              collapsedShape:RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10)
-                              ) ,
-                              collapsedBackgroundColor: Colors.white,
-                              backgroundColor:  Colors.white,
-                              title: Text(entry.key,style: GoogleFonts.poppins(
-                                color: const Color(0xFF252525),
-                                fontSize: 15,
-                                fontWeight: FontWeight.w600,
-                                letterSpacing: -0.30,
-                              ),
-                              ),
-                              children: [Padding(
-                                padding: const EdgeInsets.all(16.0),
-                                child:
-                                Text(entry.value,
+                    ),
+                    SizedBox(height: 18),
+                    ListView(
+                      shrinkWrap: true,
+                      physics: NeverScrollableScrollPhysics(),
+                      children:
+                          respyrFaq.entries.map((entry) {
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 14),
+                              child: ExpansionTile(
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                collapsedShape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                collapsedBackgroundColor: Colors.white,
+                                backgroundColor: Colors.white,
+                                title: Text(
+                                  entry.key,
                                   style: GoogleFonts.poppins(
                                     color: const Color(0xFF252525),
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w400,
-                                    letterSpacing: -0.24,
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w600,
+                                    letterSpacing: -0.30,
                                   ),
                                 ),
-                              )],
-                            ),
-                          );
-                        }).toList(),
-                      ),
-                    ],
-                  ),
-                )
+                                children: [
+                                  Padding(
+                                    padding: const EdgeInsets.all(16.0),
+                                    child: Text(
+                                      entry.value,
+                                      style: GoogleFonts.poppins(
+                                        color: const Color(0xFF252525),
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w400,
+                                        letterSpacing: -0.24,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }).toList(),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
 
           Container(
-            padding:  EdgeInsets.symmetric(horizontal: 13, vertical: 20),
+            padding: EdgeInsets.symmetric(horizontal: 13, vertical: 20),
             color: Colors.white,
             child: Column(
               children: [
-                Text("Didn’t find what you’re looking for?",
+                Text(
+                  "Didn’t find what you’re looking for?",
                   style: GoogleFonts.poppins(
                     color: const Color(0xFF252525),
                     fontSize: 12,
@@ -185,17 +188,18 @@ class _HelpCenterState extends State<HelpCenter> {
                     letterSpacing: -0.24,
                   ),
                 ),
-                SizedBox(height: 10,),
+                SizedBox(height: 10),
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: (){},
-                    style:ElevatedButton.styleFrom(
-                        elevation: 0,
-                        backgroundColor: const Color(0xFF252525),
-                        padding: EdgeInsets.symmetric(vertical: 20)
-                    ) ,
-                    child: Text("Contact Support",
+                    onPressed: () {},
+                    style: ElevatedButton.styleFrom(
+                      elevation: 0,
+                      backgroundColor: const Color(0xFF252525),
+                      padding: EdgeInsets.symmetric(vertical: 20),
+                    ),
+                    child: Text(
+                      "Contact Support",
                       style: GoogleFonts.poppins(
                         color: Colors.white,
                         fontSize: 15,
@@ -206,19 +210,18 @@ class _HelpCenterState extends State<HelpCenter> {
                     ),
                   ),
                 ),
-                SizedBox(height: 15,),
+                SizedBox(height: 15),
                 OutlinedButton(
                   onPressed: () {
                     Navigator.pushReplacement(
                       context,
-                      MaterialPageRoute(builder: (context) => Issues(loginId: widget.loginId,)),
+                      MaterialPageRoute(
+                        builder: (context) => Issues(loginId: widget.loginId),
+                      ),
                     );
                   },
                   style: OutlinedButton.styleFrom(
-                    side: BorderSide(
-                      width: 1,
-                      color: const Color(0xFFC7C6CE),
-                    ),
+                    side: BorderSide(width: 1, color: const Color(0xFFC7C6CE)),
                     padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                   ),
                   child: Text(
@@ -231,14 +234,12 @@ class _HelpCenterState extends State<HelpCenter> {
                       letterSpacing: -0.24,
                     ),
                   ),
-                )
-
+                ),
               ],
             ),
-          )
+          ),
         ],
       ),
-
     );
   }
 }

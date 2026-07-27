@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:respyr_clinical/shared/urls.dart';
 
 import '../../../router/app_routers.dart';
 import '../../data/model/result_model.dart';
@@ -37,7 +38,7 @@ class ResultScreen extends StatelessWidget {
 
     return FutureBuilder<CorporateInterpretation>(
       future: CorporateInterpretationService(
-        apiUrl: "https://humorstech.com/humors_app/app_final/clinical/get_score_interpretation.php",
+        apiUrl: Urls.scoreInterpretation,
       ).fetchCorporateInterpretation(
         energyUtilization: userResultData.sugarScore,
         digestiveBalance: userResultData.gutScore,

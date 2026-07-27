@@ -37,9 +37,10 @@ class ProfileListTile extends StatelessWidget {
     final last = prefs.getInt('last_reading_time');
     if (last == null) return 0;
 
-    final diff = DateTime.now()
-        .difference(DateTime.fromMillisecondsSinceEpoch(last))
-        .inSeconds;
+    final diff =
+        DateTime.now()
+            .difference(DateTime.fromMillisecondsSinceEpoch(last))
+            .inSeconds;
 
     final remaining = cooldownSeconds - diff;
     return remaining > 0 ? remaining : 0;
@@ -77,9 +78,9 @@ class ProfileListTile extends StatelessWidget {
   }
 
   void _showConnectionOption(
-      ResultProfileDataModel profileModel,
-      BuildContext context,
-      ) {
+    ResultProfileDataModel profileModel,
+    BuildContext context,
+  ) {
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -91,8 +92,9 @@ class ProfileListTile extends StatelessWidget {
             Navigator.pop(context); // ✅ Close the bottom sheet
 
             // ✅ added: cooldown check before navigating
-            final remaining =
-            await getRemainingCooldownSeconds(cooldownSeconds: 40);
+            final remaining = await getRemainingCooldownSeconds(
+              cooldownSeconds: 40,
+            );
 
             if (remaining > 0) {
               await showCooldownToast(context, remaining);
@@ -101,7 +103,7 @@ class ProfileListTile extends StatelessWidget {
 
             Navigator.pop(context);
             Get.to(
-                  () => BluetoothClinicalDeviceConnectivity(
+              () => BluetoothClinicalDeviceConnectivity(
                 // isClinicalTest: true,
                 profileDetails: profileModel,
               ),
@@ -110,7 +112,7 @@ class ProfileListTile extends StatelessWidget {
           onUsbTap: () {
             Navigator.pop(context);
             Get.to(
-                  () => UsbDeviceConnectivity(
+              () => UsbDeviceConnectivity(
                 isClinicalTest: true,
                 profileDetails: profileModel,
               ),
@@ -172,7 +174,7 @@ class ProfileListTile extends StatelessWidget {
                 body['message'] ?? 'Region updated successfully',
                 snackPosition: SnackPosition.BOTTOM,
                 margin: const EdgeInsets.only(bottom: 20, left: 10, right: 10),
-                backgroundColor: Colors.black.withOpacity(0.8),
+                backgroundColor: Colors.black.withValues(alpha: 0.8),
                 colorText: Colors.white,
                 duration: const Duration(seconds: 1),
                 animationDuration: const Duration(seconds: 1),
@@ -199,10 +201,11 @@ class ProfileListTile extends StatelessWidget {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (_) => SubjectProfileScreen(
-                clinicName: profile.clinicName,
-                profileName: profile.subjectId,
-              ),
+              builder:
+                  (_) => SubjectProfileScreen(
+                    clinicName: profile.clinicName,
+                    profileName: profile.subjectId,
+                  ),
             ),
           );
         }

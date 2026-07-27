@@ -1,11 +1,12 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:respyr_clinical/shared/urls.dart';
 
 import '../model/clinical_details_model.dart';
 
 
 class ClinicDetailsRepository{
-  final String baseUrl = "https://yourdomain.com/api/clinic_fetch.php";
+  final String baseUrl = Urls.clinicFetch;
 
   Future<List<ClinicalDetailsModel>> fetchClinics({
     required String token,

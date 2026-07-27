@@ -7,20 +7,14 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
 import 'package:respyr_clinical/clinical_app_respyr/screens/usb_test/services/clinical_usb_communication_services.dart';
 import 'package:respyr_clinical/clinical_app_respyr/services/disconnected_error.dart';
-import 'package:respyr_clinical/clinical_dashboard/views/clinical_dashboard.dart';
 import 'package:respyr_clinical/widgets/internet_connectivity_check.dart';
 import 'package:respyr_clinical/shared/colors.dart';
-import '../../../../clinical_dashboard/bloc/health_score_bloc.dart';
-import '../../../../clinical_dashboard/service/overall_data_by_date_service.dart';
 import '../../../../new_result/bloc/new_result_bloc.dart';
 import '../../../../new_result/bloc/new_result_cubit.dart';
 import '../../../../new_result/data/model/result_model.dart';
 import '../../../../new_result/data/model/result_profile_data_model.dart';
-import '../../../../new_result/presentation/view/overall_result.dart';
-import '../../../../new_result/presentation/view_model/result_view_model.dart';
 import '../../../../router/app_routers.dart';
 import '../../../../utils/blow_values_helper.dart';
 
@@ -160,7 +154,6 @@ class _UsbClinicalGeneratingResultState
       },
     );
   }
-
 
   Future<void> _setCancelOrDisconnectFlag() async {
     final storage = GetStorage();
@@ -468,7 +461,9 @@ class _UsbClinicalGeneratingResultState
                   responseTimer?.cancel();
 
                   if (state is NewResultFailure) {
-                    final isProfileError = state.error.contains("Profile data is incomplete.",);
+                    final isProfileError = state.error.contains(
+                      "Profile data is incomplete.",
+                    );
                     final iconAsset =
                         isProfileError
                             ? "assets/sagar/undraw_warning_tl76.svg"
@@ -643,9 +638,6 @@ class _UsbClinicalGeneratingResultState
         region: region,
         blowData: BlowValuesHelper().getBlowString(widget.blowValuesList),
       );
-
-
-
     } catch (e) {
       if (_isDisposed) return;
     }
@@ -670,7 +662,6 @@ class _UsbClinicalGeneratingResultState
       },
     );
   }
-
 
   Future<bool> _showCancelTestDialog(context) async {
     bool didCancel = false;

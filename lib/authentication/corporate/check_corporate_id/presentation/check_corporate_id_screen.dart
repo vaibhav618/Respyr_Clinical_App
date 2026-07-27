@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:respyr_clinical/shared/urls.dart';
 
 import '../../../../router/app_routers.dart';
 import '../../../../shared/colors.dart';
@@ -19,7 +20,7 @@ class CheckCorporateIdScreen extends StatelessWidget {
       create: (_) => ClinicNameCheckBloc(
         repo: ClinicNameCheckRepository(
           endpointUrl:
-          "https://humorstech.com/humors_app/app_final/clinical/check_corporate_id.php",
+          Urls.checkCorporateId,
         ),
       ),
       child: const _CheckCorporateIdView(),

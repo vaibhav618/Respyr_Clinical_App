@@ -1,4 +1,3 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -12,7 +11,10 @@ Widget buildPrivacyText(BuildContext context) {
       children: [
         TextSpan(
           text: "By continuing, you agree to our ",
-          style: GoogleFonts.mulish(fontSize: 12, color: const Color(0xFF535359)),
+          style: GoogleFonts.mulish(
+            fontSize: 12,
+            color: const Color(0xFF535359),
+          ),
         ),
         TextSpan(
           text: "Terms and Conditions",
@@ -21,11 +23,20 @@ Widget buildPrivacyText(BuildContext context) {
             decoration: TextDecoration.underline,
             color: const Color(0xFF308BF9),
           ),
-          recognizer: TapGestureRecognizer()
-            ..onTap = () => Navigator.push(
-                context, MaterialPageRoute(builder: (_) => const TermsAndConditions())),
+          recognizer:
+              TapGestureRecognizer()
+                ..onTap =
+                    () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const TermsAndConditions(),
+                      ),
+                    ),
         ),
-        const TextSpan(text: " and ", style: TextStyle(color: Color(0xFF535359))),
+        const TextSpan(
+          text: " and ",
+          style: TextStyle(color: Color(0xFF535359)),
+        ),
         TextSpan(
           text: "Privacy Policy",
           style: GoogleFonts.mulish(
@@ -33,9 +44,13 @@ Widget buildPrivacyText(BuildContext context) {
             decoration: TextDecoration.underline,
             color: const Color(0xFF308BF9),
           ),
-          recognizer: TapGestureRecognizer()
-            ..onTap = () => Navigator.push(
-                context, MaterialPageRoute(builder: (_) => const PrivacyPolicy())),
+          recognizer:
+              TapGestureRecognizer()
+                ..onTap =
+                    () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const PrivacyPolicy()),
+                    ),
         ),
       ],
     ),

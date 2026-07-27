@@ -1,10 +1,10 @@
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
+import 'package:respyr_clinical/shared/urls.dart';
 
 class ClinicalIdGeneratingApi {
-  static const String _baseUrl =
-      "https://humorstech.com/humors_app/app_final/get_clinical_id.php";
+  static const String _baseUrl = Urls.getClinicalId;
 
   Future<Map<String, dynamic>> fetchClinicalIdApi(String phoneNumber) async {
     try {

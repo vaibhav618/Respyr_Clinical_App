@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:respyr_clinical/shared/urls.dart';
 
 import '../../new_result/data/model/result_model.dart';
 
@@ -13,7 +14,7 @@ class CorporateResultHistoryService {
     required String profileId,
   }) async {
     final response = await http.post(
-      Uri.parse("https://humorstech.com/humors_app/app_final/clinical/fetch_corporate_history.php"),
+      Uri.parse(Urls.fetchCorporateHistory),
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
       },

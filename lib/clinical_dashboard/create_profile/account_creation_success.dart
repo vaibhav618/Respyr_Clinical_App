@@ -1,10 +1,8 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-class AccountCreationSuccess{
-
+class AccountCreationSuccess {
   void showMessage(BuildContext context, {required VoidCallback onContinue}) {
     showModalBottomSheet(
       context: context,
@@ -43,7 +41,7 @@ class AccountCreationSuccess{
                 child: ElevatedButton(
                   onPressed: () {
                     Navigator.pop(context); // Close modal
-                    onContinue();           // Trigger callback
+                    onContinue(); // Trigger callback
                   },
                   style: ElevatedButton.styleFrom(
                     elevation: 0,

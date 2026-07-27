@@ -6,6 +6,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
+import 'package:respyr_clinical/shared/urls.dart';
 
 // EVENTS
 abstract class TestScoreEvent {}
@@ -58,7 +59,7 @@ class TestScoreBloc extends Bloc<TestScoreEvent, TestScoreState> {
       LoadTestScoreData event, Emitter<TestScoreState> emit) async {
     emit(TestScoreLoading());
     final uri = Uri.parse(
-        'https://humorstech.com/humors_app/app_final/clinical/trend_7_days.php?login_id=${event.loginId}&profile_id=${event.profileId}');
+        '${Urls.trend7Days}?login_id=${event.loginId}&profile_id=${event.profileId}');
     final response = await http.get(uri);
 
     if (response.statusCode == 200) {

@@ -1,10 +1,11 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:respyr_clinical/shared/urls.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/profile_model.dart';
 
 class ProfileRepository {
-  final String apiUrl = "https://humorstech.com/humors_app/app_final/clinical/api/fetch/get_subjects.php"; // Replace with your actual endpoint
+  final String apiUrl = Urls.getSubjects; // Replace with your actual endpoint
 
   Future<List<ProfileModel>> fetchProfiles(String clinicName) async {
     final prefs = await SharedPreferences.getInstance();

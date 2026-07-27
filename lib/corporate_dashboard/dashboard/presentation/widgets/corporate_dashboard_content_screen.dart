@@ -5,6 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:respyr_clinical/corporate_dashboard/dashboard/presentation/widgets/score_trend.dart';
 import 'package:respyr_clinical/corporate_dashboard/dashboard/presentation/widgets/timeline.dart';
+import 'package:respyr_clinical/shared/urls.dart';
 
 import '../../../../authentication/corporate/corporate_login/data/response/corporate_login_response.dart';
 import '../../bloc/corporate_profile_tests_bloc.dart';
@@ -17,16 +18,16 @@ class CorporateDashboardContentScreen extends StatefulWidget {
   final String loginId;
   final String profileId;
   final String? date;
-  final VoidCallback  onTrackHealthButtonClicked;
+  final VoidCallback onTrackHealthButtonClicked;
   final CorporateUserData corporateUserData;
-
 
   const CorporateDashboardContentScreen({
     super.key,
     required this.loginId,
     required this.profileId,
     this.date,
-    required this.onTrackHealthButtonClicked, required this.corporateUserData,
+    required this.onTrackHealthButtonClicked,
+    required this.corporateUserData,
   });
 
   @override
@@ -44,8 +45,7 @@ class _CorporateDashboardContentScreenState
 
     _bloc = CorporateProfileTestsBloc(
       repository: CorporateProfileTestsRepository(
-        endpointUrl:
-        "https://humorstech.com/humors_app/app_final/clinical/corporate_profile_tests.php",
+        endpointUrl: Urls.corporateProfileTests,
       ),
     );
 
@@ -89,59 +89,70 @@ class _CorporateDashboardContentScreenState
   Widget build(BuildContext context) {
     return BlocProvider.value(
       value: _bloc,
-      child: BlocListener<CorporateProfileTestsBloc, CorporateProfileTestsState>(
+      child: BlocListener<
+        CorporateProfileTestsBloc,
+        CorporateProfileTestsState
+      >(
         listenWhen: (prev, curr) => prev.status != curr.status,
         listener: (context, state) {},
-        child: BlocBuilder<CorporateProfileTestsBloc, CorporateProfileTestsState>(
-          builder: (context, state) {
-            if (state.status == CorporateProfileTestsStatus.loading) {
-              return const Padding(
-                padding: EdgeInsets.symmetric(vertical: 16),
-                child: Center(child: CircularProgressIndicator()),
-              );
-            }
+        child:
+            BlocBuilder<CorporateProfileTestsBloc, CorporateProfileTestsState>(
+              builder: (context, state) {
+                if (state.status == CorporateProfileTestsStatus.loading) {
+                  return const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 16),
+                    child: Center(child: CircularProgressIndicator()),
+                  );
+                }
 
-            if (state.status == CorporateProfileTestsStatus.failure) {
-              return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                child: Center(
-                  child: Text(
-                    state.errorMessage ?? "Failed to load data",
-                    style: const TextStyle(color: Colors.red),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-              );
-            }
+                if (state.status == CorporateProfileTestsStatus.failure) {
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    child: Center(
+                      child: Text(
+                        state.errorMessage ?? "Failed to load data",
+                        style: const TextStyle(color: Colors.red),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  );
+                }
 
-            if (state.status == CorporateProfileTestsStatus.success) {
-              final res = state.response!;
-              final data = res.data;
-              return ListView(
-                children: [
-                  if(data!.latestOfDate!=null)...[
-                    Scores(latestOfDate: data!.latestOfDate, corporateUserData: widget.corporateUserData,),
-                  ]else...[
-                    noTestTaken(widget.date)
-                  ],
-                  SizedBox(height: 20,),
-                  if(data.latestPerDay.isNotEmpty)
-                    ScoreTrend(latestPerDay: data.latestPerDay.take(7).toList(),),
-                  SizedBox(height: 20,),
+                if (state.status == CorporateProfileTestsStatus.success) {
+                  final res = state.response!;
+                  final data = res.data;
+                  return ListView(
+                    children: [
+                      if (data!.latestOfDate != null) ...[
+                        Scores(
+                          latestOfDate: data.latestOfDate,
+                          corporateUserData: widget.corporateUserData,
+                        ),
+                      ] else ...[
+                        noTestTaken(widget.date),
+                      ],
+                      SizedBox(height: 20),
+                      if (data.latestPerDay.isNotEmpty)
+                        ScoreTrend(
+                          latestPerDay: data.latestPerDay.take(7).toList(),
+                        ),
+                      SizedBox(height: 20),
 
-                  if(data.allDesc.isNotEmpty)
-                    Timeline(list: data.allDesc.take(5).toList(), corporateUserData: widget.corporateUserData,),
-                  SizedBox(height: 150,)
-                ],
-              );
-            }
-            return const SizedBox.shrink();
-          },
-        ),
+                      if (data.allDesc.isNotEmpty)
+                        Timeline(
+                          list: data.allDesc.take(5).toList(),
+                          corporateUserData: widget.corporateUserData,
+                        ),
+                      SizedBox(height: 150),
+                    ],
+                  );
+                }
+                return const SizedBox.shrink();
+              },
+            ),
       ),
     );
   }
-
 
   Widget noTestTaken(String? date) {
     String label = '';
@@ -166,7 +177,7 @@ class _CorporateDashboardContentScreenState
             label = 'yesterday';
           } else {
             label =
-            "${dd.toString().padLeft(2, '0')} "
+                "${dd.toString().padLeft(2, '0')} "
                 "${_monthName(mm)} ";
           }
         }
@@ -175,12 +186,10 @@ class _CorporateDashboardContentScreenState
       }
     }
 
-    final message = label.isNotEmpty
-        ? "You haven’t taken your reading $label."
-        : "You haven’t taken your reading yet.";
-
-
-
+    final message =
+        label.isNotEmpty
+            ? "You haven’t taken your reading $label."
+            : "You haven’t taken your reading yet.";
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -229,7 +238,7 @@ class _CorporateDashboardContentScreenState
                   fontWeight: FontWeight.w600,
                 ),
               ),
-            )
+            ),
           ],
         ),
       ),
@@ -238,10 +247,19 @@ class _CorporateDashboardContentScreenState
 
   String _monthName(int month) {
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     return (month >= 1 && month <= 12) ? months[month - 1] : '';
   }
-
 }

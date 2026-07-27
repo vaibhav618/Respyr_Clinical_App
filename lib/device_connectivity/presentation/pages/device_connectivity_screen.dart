@@ -1,5 +1,4 @@
 // usb_device_connectivity.dart
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -7,9 +6,6 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:respyr_clinical/clinical_app_respyr/services/disconnected_error.dart';
-import 'package:respyr_clinical/clinical_dashboard/bloc/health_score_bloc.dart';
-import 'package:respyr_clinical/clinical_dashboard/service/overall_data_by_date_service.dart';
-import 'package:respyr_clinical/clinical_dashboard/views/clinical_dashboard.dart';
 import 'package:respyr_clinical/device_connectivity/presentation/cubit/usb_connection_cubit.dart';
 import 'package:respyr_clinical/device_connectivity/presentation/cubit/usb_connection_state.dart';
 import 'package:respyr_clinical/new_result/data/model/result_profile_data_model.dart';
@@ -82,10 +78,10 @@ class _UsbDeviceConnectivityState extends State<UsbDeviceConnectivity> {
         Get.offAllNamed(
           AppRoutes.mainDashboard,
           arguments: {
-            'profile_details': widget.profileDetails, // full ResultProfileDataModel
+            'profile_details':
+                widget.profileDetails, // full ResultProfileDataModel
           },
         );
-
       },
     );
 
@@ -322,10 +318,11 @@ class _UsbDeviceConnectivityState extends State<UsbDeviceConnectivity> {
                         Get.offAllNamed(
                           AppRoutes.mainDashboard,
                           arguments: {
-                            'profile_details': widget.profileDetails, // full ResultProfileDataModel
+                            'profile_details':
+                                widget
+                                    .profileDetails, // full ResultProfileDataModel
                           },
                         );
-
                       },
                     ),
                     SizedBox(

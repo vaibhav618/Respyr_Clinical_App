@@ -79,7 +79,7 @@ class _ClinicalProfileViewState extends State<ClinicalProfileView> {
   }
 
   void _updateBmr() {
-    final int? parseAge = age;
+    final int parseAge = age;
     final int weight = _weightValue;
     final int? height = _cmValue;
 
