@@ -102,8 +102,10 @@ class _CreateProfileState extends State<CreateProfile> {
   void _onScroll() {
     final double offset =
         _scrollController.hasClients ? _scrollController.offset : 0;
-    final double t =
-        ((offset - _fadeStart) / (_fadeEnd - _fadeStart)).clamp(0.0, 1.0);
+    final double t = ((offset - _fadeStart) / (_fadeEnd - _fadeStart)).clamp(
+      0.0,
+      1.0,
+    );
     // Only rebuild on a meaningful change so we don't setState every pixel.
     if ((t - _titleT).abs() > 0.01) {
       setState(() => _titleT = t);
@@ -659,9 +661,10 @@ class _CreateProfileState extends State<CreateProfile> {
           duration: const Duration(milliseconds: 200),
           curve: Curves.easeInOut,
           alignment: Alignment.topCenter,
-          child: _regionPickerOpen
-              ? _inlineRegionPicker()
-              : const SizedBox(width: double.infinity),
+          child:
+              _regionPickerOpen
+                  ? _inlineRegionPicker()
+                  : const SizedBox(width: double.infinity),
         ),
         if (regionError && !_regionPickerOpen)
           Padding(
@@ -691,8 +694,13 @@ class _CreateProfileState extends State<CreateProfile> {
         shrinkWrap: true,
         padding: const EdgeInsets.symmetric(vertical: 4),
         itemCount: entries.length,
-        separatorBuilder: (_, __) =>
-            Divider(height: 1, color: _fieldBorder, indent: 14, endIndent: 14),
+        separatorBuilder:
+            (_, __) => Divider(
+              height: 1,
+              color: _fieldBorder,
+              indent: 14,
+              endIndent: 14,
+            ),
         itemBuilder: (ctx, i) {
           final entry = entries[i];
           final bool selected = entry.value == selectedRegionKey;
@@ -705,8 +713,7 @@ class _CreateProfileState extends State<CreateProfile> {
               });
             },
             child: Padding(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               child: Row(
                 children: [
                   Expanded(
@@ -716,9 +723,10 @@ class _CreateProfileState extends State<CreateProfile> {
                         fontSize: 13,
                         fontWeight:
                             selected ? FontWeight.w600 : FontWeight.w400,
-                        color: selected
-                            ? AppColor.primaryBlueColor
-                            : AppColor.primaryBlackColor,
+                        color:
+                            selected
+                                ? AppColor.primaryBlueColor
+                                : AppColor.primaryBlackColor,
                       ),
                     ),
                   ),
@@ -914,38 +922,40 @@ class _CreateProfileState extends State<CreateProfile> {
           const SizedBox(height: 4),
           isCm
               ? NumberPicker(
-                  value: heightValue.round().clamp(100, 220).toInt(),
-                  minValue: 100,
-                  maxValue: 220,
-                  itemCount: 3,
-                  itemHeight: 44,
-                  textMapper: (v) => "$v cm",
-                  selectedTextStyle: _pickerSelectedStyle,
-                  textStyle: _pickerUnselectedStyle,
-                  decoration: _pickerHighlightDecoration,
-                  onChanged: (v) => setState(() {
-                    heightValue = v.toDouble();
-                    _heightSet = true;
-                    heightError = false;
-                  }),
-                )
+                value: heightValue.round().clamp(100, 220).toInt(),
+                minValue: 100,
+                maxValue: 220,
+                itemCount: 3,
+                itemHeight: 44,
+                textMapper: (v) => "$v cm",
+                selectedTextStyle: _pickerSelectedStyle,
+                textStyle: _pickerUnselectedStyle,
+                decoration: _pickerHighlightDecoration,
+                onChanged:
+                    (v) => setState(() {
+                      heightValue = v.toDouble();
+                      _heightSet = true;
+                      heightError = false;
+                    }),
+              )
               : DecimalNumberPicker(
-                  value: heightValue.clamp(3.0, 8.0).toDouble(),
-                  minValue: 3,
-                  maxValue: 8,
-                  decimalPlaces: 1,
-                  itemCount: 3,
-                  itemHeight: 44,
-                  selectedTextStyle: _pickerSelectedStyle,
-                  textStyle: _pickerUnselectedStyle,
-                  integerDecoration: _pickerHighlightDecoration,
-                  decimalDecoration: _pickerHighlightDecoration,
-                  onChanged: (v) => setState(() {
-                    heightValue = v;
-                    _heightSet = true;
-                    heightError = false;
-                  }),
-                ),
+                value: heightValue.clamp(3.0, 8.0).toDouble(),
+                minValue: 3,
+                maxValue: 8,
+                decimalPlaces: 1,
+                itemCount: 3,
+                itemHeight: 44,
+                selectedTextStyle: _pickerSelectedStyle,
+                textStyle: _pickerUnselectedStyle,
+                integerDecoration: _pickerHighlightDecoration,
+                decimalDecoration: _pickerHighlightDecoration,
+                onChanged:
+                    (v) => setState(() {
+                      heightValue = v;
+                      _heightSet = true;
+                      heightError = false;
+                    }),
+              ),
         ],
       ),
     );
@@ -977,11 +987,12 @@ class _CreateProfileState extends State<CreateProfile> {
             selectedTextStyle: _pickerSelectedStyle,
             textStyle: _pickerUnselectedStyle,
             decoration: _pickerHighlightDecoration,
-            onChanged: (v) => setState(() {
-              weightValue = v.toDouble();
-              _weightSet = true;
-              weightError = false;
-            }),
+            onChanged:
+                (v) => setState(() {
+                  weightValue = v.toDouble();
+                  _weightSet = true;
+                  weightError = false;
+                }),
           ),
         ],
       ),
@@ -990,9 +1001,10 @@ class _CreateProfileState extends State<CreateProfile> {
 
   Widget _buildHeightField() {
     final bool isCm = selectedHeightType == 'cm';
-    final String valueText = !_heightSet
-        ? "Enter height"
-        : isCm
+    final String valueText =
+        !_heightSet
+            ? "Enter height"
+            : isCm
             ? "${heightValue.round()} cm"
             : "${heightValue.toStringAsFixed(1)} ft";
 
@@ -1012,11 +1024,13 @@ class _CreateProfileState extends State<CreateProfile> {
           duration: const Duration(milliseconds: 200),
           curve: Curves.easeInOut,
           alignment: Alignment.topCenter,
-          child: _heightPickerOpen
-              ? _inlineHeightPicker()
-              : const SizedBox(width: double.infinity),
+          child:
+              _heightPickerOpen
+                  ? _inlineHeightPicker()
+                  : const SizedBox(width: double.infinity),
         ),
-        if (heightError && !_heightPickerOpen) _fieldError("Please select height"),
+        if (heightError && !_heightPickerOpen)
+          _fieldError("Please select height"),
       ],
     );
   }
@@ -1038,11 +1052,13 @@ class _CreateProfileState extends State<CreateProfile> {
           duration: const Duration(milliseconds: 200),
           curve: Curves.easeInOut,
           alignment: Alignment.topCenter,
-          child: _weightPickerOpen
-              ? _inlineWeightPicker()
-              : const SizedBox(width: double.infinity),
+          child:
+              _weightPickerOpen
+                  ? _inlineWeightPicker()
+                  : const SizedBox(width: double.infinity),
         ),
-        if (weightError && !_weightPickerOpen) _fieldError("Please select weight"),
+        if (weightError && !_weightPickerOpen)
+          _fieldError("Please select weight"),
       ],
     );
   }
@@ -1075,9 +1091,10 @@ class _CreateProfileState extends State<CreateProfile> {
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             width: 1.3,
-            color: isError
-                ? Colors.red
-                : (open ? AppColor.primaryBlueColor : _fieldBorder),
+            color:
+                isError
+                    ? Colors.red
+                    : (open ? AppColor.primaryBlueColor : _fieldBorder),
           ),
         ),
         child: Row(
@@ -1094,9 +1111,8 @@ class _CreateProfileState extends State<CreateProfile> {
                 style: GoogleFonts.poppins(
                   fontSize: 13,
                   fontWeight: FontWeight.w500,
-                  color: isPlaceholder
-                      ? _hintColor
-                      : AppColor.primaryBlackColor,
+                  color:
+                      isPlaceholder ? _hintColor : AppColor.primaryBlackColor,
                 ),
               ),
             ),
@@ -1127,51 +1143,53 @@ class _CreateProfileState extends State<CreateProfile> {
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
-        children: ["cm", "feet"].map((unit) {
-          final bool sel = selected == unit;
-          return GestureDetector(
-            onTap: () => onChanged(unit),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 180),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-              decoration: BoxDecoration(
-                color: sel ? AppColor.primaryBlueColor : Colors.transparent,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                unit,
-                style: GoogleFonts.poppins(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                  color: sel ? Colors.white : AppColor.textLightColor,
+        children:
+            ["cm", "feet"].map((unit) {
+              final bool sel = selected == unit;
+              return GestureDetector(
+                onTap: () => onChanged(unit),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: sel ? AppColor.primaryBlueColor : Colors.transparent,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    unit,
+                    style: GoogleFonts.poppins(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: sel ? Colors.white : AppColor.textLightColor,
+                    ),
+                  ),
                 ),
-              ),
-            ),
-          );
-        }).toList(),
+              );
+            }).toList(),
       ),
     );
   }
 
   TextStyle get _pickerSelectedStyle => GoogleFonts.poppins(
-        fontSize: 20,
-        fontWeight: FontWeight.w600,
-        color: AppColor.primaryBlueColor,
-      );
+    fontSize: 20,
+    fontWeight: FontWeight.w600,
+    color: AppColor.primaryBlueColor,
+  );
 
-  TextStyle get _pickerUnselectedStyle => GoogleFonts.poppins(
-        fontSize: 15,
-        color: const Color(0xFFB0B7C3),
-      );
+  TextStyle get _pickerUnselectedStyle =>
+      GoogleFonts.poppins(fontSize: 15, color: const Color(0xFFB0B7C3));
 
   BoxDecoration get _pickerHighlightDecoration => BoxDecoration(
-        border: Border.symmetric(
-          horizontal: BorderSide(
-            color: AppColor.primaryBlueColor.withValues(alpha: 0.35),
-            width: 1.3,
-          ),
-        ),
-      );
+    border: Border.symmetric(
+      horizontal: BorderSide(
+        color: AppColor.primaryBlueColor.withValues(alpha: 0.35),
+        width: 1.3,
+      ),
+    ),
+  );
 
   Widget _buildBottomSubmitButton() {
     return SizedBox(
@@ -1206,6 +1224,7 @@ class _CreateProfileState extends State<CreateProfile> {
                   style: GoogleFonts.poppins(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
+
                     color: Colors.white,
                   ),
                 ),

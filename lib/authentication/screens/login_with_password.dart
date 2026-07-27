@@ -14,7 +14,6 @@ import '../repository/login_with_password_repository.dart';
 import '../services/clinical_name_getx_controller.dart';
 import '../services/clinical_token_generating_api.dart';
 import 'login_form.dart';
-import 'login_screen.dart';
 
 class LoginWithPassword extends StatefulWidget {
   const LoginWithPassword({super.key});
@@ -98,7 +97,7 @@ class _LoginWithPasswordState extends State<LoginWithPassword> {
                   ElevatedButton(
                     onPressed: () async {
                       clinicController.clearData();
-                      Get.offAll(() => const LoginScreen());
+                      Get.offAll(() => const LoginWithPassword());
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF308BF9),
@@ -132,7 +131,7 @@ class _LoginWithPasswordState extends State<LoginWithPassword> {
             buttonText: "OK",
             onPressed: () {
               clinicController.clearData();
-              Get.offAll(() => const LoginScreen());
+              Get.offAll(() => const LoginWithPassword());
             },
           ),
     );
