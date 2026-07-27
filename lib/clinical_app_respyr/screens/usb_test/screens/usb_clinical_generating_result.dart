@@ -9,6 +9,7 @@ import 'package:get_storage/get_storage.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:respyr_clinical/clinical_app_respyr/screens/usb_test/services/clinical_usb_communication_services.dart';
 import 'package:respyr_clinical/clinical_app_respyr/services/disconnected_error.dart';
+import 'package:respyr_clinical/clinical_app_respyr/services/generation_foreground_service.dart';
 import 'package:respyr_clinical/widgets/internet_connectivity_check.dart';
 import 'package:respyr_clinical/shared/colors.dart';
 import '../../../../new_result/bloc/new_result_bloc.dart';
@@ -85,6 +86,10 @@ class _UsbClinicalGeneratingResultState
     super.initState();
     print("🚦 [INIT] UsbClinicalGeneratingResult initialized."); // 👈 LOG
     WidgetsBinding.instance.addObserver(this); // 👇 ADDED OBSERVER LISTENER
+    // Keep the app alive (and the network flowing) if the user backgrounds the
+    // app while the result is being generated — same protection as the BLE
+    // generating screen. Stopped in dispose / after result navigation.
+    GenerationForegroundService.startForReading();
     _controller = AnimationController(vsync: this);
 
     _initialUsbConnection();
@@ -818,6 +823,12 @@ class _UsbClinicalGeneratingResultState
     }
     _hasNavigated = true;
 
+    // Result is in. If the app is minimized, keep the foreground service alive
+    // until the user comes back (else Android may kill the cached process and
+    // they'd reopen to the dashboard instead of their result); stop it on the
+    // next resume.
+    GenerationForegroundService.stopWhenForegrounded();
+
     if (Get.isOverlaysOpen) {
       Get.back();
     }
@@ -858,6 +869,13 @@ class _UsbClinicalGeneratingResultState
       this,
     ); // 👇 REMOVED OBSERVER LISTENER
     _isDisposed = true;
+
+    // On error/abort/cancel exits, release the foreground service now. On a
+    // successful result we DON'T hard-stop here — stopWhenForegrounded()
+    // (called in _navigateToResultScreen) handles it after the user returns.
+    if (!_hasNavigated) {
+      GenerationForegroundService.stop();
+    }
     _controller.dispose();
     _usbDataSubscription?.cancel();
     _usbDataSubscription = null;
