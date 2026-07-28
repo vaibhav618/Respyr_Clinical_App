@@ -112,64 +112,62 @@ class _OverallAnalyticsWidgetState extends State<OverallAnalyticsWidget> {
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Column(
                 children: [
-                  // Title + score picker on one line.
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          "Test Analytics",
-                          style: GoogleFonts.poppins(
-                            color: const Color(0xFF252525),
-                            fontSize: 17,
-                            fontWeight: FontWeight.w600,
-                            letterSpacing: -0.40,
-                          ),
-                        ),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      "Overall Test Analytics",
+                      style: GoogleFonts.poppins(
+                        color: const Color(0xFF252525),
+                        fontSize: 17,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: -0.40,
                       ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: const Color(0xFFE5E7EB),
-                            width: 1,
-                          ),
-                        ),
-                        child: DropdownButton<String>(
-                          value: selectedScoreType,
-                          underline: const SizedBox(),
-                          icon: const Icon(
-                            Icons.keyboard_arrow_down_rounded,
-                            color: Color(0xFF308BF9),
-                            size: 20,
-                          ),
-                          borderRadius: BorderRadius.circular(12),
-                          dropdownColor: AppColor.whiteColor,
-                          isDense: true,
-                          onChanged: (value) {
-                            if (value != null) {
-                              setState(() => selectedScoreType = value);
-                            }
-                          },
-                          items:
-                              scoreTypeMap.keys.map((type) {
-                                return DropdownMenuItem(
-                                  value: type,
-                                  child: Text(
-                                    type,
-                                    style: GoogleFonts.poppins(
-                                      color: const Color(0xFF535359),
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                );
-                              }).toList(),
-                        ),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  // Full-width score picker under the title.
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: const Color(0xFFE5E7EB),
+                        width: 1,
                       ),
-                    ],
+                    ),
+                    child: DropdownButton<String>(
+                      value: selectedScoreType,
+                      isExpanded: true,
+                      underline: const SizedBox(),
+                      icon: const Icon(
+                        Icons.keyboard_arrow_down_rounded,
+                        color: Color(0xFF308BF9),
+                        size: 24,
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                      dropdownColor: AppColor.whiteColor,
+                      onChanged: (value) {
+                        if (value != null) {
+                          setState(() => selectedScoreType = value);
+                        }
+                      },
+                      items:
+                          scoreTypeMap.keys.map((type) {
+                            return DropdownMenuItem(
+                              value: type,
+                              child: Text(
+                                type,
+                                style: GoogleFonts.poppins(
+                                  color: const Color(0xFF535359),
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                    ),
                   ),
                   const SizedBox(height: 24),
                   PieChartTestAnalyticsWidget(
