@@ -25,10 +25,31 @@ class TestLogWidget extends StatefulWidget {
 }
 
 class _TestLogWidgetState extends State<TestLogWidget> {
-  final ScrollController scrollController = ScrollController();
+  /// How many entries render inline. The rest are behind "See all" — an inner
+  /// scrollbox here trapped the drag gesture at its edges and made the page
+  /// feel stuck.
+  static const int _maxInline = 8;
+
+  void _openFullLog() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder:
+            (_) => BlocProvider(
+              create: (_) => TestLogBloc()..add(FetchTestLogs(widget.loginId)),
+              child: CompleteTestLog(loginId: widget.loginId),
+            ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
+    final int inlineCount =
+        widget.scoreData.length > _maxInline
+            ? _maxInline
+            : widget.scoreData.length;
+    final int hiddenCount = widget.scoreData.length - inlineCount;
     return Column(
       children: [
         Padding(
@@ -47,21 +68,7 @@ class _TestLogWidgetState extends State<TestLogWidget> {
                 ),
               ),
               ElevatedButton(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder:
-                          (_) => BlocProvider(
-                            create:
-                                (_) =>
-                                    TestLogBloc()
-                                      ..add(FetchTestLogs(widget.loginId)),
-                            child: CompleteTestLog(loginId: widget.loginId),
-                          ),
-                    ),
-                  );
-                },
+                onPressed: _openFullLog,
                 style: ElevatedButton.styleFrom(
                   elevation: 0,
                   padding: EdgeInsets.zero,
@@ -90,37 +97,34 @@ class _TestLogWidgetState extends State<TestLogWidget> {
             ],
           ),
         ),
-        Container(
-          constraints: BoxConstraints(maxHeight: 350),
-          child: Scrollbar(
-            thumbVisibility: true,
-            thickness: 5,
-            radius: const Radius.circular(10),
-            interactive: true,
-            controller: scrollController,
-            scrollbarOrientation: ScrollbarOrientation.right,
-            child: ListView.builder(
-              controller: scrollController,
-              itemCount: widget.scoreData.length,
-              shrinkWrap: true,
-              itemBuilder: (context, index) {
-                final item = widget.scoreData[index];
-                final score = getScoreByType(item, widget.scoreType);
-                return Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: _testLogTile(
-                    context,
-                    widget.loginId,
-                    item.profileId,
-                    item.name,
-                    item.scoreDttm,
-                    score,
-                  ),
-                );
-              },
+        // Inline entries — part of the page scroll, no inner scrollbox.
+        for (int index = 0; index < inlineCount; index++)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: _testLogTile(
+              context,
+              widget.loginId,
+              widget.scoreData[index].profileId,
+              widget.scoreData[index].name,
+              widget.scoreData[index].scoreDttm,
+              getScoreByType(widget.scoreData[index], widget.scoreType),
             ),
           ),
-        ),
+        if (hiddenCount > 0)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 4),
+            child: TextButton(
+              onPressed: _openFullLog,
+              child: Text(
+                "View $hiddenCount more ${hiddenCount == 1 ? 'test' : 'tests'}",
+                style: GoogleFonts.poppins(
+                  color: const Color(0xFF308BF9),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ),
       ],
     );
   }
