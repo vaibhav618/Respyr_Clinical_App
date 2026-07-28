@@ -243,12 +243,13 @@ class _ClinicalDashboardMainState extends State<ClinicalDashboardMain>
             _initData();
           }
         },
-        child: SingleChildScrollView(
-          controller: _scrollController,
-          child: Column(
-            children: [
-              _buildAnimatedCalendar(),
-              BlocBuilder<HealthScoreBloc, HealthScoreState>(
+        child: Stack(
+          children: [
+            SingleChildScrollView(
+              controller: _scrollController,
+              child: Column(
+                children: [
+                  BlocBuilder<HealthScoreBloc, HealthScoreState>(
                 builder: (context, state) {
                   if (state is HealthScoreLoading) {
                     return const DashboardShimmer();
@@ -384,11 +385,63 @@ class _ClinicalDashboardMainState extends State<ClinicalDashboardMain>
                     }
                   }
 
-                  return const SizedBox.shrink();
-                },
+                      return const SizedBox.shrink();
+                    },
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+
+            // Calendar dropdown overlay: floats OVER the content (fade+slide,
+            // compositor-only) instead of pushing it down — animating the old
+            // in-flow container re-laid-out the whole page every frame.
+            if (_isCalendarVisible)
+              Positioned.fill(
+                child: GestureDetector(
+                  onTap: _toggleCalendar,
+                  child: Container(
+                    color: Colors.black.withValues(alpha: 0.25),
+                  ),
+                ),
+              ),
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: IgnorePointer(
+                ignoring: !_isCalendarVisible,
+                child: AnimatedOpacity(
+                  duration: const Duration(milliseconds: 180),
+                  curve: Curves.easeOut,
+                  opacity: _isCalendarVisible ? 1 : 0,
+                  child: AnimatedSlide(
+                    duration: const Duration(milliseconds: 180),
+                    curve: Curves.easeOut,
+                    offset:
+                        _isCalendarVisible ? Offset.zero : const Offset(0, -0.04),
+                    child: Container(
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.only(
+                          bottomLeft: Radius.circular(16),
+                          bottomRight: Radius.circular(16),
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Color(0x14000000),
+                            blurRadius: 16,
+                            offset: Offset(0, 8),
+                          ),
+                        ],
+                      ),
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: _buildCalendar(),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
       bottomNavigationBar: BottomNavigationBarWidget(
@@ -565,15 +618,6 @@ class _ClinicalDashboardMainState extends State<ClinicalDashboardMain>
         curve: Curves.easeInOut,
       );
     }
-  }
-
-  // Animated calendar widget
-  Widget _buildAnimatedCalendar() {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 300),
-      height: _isCalendarVisible ? 350 : 0,
-      child: SingleChildScrollView(child: _buildCalendar()),
-    );
   }
 
   // Calendar widget using TableCalendar

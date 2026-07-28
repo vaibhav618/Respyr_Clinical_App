@@ -14,6 +14,11 @@ class ClinicLogoWidget extends StatelessWidget {
     this.size = 34,
   });
 
+  /// One fetch per clinic per app session. Creating the future inside build()
+  /// re-downloaded the logo on EVERY rebuild (and blanked the icon while
+  /// waiting), which made the app-bar icon blink on unrelated setStates.
+  static final Map<String, Future<Uint8List?>> _logoCache = {};
+
   Color _getColor(String letter) {
     const colorMap = {
       'A': Color(0xFFFF6B6B), 'B': Color(0xFF6BCB77), 'C': Color(0xFF4D96FF),
@@ -51,12 +56,26 @@ class ClinicLogoWidget extends StatelessWidget {
     final firstLetter = clinicName.isNotEmpty ? clinicName[0].toUpperCase() : 'A';
     final color = _getColor(firstLetter);
 
+    final Widget letterAvatar = CircleAvatar(
+      backgroundColor: color,
+      radius: size / 2,
+      child: Text(
+        firstLetter,
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: size * 0.4,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    );
+
     return FutureBuilder<Uint8List?>(
-      future: _fetchLogo(clinicName),
+      future: _logoCache.putIfAbsent(clinicName, () => _fetchLogo(clinicName)),
       builder: (context, snapshot) {
-        // ❌ Don't show anything while loading
+        // Show the letter avatar (not an empty gap) while the first and only
+        // fetch is in flight.
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const SizedBox.shrink();
+          return letterAvatar;
         }
 
         final logoImage = snapshot.data;
