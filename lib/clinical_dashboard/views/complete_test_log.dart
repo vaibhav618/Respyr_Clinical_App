@@ -4,6 +4,8 @@ import 'package:flutter_svg/svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:respyr_clinical/clinical_dashboard/views/subject_profile.dart';
 import 'package:respyr_clinical/widgets/internet_connectivity_check.dart';
+import 'package:respyr_clinical/widgets/shimmer_placeholders.dart';
+import '../../utils/score_color_helper.dart';
 import '../bloc/test_log_bloc.dart';
 import '../helper/timestamp_helper.dart';
 import '../repositories/test_log_repository.dart';
@@ -28,7 +30,8 @@ class _CompleteTestLogState extends State<CompleteTestLog> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      // Light background so the white patient cards read as cards.
+      backgroundColor: const Color(0xFFF5F7FA),
       appBar: AppBar(
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.white,
@@ -52,9 +55,7 @@ class _CompleteTestLogState extends State<CompleteTestLog> {
           child: BlocBuilder<TestLogBloc, TestLogState>(
             builder: (context, state) {
               if (state is TestLogLoading) {
-                return const Center(
-                  child: CircularProgressIndicator(color: Color(0xFF308BF9)),
-                );
+                return const TestLogShimmer();
               } else if (state is TestLogError) {
                 return Center(child: Text(state.message));
               } else if (state is TestLogLoaded) {
@@ -66,12 +67,17 @@ class _CompleteTestLogState extends State<CompleteTestLog> {
                 return SingleChildScrollView(
                   child: Column(
                     children: [
+                      const SizedBox(height: 16),
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 20),
                         child: Container(
                           decoration: ShapeDecoration(
-                            color: const Color(0xFFF5F7FA),
+                            color: Colors.white,
                             shape: RoundedRectangleBorder(
+                              side: const BorderSide(
+                                color: Color(0xFFE5E7EB),
+                                width: 1,
+                              ),
                               borderRadius: BorderRadius.circular(10),
                             ),
                           ),
@@ -156,7 +162,17 @@ class _CompleteTestLogState extends State<CompleteTestLog> {
                                 return SizedBox.shrink();
                               }
 
-                              return InkWell(
+                              return _patientCard(
+                                dateTime: formatDateTimeOrRelative(
+                                  item.timestamp,
+                                ),
+                                profileId: item.profileId,
+                                profileName: item.profileName,
+                                diabeticScore: item.diabeticScore,
+                                liverScore: item.liverScore,
+                                respiratoryScore: item.respiratoryScore,
+                                gutScore: item.gutScore,
+                                recordCount: item.recordCount,
                                 onTap: () {
                                   Navigator.push(
                                     context,
@@ -169,16 +185,6 @@ class _CompleteTestLogState extends State<CompleteTestLog> {
                                     ),
                                   );
                                 },
-                                child: listItem(
-                                  formatDateTimeOrRelative(item.timestamp),
-                                  item.profileId,
-                                  item.profileName,
-                                  item.diabeticScore,
-                                  item.liverScore,
-                                  item.respiratoryScore,
-                                  item.gutScore,
-                                  item.recordCount,
-                                ),
                               );
                             },
                           ),
@@ -194,150 +200,175 @@ class _CompleteTestLogState extends State<CompleteTestLog> {
     );
   }
 
-  Widget listItem(
-    String dateTime,
-    String profileId,
-    String profileName,
-    double diabeticScore,
-    double liverScore,
-    double respiratoryScore,
-    double gutScore,
-    int recordCount,
-  ) {
+  Widget _patientCard({
+    required String dateTime,
+    required String profileId,
+    required String profileName,
+    required double diabeticScore,
+    required double liverScore,
+    required double respiratoryScore,
+    required double gutScore,
+    required int recordCount,
+    required VoidCallback onTap,
+  }) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                "Patient name",
-                style: GoogleFonts.poppins(
-                  color: const Color(0xFF535359),
-                  fontSize: 12,
-                  fontWeight: FontWeight.w400,
-                  height: 1.10,
-                  letterSpacing: -0.48,
-                ),
-              ),
-              const SizedBox(width: 16), // Buffer space
-              // 👇 Wrapped the right side in Expanded to prevent layout breaking
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
+      padding: const EdgeInsets.only(left: 20, right: 20, bottom: 14),
+      child: Material(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(14),
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: const Color(0xFFE5E7EB), width: 1),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // ── Header: avatar + name + id • date + tests pill ──────────
+                Row(
                   children: [
-                    Text(
-                      profileName,
-                      textAlign: TextAlign.right,
-                      overflow:
-                          TextOverflow
-                              .ellipsis, // Neatly cuts off super long names
-                      style: GoogleFonts.poppins(
-                        color: const Color(0xFF252525),
-                        fontSize: 15,
-                        fontWeight: FontWeight.w400,
-                        height: 1.10,
-                        letterSpacing: -0.30,
+                    Container(
+                      height: 40,
+                      width: 40,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF308BF9).withValues(alpha: 0.10),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Text(
+                        profileName.isNotEmpty
+                            ? profileName[0].toUpperCase()
+                            : "?",
+                        style: GoogleFonts.poppins(
+                          color: const Color(0xFF308BF9),
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        Flexible(
-                          // Allows profileId to shrink if the date is long
-                          child: Text(
-                            profileId,
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            profileName,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.poppins(
+                              color: const Color(0xFF252525),
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 1),
+                          Text(
+                            "$profileId  •  $dateTime",
                             overflow: TextOverflow.ellipsis,
                             style: GoogleFonts.poppins(
                               color: const Color(0xFF535359),
-                              fontSize: 12,
+                              fontSize: 11,
                               fontWeight: FontWeight.w400,
-                              letterSpacing: -0.20,
                             ),
                           ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF308BF9).withValues(alpha: 0.10),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        "$recordCount ${recordCount == 1 ? 'test' : 'tests'}",
+                        style: GoogleFonts.poppins(
+                          color: const Color(0xFF308BF9),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
                         ),
-                        const SizedBox(width: 5),
-                        Container(
-                          width: 4,
-                          height: 4,
-                          decoration: const ShapeDecoration(
-                            color: Color(0xFF535359),
-                            shape: OvalBorder(),
-                          ),
-                        ),
-                        const SizedBox(width: 5),
-                        Flexible(
-                          // Allow dateTime to truncate safely too
-                          child: Text(
-                            dateTime,
-                            overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.poppins(
-                              color: const Color(0xFF535359),
-                              fontSize: 12,
-                              fontWeight: FontWeight.w400,
-                              letterSpacing: -0.20,
-                            ),
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
                   ],
                 ),
-              ),
-            ],
+                const SizedBox(height: 12),
+                const Divider(height: 1, color: Color(0xFFE5E7EB)),
+                const SizedBox(height: 12),
+
+                // ── Scores: 2×2 grid of tiles ───────────────────────────────
+                Row(
+                  children: [
+                    _scoreTile("Sugar Score", diabeticScore),
+                    const SizedBox(width: 12),
+                    _scoreTile("Liver Stress Score", liverScore),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    _scoreTile("Respiratory Score", respiratoryScore),
+                    const SizedBox(width: 12),
+                    _scoreTile("Gut fermentation Score", gutScore),
+                  ],
+                ),
+              ],
+            ),
           ),
-          const SizedBox(height: 20),
-          infoRow("Test done", recordCount.toString()),
-          const SizedBox(height: 5),
-          infoRow("Sugar score", "${diabeticScore.toStringAsFixed(0)}%"),
-          const SizedBox(height: 5),
-          infoRow("Liver stress score", "${liverScore.toStringAsFixed(0)}%"),
-          const SizedBox(height: 5),
-          infoRow(
-            "Respiratory score",
-            "${respiratoryScore.toStringAsFixed(0)}%",
-          ),
-          const SizedBox(height: 5),
-          infoRow("Gut fermentation score", "${gutScore.toStringAsFixed(0)}%"),
-          const SizedBox(height: 20),
-          const Divider(indent: 0),
-          const SizedBox(height: 20),
-        ],
+        ),
       ),
     );
   }
 
-  Widget infoRow(String label, String value) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        // 👇 Wraps the label so long names like 'Gut fermentation score' don't push the % off screen
-        Expanded(
-          child: Text(
+  /// One score cell: label, colored value, thin progress bar underneath.
+  Widget _scoreTile(String label, double score) {
+    final Color scoreColor = ScoreColorHelper.getScoreColor(score);
+    final double fraction = (score / 100).clamp(0.0, 1.0);
+
+    return Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
             label,
+            overflow: TextOverflow.ellipsis,
             style: GoogleFonts.poppins(
               color: const Color(0xFF535359),
-              fontSize: 12,
+              fontSize: 11,
               fontWeight: FontWeight.w400,
-              height: 1.10,
-              letterSpacing: -0.48,
             ),
           ),
-        ),
-        const SizedBox(width: 10), // Safe buffer
-        Text(
-          value,
-          style: GoogleFonts.poppins(
-            color: const Color(0xFF252525),
-            fontSize: 15,
-            fontWeight: FontWeight.w400,
-            height: 1.10,
-            letterSpacing: -0.30,
+          const SizedBox(height: 2),
+          Text(
+            "${score.toStringAsFixed(0)}%",
+            style: GoogleFonts.poppins(
+              color: scoreColor,
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+            ),
           ),
-        ),
-      ],
+          const SizedBox(height: 6),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(3),
+            child: Container(
+              height: 4,
+              width: double.infinity,
+              color: const Color(0xFFE5E7EB),
+              child: FractionallySizedBox(
+                alignment: Alignment.centerLeft,
+                widthFactor: fraction,
+                child: Container(color: scoreColor),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

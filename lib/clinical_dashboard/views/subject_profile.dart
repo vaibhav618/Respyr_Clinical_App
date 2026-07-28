@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:flutter_svg/flutter_svg.dart';
-import 'package:respyr_clinical/shared/colors.dart';
-
 import 'package:respyr_clinical/widgets/internet_connectivity_check.dart';
+import 'package:respyr_clinical/widgets/shimmer_placeholders.dart';
 import '../../new_result/bloc/new_result_cubit.dart';
 import '../../new_result/data/model/result_profile_data_model.dart';
 import '../bloc/subject_profile_bloc.dart';
@@ -30,6 +28,37 @@ class SubjectProfileScreen extends StatefulWidget {
 class _SubjectProfileScreenState extends State<SubjectProfileScreen> {
   bool _hasInternet = true;
 
+  // Collapsing title: the patient's name fades into the app bar as the details
+  // card scrolls away. Driven by a ValueNotifier so ONLY the app-bar title
+  // rebuilds on scroll — never the page body (a full setState per scroll frame
+  // rebuilds every card and visibly janks the scroll).
+  final ScrollController _scrollController = ScrollController();
+  final ValueNotifier<double> _titleT = ValueNotifier<double>(0);
+  String _loadedProfileName = "";
+
+  static const double _fadeStart = 20;
+  static const double _fadeEnd = 70;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+  }
+
+  void _onScroll() {
+    final double offset =
+        _scrollController.hasClients ? _scrollController.offset : 0;
+    _titleT.value =
+        ((offset - _fadeStart) / (_fadeEnd - _fadeStart)).clamp(0.0, 1.0);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    _titleT.dispose();
+    super.dispose();
+  }
+
   String _calculateBMI(double weight, double height) {
     return (weight / ((height / 100) * (height / 100))).toStringAsFixed(1);
   }
@@ -39,7 +68,7 @@ class _SubjectProfileScreenState extends State<SubjectProfileScreen> {
         (gender.toLowerCase() == "male")
             ? 10 * weight + 6.25 * height - 5 * age + 5
             : 10 * weight + 6.25 * height - 5 * age - 161;
-    return bmr.toStringAsFixed(1);
+    return bmr.toStringAsFixed(0);
   }
 
   @override
@@ -49,23 +78,47 @@ class _SubjectProfileScreenState extends State<SubjectProfileScreen> {
           (_) => SubjectProfileBloc(repository: SubjectProfileRepository())
             ..add(LoadSubjectProfile(widget.clinicName, widget.profileName)),
       child: Scaffold(
-        backgroundColor: Colors.white,
+        // Light background so the white cards read as cards.
+        backgroundColor: const Color(0xFFF5F7FA),
         appBar: AppBar(
           backgroundColor: Colors.white,
           surfaceTintColor: Colors.white,
+          title: ValueListenableBuilder<double>(
+            valueListenable: _titleT,
+            builder: (context, t, _) {
+              return Opacity(
+                opacity: t,
+                child: Transform.translate(
+                  offset: Offset(0, (1 - t) * 6),
+                  child: Text(
+                    _loadedProfileName,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.poppins(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xFF252525),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
         ),
         body: InternetConnectivityHandler(
           onConnectivityChanged: (hasInternet) {
             setState(() => _hasInternet = hasInternet);
           },
-          child: BlocBuilder<SubjectProfileBloc, SubjectProfileState>(
+          child: BlocConsumer<SubjectProfileBloc, SubjectProfileState>(
+            listener: (context, state) {
+              if (state is SubjectProfileLoaded) {
+                setState(
+                  () => _loadedProfileName = state.profile.profileName,
+                );
+              }
+            },
             builder: (context, state) {
               if (state is SubjectProfileLoading) {
-                return Center(
-                  child: CircularProgressIndicator(
-                    color: AppColor.primaryBlueColor,
-                  ),
-                );
+                return const SubjectProfileShimmer();
               } else if (state is SubjectProfileLoaded) {
                 final profile = state.profile;
                 final scores = state.scores;
@@ -87,42 +140,21 @@ class _SubjectProfileScreenState extends State<SubjectProfileScreen> {
                 );
 
                 return SingleChildScrollView(
+                  controller: _scrollController,
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 30),
-                          child: Column(
-                            children: [
-                              const SizedBox(height: 20),
-                              SvgPicture.asset("assets/sagar/profile41.svg"),
-                              const SizedBox(height: 20),
-                              Text(
-                                profile.profileName,
-                                textAlign: TextAlign.center,
-                                style: GoogleFonts.poppins(fontSize: 30),
-                              ),
-                              const SizedBox(height: 10),
-                              Text(
-                                '$age yrs | ${profile.gender}',
-                                style: GoogleFonts.poppins(fontSize: 16),
-                              ),
-                              const SizedBox(height: 20),
-                              _buildInfoRow("Height", "$height cm"),
-                              _buildInfoRow("Weight", "$weight kg"),
-                              _buildInfoRow(
-                                "BMI",
-                                _calculateBMI(weight, height),
-                              ),
-                              _buildInfoRow(
-                                "BMR",
-                                "${_calculateBMR(weight, height, age, profile.gender)} Kcal",
-                              ),
-                            ],
-                          ),
+                        const SizedBox(height: 16),
+                        _patientDetailsCard(
+                          name: profile.profileName,
+                          age: age,
+                          gender: profile.gender,
+                          height: height,
+                          weight: weight,
                         ),
-                        const SizedBox(height: 40),
+                        const SizedBox(height: 24),
                         BlocProvider(
                           create: (_) => NewResultCubit(),
                           child: SubjectHistoryWidget(
@@ -130,6 +162,7 @@ class _SubjectProfileScreenState extends State<SubjectProfileScreen> {
                             profileDataModel: profileDetails,
                           ),
                         ),
+                        const SizedBox(height: 24),
                       ],
                     ),
                   ),
@@ -145,16 +178,128 @@ class _SubjectProfileScreenState extends State<SubjectProfileScreen> {
     );
   }
 
-  Widget _buildInfoRow(String title, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+  Widget _patientDetailsCard({
+    required String name,
+    required int age,
+    required String gender,
+    required double height,
+    required double weight,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE5E7EB), width: 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: GoogleFonts.poppins(fontSize: 12)),
-          Text(value, style: GoogleFonts.poppins(fontSize: 12)),
+          Row(
+            children: [
+              Container(
+                height: 52,
+                width: 52,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF308BF9).withValues(alpha: 0.10),
+                  shape: BoxShape.circle,
+                ),
+                child: Text(
+                  name.isNotEmpty ? name[0].toUpperCase() : "?",
+                  style: GoogleFonts.poppins(
+                    color: const Color(0xFF308BF9),
+                    fontSize: 22,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      name,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.poppins(
+                        color: const Color(0xFF252525),
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 1),
+                    Text(
+                      "$age yrs  •  $gender",
+                      style: GoogleFonts.poppins(
+                        color: const Color(0xFF535359),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w400,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          const Divider(height: 1, color: Color(0xFFE5E7EB)),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              _statTile("Height", "${height.toStringAsFixed(0)} cm"),
+              _statDivider(),
+              _statTile("Weight", "${weight.toStringAsFixed(0)} kg"),
+              _statDivider(),
+              _statTile("BMI", _calculateBMI(weight, height)),
+              _statDivider(),
+              _statTile(
+                "BMR",
+                "${_calculateBMR(weight, height, age, gender)} kcal",
+              ),
+            ],
+          ),
         ],
       ),
+    );
+  }
+
+  Widget _statTile(String label, String value) {
+    return Expanded(
+      child: Column(
+        children: [
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              value,
+              style: GoogleFonts.poppins(
+                color: const Color(0xFF252525),
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: GoogleFonts.poppins(
+              color: const Color(0xFF535359),
+              fontSize: 11,
+              fontWeight: FontWeight.w400,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _statDivider() {
+    return Container(
+      height: 30,
+      width: 1,
+      margin: const EdgeInsets.symmetric(horizontal: 8),
+      color: const Color(0xFFE5E7EB),
     );
   }
 }

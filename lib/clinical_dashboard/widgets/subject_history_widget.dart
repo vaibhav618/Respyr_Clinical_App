@@ -8,6 +8,7 @@ import 'package:respyr_clinical/shared/colors.dart';
 
 import '../../new_result/bloc/new_result_bloc.dart';
 import '../../new_result/bloc/new_result_cubit.dart';
+import '../../utils/score_color_helper.dart';
 import '../../new_result/data/model/result_model.dart';
 import '../../new_result/data/model/result_profile_data_model.dart';
 import '../../new_result/presentation/view/overall_result.dart';
@@ -71,9 +72,7 @@ class _SubjectHistoryWidgetState extends State<SubjectHistoryWidget> {
       },
       child: Stack(
         children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Column(
+          Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 /// Heading & Dropdown
@@ -83,42 +82,58 @@ class _SubjectHistoryWidgetState extends State<SubjectHistoryWidget> {
                     Text(
                       "Test History",
                       style: GoogleFonts.poppins(
-                        color: const Color(0xFF5A5A5A),
-                        fontSize: 20,
+                        color: const Color(0xFF252525),
+                        fontSize: 17,
                         fontWeight: FontWeight.w600,
-                        letterSpacing: -0.80,
+                        letterSpacing: -0.40,
                       ),
                     ),
-                    DropdownButton<String>(
-                      value: selectedValue,
-                      underline: const SizedBox(),
-                      dropdownColor: AppColor.whiteColor,
-                      borderRadius: BorderRadius.circular(15),
-                      items:
-                          items.map((String value) {
-                            return DropdownMenuItem<String>(
-                              value: value,
-                              child: Text(
-                                value,
-                                style: GoogleFonts.poppins(
-                                  color: const Color(0xFF535359),
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w500,
-                                  letterSpacing: -0.24,
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: const Color(0xFFE5E7EB),
+                          width: 1,
+                        ),
+                      ),
+                      child: DropdownButton<String>(
+                        value: selectedValue,
+                        underline: const SizedBox(),
+                        dropdownColor: AppColor.whiteColor,
+                        borderRadius: BorderRadius.circular(12),
+                        icon: const Icon(
+                          Icons.keyboard_arrow_down_rounded,
+                          color: Color(0xFF308BF9),
+                          size: 20,
+                        ),
+                        items:
+                            items.map((String value) {
+                              return DropdownMenuItem<String>(
+                                value: value,
+                                child: Text(
+                                  value,
+                                  style: GoogleFonts.poppins(
+                                    color: const Color(0xFF535359),
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
+                                    letterSpacing: -0.24,
+                                  ),
                                 ),
-                              ),
-                            );
-                          }).toList(),
-                      onChanged: (String? newValue) {
-                        setState(() {
-                          selectedValue = newValue!;
-                          scoreType = _mapScoreType(selectedValue);
-                        });
-                      },
+                              );
+                            }).toList(),
+                        onChanged: (String? newValue) {
+                          setState(() {
+                            selectedValue = newValue!;
+                            scoreType = _mapScoreType(selectedValue);
+                          });
+                        },
+                      ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 30),
+                const SizedBox(height: 16),
 
                 /// Score List
                 ListView.builder(
@@ -130,6 +145,14 @@ class _SubjectHistoryWidgetState extends State<SubjectHistoryWidget> {
                     final double value = (score[scoreType] as num).toDouble();
                     final String date = score['dttm'] ?? '';
 
+                    void openResult() {
+                      context.read<NewResultCubit>().fetchHistory(
+                        loginId: widget.profileDataModel.clinicName ?? '',
+                        profileId: widget.profileDataModel.subjectId ?? '',
+                        id: score["id"].toString(),
+                      );
+                    }
+
                     try {
                       final parsedDate = DateFormat(
                         'MM/dd/yyyy HH:mm:ss',
@@ -138,24 +161,14 @@ class _SubjectHistoryWidgetState extends State<SubjectHistoryWidget> {
                         'd MMM y hh:mm a',
                       ).format(parsedDate);
 
-                      return InkWell(
-                        onTap: () {
-                          context.read<NewResultCubit>().fetchHistory(
-                            loginId: widget.profileDataModel.clinicName ?? '',
-                            profileId: widget.profileDataModel.subjectId ?? '',
-                            id: score["id"].toString(),
-                          );
-                        },
-                        child: _listItem(formattedDate, value),
-                      );
+                      return _historyCard(formattedDate, value, openResult);
                     } catch (e) {
-                      return _listItem(date, value);
+                      return _historyCard(date, value, openResult);
                     }
                   },
                 ),
               ],
             ),
-          ),
           if (isLoading)
             Positioned.fill(
               child: Center(
@@ -182,52 +195,76 @@ class _SubjectHistoryWidgetState extends State<SubjectHistoryWidget> {
     }
   }
 
-  Widget _listItem(String dateTime, double value) {
+  /// One past test as a tappable card: date left, colored score + status
+  /// pill right, chevron as the "opens the result" hint.
+  Widget _historyCard(String dateTime, double value, VoidCallback onTap) {
+    final Color scoreColor = ScoreColorHelper.getScoreColor(value);
+
     return Padding(
-      padding: const EdgeInsets.only(bottom: 15),
-      child: Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                dateTime,
-                style: GoogleFonts.poppins(
-                  color: const Color(0xFF535359),
-                  fontSize: 15,
-                  fontWeight: FontWeight.w400,
-                  height: 1.10,
-                  letterSpacing: -0.30,
-                ),
-              ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    '${value.toStringAsFixed(0)}%',
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Material(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFE5E7EB), width: 1),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    dateTime,
+                    overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.poppins(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w400,
-                      height: 1.10,
-                      letterSpacing: -0.30,
+                      color: const Color(0xFF252525),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
-                  Text(
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  '${value.toStringAsFixed(0)}%',
+                  style: GoogleFonts.poppins(
+                    color: scoreColor,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 3,
+                  ),
+                  decoration: BoxDecoration(
+                    color: scoreColor.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
                     _getScoreLabel(value),
                     style: GoogleFonts.poppins(
-                      color: _getScoreColor(value),
-                      fontSize: 10,
-                      fontWeight: FontWeight.w400,
-                      height: 1.10,
-                      letterSpacing: -0.20,
+                      color: scoreColor,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
-                ],
-              ),
-            ],
+                ),
+                const SizedBox(width: 6),
+                const Icon(
+                  Icons.chevron_right_rounded,
+                  color: Color(0xFFA1A1A1),
+                  size: 20,
+                ),
+              ],
+            ),
           ),
-          const SizedBox(height: 25),
-        ],
+        ),
       ),
     );
   }
@@ -258,11 +295,5 @@ class _SubjectHistoryWidgetState extends State<SubjectHistoryWidget> {
     if (score < 70) return "Poor";
     if (score < 80) return "Fair";
     return "Good";
-  }
-
-  Color _getScoreColor(double score) {
-    if (score < 70) return const Color(0xFFEA5455);
-    if (score < 80) return const Color(0xFFF8B10F);
-    return const Color(0xFF28C76F);
   }
 }

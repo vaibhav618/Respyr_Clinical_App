@@ -1,11 +1,21 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../log_manager/log_manager.dart';
 import '../model/test_log_model.dart';
 import '../repositories/test_log_repository.dart';
 import 'package:respyr_clinical/shared/urls.dart';
 import 'package:http/http.dart' as http;
+
+/// Parses the (potentially very large) test-log response. Runs on a background
+/// isolate via [compute] — parsing thousands of records on the UI thread
+/// freezes every animation on screen.
+List<TestLogModel> _parseTestLogs(String body) {
+  final responseBody = json.decode(body);
+  final data = responseBody['data'] as List;
+  return data.map((e) => TestLogModel.fromJson(e)).toList();
+}
 
 class TestLogBloc extends Bloc<TestLogEvent, TestLogState> {
   TestLogBloc() : super(TestLogInitial()) {
@@ -31,9 +41,7 @@ class TestLogBloc extends Bloc<TestLogEvent, TestLogState> {
       final response = await http.get(uri);
 
       if (response.statusCode == 200) {
-        final responseBody = json.decode(response.body);
-        final data = responseBody['data'] as List;
-        _fullList = data.map((e) => TestLogModel.fromJson(e)).toList();
+        _fullList = await compute(_parseTestLogs, response.body);
         emit(TestLogLoaded(_fullList, List.from(_fullList)));
 
         // Log fetch success

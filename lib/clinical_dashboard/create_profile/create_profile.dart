@@ -73,11 +73,11 @@ class _CreateProfileState extends State<CreateProfile> {
   final FocusNode bottomButtonFocusNode = FocusNode();
 
   // Collapsing title: the large "Subject details" header cross-fades into the
-  // app bar as it scrolls under. Opacity is driven continuously from the scroll
-  // offset (0 → 1 over the fade band) so the title tracks the finger with no
-  // animation lag. 0 = header fully in body, 1 = title fully in app bar.
+  // app bar as it scrolls under. Driven by a ValueNotifier so only the two
+  // fading widgets rebuild on scroll — a full setState per scroll frame
+  // rebuilds the whole form and janks the scroll.
   final ScrollController _scrollController = ScrollController();
-  double _titleT = 0;
+  final ValueNotifier<double> _titleT = ValueNotifier<double>(0);
 
   // Scroll offsets over which the hand-off happens. Below _fadeStart the title
   // lives entirely in the body; above _fadeEnd it lives entirely in the app bar.
@@ -101,19 +101,16 @@ class _CreateProfileState extends State<CreateProfile> {
   void _onScroll() {
     final double offset =
         _scrollController.hasClients ? _scrollController.offset : 0;
-    final double t = ((offset - _fadeStart) / (_fadeEnd - _fadeStart)).clamp(
+    _titleT.value = ((offset - _fadeStart) / (_fadeEnd - _fadeStart)).clamp(
       0.0,
       1.0,
     );
-    // Only rebuild on a meaningful change so we don't setState every pixel.
-    if ((t - _titleT).abs() > 0.01) {
-      setState(() => _titleT = t);
-    }
   }
 
   @override
   void dispose() {
     _scrollController.dispose();
+    _titleT.dispose();
     nameController.dispose();
     ageController.dispose();
     _cooldownToastTimer?.cancel(); // ✅ added
@@ -442,21 +439,26 @@ class _CreateProfileState extends State<CreateProfile> {
         surfaceTintColor: Colors.white,
         scrolledUnderElevation: 0,
         elevation: 0,
-        title: Opacity(
-          opacity: _titleT,
-          // Slides up a few px as it fades in, so it reads as rising into the
-          // bar rather than blinking on.
-          child: Transform.translate(
-            offset: Offset(0, (1 - _titleT) * 6),
-            child: Text(
-              "Subject details",
-              style: GoogleFonts.poppins(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: AppColor.primaryBlackColor,
+        title: ValueListenableBuilder<double>(
+          valueListenable: _titleT,
+          builder: (context, t, _) {
+            return Opacity(
+              opacity: t,
+              // Slides up a few px as it fades in, so it reads as rising into
+              // the bar rather than blinking on.
+              child: Transform.translate(
+                offset: Offset(0, (1 - t) * 6),
+                child: Text(
+                  "Subject details",
+                  style: GoogleFonts.poppins(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: AppColor.primaryBlackColor,
+                  ),
+                ),
               ),
-            ),
-          ),
+            );
+          },
         ),
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(1),
@@ -488,8 +490,14 @@ class _CreateProfileState extends State<CreateProfile> {
                         const SizedBox(height: 16),
                         // Fades out in lock-step with the app bar title fading
                         // in, so the two titles cross-fade during the collapse.
-                        Opacity(
-                          opacity: (1 - _titleT).clamp(0.0, 1.0),
+                        ValueListenableBuilder<double>(
+                          valueListenable: _titleT,
+                          builder: (context, t, child) {
+                            return Opacity(
+                              opacity: (1 - t).clamp(0.0, 1.0),
+                              child: child,
+                            );
+                          },
                           child: _buildHeader(),
                         ),
                         const SizedBox(height: 24),
