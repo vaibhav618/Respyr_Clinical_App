@@ -231,7 +231,8 @@ class _ClinicalDashboardMainState extends State<ClinicalDashboardMain>
 
     return Scaffold(
       key: scaffoldKey,
-      backgroundColor: Colors.white,
+      // Light background so the white dashboard cards read as cards.
+      backgroundColor: const Color(0xFFF5F7FA),
       appBar: _buildCustomAppBar(),
       body: InternetConnectivityHandler(
         isBody: true,
@@ -250,11 +251,7 @@ class _ClinicalDashboardMainState extends State<ClinicalDashboardMain>
               BlocBuilder<HealthScoreBloc, HealthScoreState>(
                 builder: (context, state) {
                   if (state is HealthScoreLoading) {
-                    return const ListShimmer(
-                      rows: 4,
-                      rowHeight: 88,
-                      padding: EdgeInsets.symmetric(vertical: 16),
-                    );
+                    return const DashboardShimmer();
                   } else if (state is HealthScoreLoaded) {
                     final scores = state.response.data;
                     final analytics = state.response.analytics;
@@ -267,11 +264,7 @@ class _ClinicalDashboardMainState extends State<ClinicalDashboardMain>
                       builder: (context, snapshot) {
                         if (snapshot.connectionState ==
                             ConnectionState.waiting) {
-                          return const ListShimmer(
-                            rows: 4,
-                            rowHeight: 88,
-                            padding: EdgeInsets.symmetric(vertical: 16),
-                          );
+                          return const DashboardShimmer();
                         } else if (snapshot.hasError) {
                           return const Center(
                             child: Text('Error loading test data'),

@@ -96,6 +96,62 @@ class _ShimmerCardShell extends StatelessWidget {
   }
 }
 
+/// Skeleton for the clinical dashboard home: date header card, analytics
+/// card with a chart circle, quota card.
+class DashboardShimmer extends StatelessWidget {
+  const DashboardShimmer({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      physics: const NeverScrollableScrollPhysics(),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+        child: AppShimmer(
+          child: Column(
+            children: [
+              // Date + tests header card
+              const ShimmerBox(height: 96, radius: 14),
+              const SizedBox(height: 16),
+              // Analytics card: title line, dropdown pill, chart circle, rows
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0xFFE5E7EB), width: 1),
+                ),
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: const [
+                        ShimmerBox(height: 16, width: 130),
+                        ShimmerBox(height: 32, width: 120, radius: 10),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+                    const ShimmerBox(height: 150, circle: true),
+                    const SizedBox(height: 24),
+                    for (int i = 0; i < 3; i++) ...[
+                      const ShimmerBox(height: 40, radius: 10),
+                      const SizedBox(height: 10),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              // Quota card
+              const ShimmerBox(height: 84, radius: 14),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// Generic list skeleton: [rows] stacked row-cards. Fits any "list of items"
 /// section (tickets, profiles, test rows) without a bespoke skeleton.
 class ListShimmer extends StatelessWidget {

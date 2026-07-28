@@ -97,94 +97,81 @@ class _OverallAnalyticsWidgetState extends State<OverallAnalyticsWidget> {
     final breakdown = _getCombinedBreakdown();
     final totalTest = breakdown.good + breakdown.fair + breakdown.poor;
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Container(
-        decoration: ShapeDecoration(
+        decoration: BoxDecoration(
           color: Colors.white,
-          shape: RoundedRectangleBorder(
-            side: BorderSide(width: 1, color: const Color(0xFFD9D9D9)),
-            borderRadius: BorderRadius.circular(15),
-          ),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFFE5E7EB), width: 1),
         ),
-        padding: EdgeInsets.symmetric(vertical: 20),
+        padding: const EdgeInsets.symmetric(vertical: 16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              padding: EdgeInsets.symmetric(horizontal: 20),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Column(
                 children: [
-                  Text(
-                    "Overall Test Analytics",
-                    style: GoogleFonts.poppins(
-                      color: const Color(0xFF252525),
-                      fontSize: 20,
-                      fontWeight: FontWeight.w400,
-                      letterSpacing: -0.80,
-                    ),
-                  ),
-                  SizedBox(height: 20),
-                  Align(
-                    alignment: Alignment.center,
-                    child: Column(
-                      children: [
-                        Text(
-                          "Select score to view analytics",
+                  // Title + score picker on one line.
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          "Test Analytics",
                           style: GoogleFonts.poppins(
-                            color: const Color(0xFF535359),
-                            fontSize: 12,
-                            fontWeight: FontWeight.w400,
-                            letterSpacing: -0.48,
+                            color: const Color(0xFF252525),
+                            fontSize: 17,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: -0.40,
                           ),
                         ),
-                        SizedBox(height: 15),
-                        Container(
-                          decoration: ShapeDecoration(
-                            color: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              side: BorderSide(
-                                width: 1,
-                                color: const Color(0xFFC7C6CE),
-                              ),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: const Color(0xFFE5E7EB),
+                            width: 1,
                           ),
-                          padding: EdgeInsets.symmetric(horizontal: 20),
-                          child: DropdownButton<String>(
-                            value: selectedScoreType,
-                            underline: SizedBox(),
-                            icon: Icon(
-                              Icons.keyboard_arrow_down_rounded,
-                            ), // or any icon you like
-                            borderRadius: BorderRadius.circular(15),
-                            dropdownColor: AppColor.whiteColor,
-                            onChanged: (value) {
-                              if (value != null) {
-                                setState(() => selectedScoreType = value);
-                              }
-                            },
-                            items:
-                                scoreTypeMap.keys.map((type) {
-                                  return DropdownMenuItem(
-                                    value: type,
-
-                                    child: Text(
-                                      type,
-                                      style: GoogleFonts.poppins(
-                                        color: const Color(0xFF535359),
-                                        fontSize: 15,
-                                        fontWeight: FontWeight.w500,
-                                        letterSpacing: -0.30,
-                                      ),
+                        ),
+                        child: DropdownButton<String>(
+                          value: selectedScoreType,
+                          underline: const SizedBox(),
+                          icon: const Icon(
+                            Icons.keyboard_arrow_down_rounded,
+                            color: Color(0xFF308BF9),
+                            size: 20,
+                          ),
+                          borderRadius: BorderRadius.circular(12),
+                          dropdownColor: AppColor.whiteColor,
+                          isDense: true,
+                          onChanged: (value) {
+                            if (value != null) {
+                              setState(() => selectedScoreType = value);
+                            }
+                          },
+                          items:
+                              scoreTypeMap.keys.map((type) {
+                                return DropdownMenuItem(
+                                  value: type,
+                                  child: Text(
+                                    type,
+                                    style: GoogleFonts.poppins(
+                                      color: const Color(0xFF535359),
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w500,
                                     ),
-                                  );
-                                }).toList(),
-                          ),
+                                  ),
+                                );
+                              }).toList(),
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                  SizedBox(height: 30),
+                  const SizedBox(height: 24),
                   PieChartTestAnalyticsWidget(
                     poor: breakdown.poor,
                     fair: breakdown.fair,
@@ -195,7 +182,7 @@ class _OverallAnalyticsWidgetState extends State<OverallAnalyticsWidget> {
                 ],
               ),
             ),
-            SizedBox(height: 50),
+            const SizedBox(height: 24),
             TestLogWidget(
               loginId: widget.loginId,
               scoreType: selectedScoreType,
