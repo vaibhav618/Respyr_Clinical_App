@@ -25,10 +25,13 @@ class TestLogWidget extends StatefulWidget {
 }
 
 class _TestLogWidgetState extends State<TestLogWidget> {
-  /// How many entries render inline. The rest are behind "See all" — an inner
-  /// scrollbox here trapped the drag gesture at its edges and made the page
-  /// feel stuck.
-  static const int _maxInline = 8;
+  final ScrollController scrollController = ScrollController();
+
+  @override
+  void dispose() {
+    scrollController.dispose();
+    super.dispose();
+  }
 
   void _openFullLog() {
     Navigator.push(
@@ -45,11 +48,6 @@ class _TestLogWidgetState extends State<TestLogWidget> {
 
   @override
   Widget build(BuildContext context) {
-    final int inlineCount =
-        widget.scoreData.length > _maxInline
-            ? _maxInline
-            : widget.scoreData.length;
-    final int hiddenCount = widget.scoreData.length - inlineCount;
     return Column(
       children: [
         Padding(
@@ -97,34 +95,58 @@ class _TestLogWidgetState extends State<TestLogWidget> {
             ],
           ),
         ),
-        // Inline entries — part of the page scroll, no inner scrollbox.
-        for (int index = 0; index < inlineCount; index++)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: _testLogTile(
-              context,
-              widget.loginId,
-              widget.scoreData[index].profileId,
-              widget.scoreData[index].name,
-              widget.scoreData[index].scoreDttm,
-              getScoreByType(widget.scoreData[index], widget.scoreType),
-            ),
-          ),
-        if (hiddenCount > 0)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 4),
-            child: TextButton(
-              onPressed: _openFullLog,
-              child: Text(
-                "View $hiddenCount more ${hiddenCount == 1 ? 'test' : 'tests'}",
-                style: GoogleFonts.poppins(
-                  color: const Color(0xFF308BF9),
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                ),
+        Container(
+          constraints: const BoxConstraints(maxHeight: 350),
+          // When the inner list is at its edge, forward the leftover drag to
+          // the page scroll so the screen keeps moving instead of feeling
+          // stuck.
+          child: NotificationListener<OverscrollNotification>(
+            onNotification: (notification) {
+              final ScrollPosition? pagePosition =
+                  Scrollable.maybeOf(context)?.position;
+              if (pagePosition != null && notification.overscroll != 0) {
+                pagePosition.jumpTo(
+                  (pagePosition.pixels + notification.overscroll).clamp(
+                    pagePosition.minScrollExtent,
+                    pagePosition.maxScrollExtent,
+                  ),
+                );
+              }
+              return true;
+            },
+            child: Scrollbar(
+              thumbVisibility: true,
+              thickness: 5,
+              radius: const Radius.circular(10),
+              interactive: true,
+              controller: scrollController,
+              scrollbarOrientation: ScrollbarOrientation.right,
+              child: ListView.builder(
+                controller: scrollController,
+                // Clamping physics report overscroll at the edges, which is
+                // what the handoff above listens for.
+                physics: const ClampingScrollPhysics(),
+                itemCount: widget.scoreData.length,
+                shrinkWrap: true,
+                itemBuilder: (context, index) {
+                  final item = widget.scoreData[index];
+                  final score = getScoreByType(item, widget.scoreType);
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: _testLogTile(
+                      context,
+                      widget.loginId,
+                      item.profileId,
+                      item.name,
+                      item.scoreDttm,
+                      score,
+                    ),
+                  );
+                },
               ),
             ),
           ),
+        ),
       ],
     );
   }
