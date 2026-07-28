@@ -244,6 +244,10 @@ class _ClinicalDashboardMainState extends State<ClinicalDashboardMain>
           }
         },
         child: Stack(
+          // Fill the viewport even when the page content is short (e.g. a
+          // "no test data" message) — otherwise the Stack shrinks to the text
+          // and clips the calendar overlay.
+          fit: StackFit.expand,
           children: [
             SingleChildScrollView(
               controller: _scrollController,
