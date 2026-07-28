@@ -55,6 +55,11 @@ class _ClinicalDashboardMainState extends State<ClinicalDashboardMain>
   DateTime selectedDate = DateTime.now();
   bool _hasFetchedInitialData = false;
   Map<String, dynamic>? clinicalTestCountData;
+
+  // Created once and reused across rebuilds. Building the future inline in
+  // the FutureBuilder made every setState (e.g. toggling the calendar) restart
+  // it, flashing the loading skeleton as if the page reloaded.
+  Future<Map<String, dynamic>?>? _testDataFuture;
   int totalSubjectsOnboarded1 = 0;
   bool _hasInternet = true;
   bool _hasCheckedForUpdate = false;
@@ -112,7 +117,13 @@ class _ClinicalDashboardMainState extends State<ClinicalDashboardMain>
     _hasFetchedInitialData = true;
 
     taskManager.add(() async => fetchOverallData());
-    taskManager.add(() async => fetchTestAllowApi());
+    taskManager.add(() async {
+      await fetchTestAllowApi();
+      // Fresh quota data was just written to storage — re-read it once.
+      if (mounted) {
+        setState(() => _testDataFuture = getStoredClinicalTestData());
+      }
+    });
     taskManager.add(() async => requestNotificationPermission());
     taskManager.add(() async => saveFCMToken());
     if (!_hasCheckedForUpdate) {
@@ -265,7 +276,7 @@ class _ClinicalDashboardMainState extends State<ClinicalDashboardMain>
                         state.response.totalPersonalInfoCount;
 
                     return FutureBuilder<Map<String, dynamic>?>(
-                      future: getStoredClinicalTestData(),
+                      future: _testDataFuture ??= getStoredClinicalTestData(),
                       builder: (context, snapshot) {
                         if (snapshot.connectionState ==
                             ConnectionState.waiting) {
