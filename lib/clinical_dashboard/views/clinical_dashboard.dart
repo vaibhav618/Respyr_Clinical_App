@@ -300,8 +300,11 @@ class _ClinicalDashboardMainState extends State<ClinicalDashboardMain>
                             });
                           }
 
-                          return SingleChildScrollView(
-                            child: Column(
+                          // NOTE: no nested SingleChildScrollView here — the
+                          // page already scrolls. A nested one becomes the
+                          // "nearest scrollable" for descendants and silently
+                          // swallows the test-log edge handoff.
+                          return Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 SizedBox(height: 20),
@@ -354,7 +357,6 @@ class _ClinicalDashboardMainState extends State<ClinicalDashboardMain>
                                 ),
                                 const SizedBox(height: 24),
                               ],
-                            ),
                           );
                         } else {
                           return const Center(
