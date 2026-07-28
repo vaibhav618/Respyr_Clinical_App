@@ -1,4 +1,6 @@
 import 'dart:async'; // ✅ ADDED
+
+import 'package:respyr_clinical/widgets/shimmer_placeholders.dart';
 import 'dart:convert';
 
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -248,10 +250,10 @@ class _ClinicalDashboardMainState extends State<ClinicalDashboardMain>
               BlocBuilder<HealthScoreBloc, HealthScoreState>(
                 builder: (context, state) {
                   if (state is HealthScoreLoading) {
-                    return Center(
-                      child: CircularProgressIndicator(
-                        color: AppColor.primaryBlueColor,
-                      ),
+                    return const ListShimmer(
+                      rows: 4,
+                      rowHeight: 88,
+                      padding: EdgeInsets.symmetric(vertical: 16),
                     );
                   } else if (state is HealthScoreLoaded) {
                     final scores = state.response.data;
@@ -265,10 +267,10 @@ class _ClinicalDashboardMainState extends State<ClinicalDashboardMain>
                       builder: (context, snapshot) {
                         if (snapshot.connectionState ==
                             ConnectionState.waiting) {
-                          return Center(
-                            child: CircularProgressIndicator(
-                              color: AppColor.primaryBlueColor,
-                            ),
+                          return const ListShimmer(
+                            rows: 4,
+                            rowHeight: 88,
+                            padding: EdgeInsets.symmetric(vertical: 16),
                           );
                         } else if (snapshot.hasError) {
                           return const Center(

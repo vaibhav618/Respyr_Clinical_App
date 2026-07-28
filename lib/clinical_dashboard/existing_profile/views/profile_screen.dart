@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:respyr_clinical/widgets/shimmer_placeholders.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:respyr_clinical/shared/colors.dart';
@@ -93,11 +94,7 @@ class ExistingProfilesListScreen extends StatelessWidget {
                     child: BlocBuilder<ProfileBloc, ProfileState>(
                       builder: (context, state) {
                         if (state is ProfileLoading) {
-                          return Center(
-                            child: CircularProgressIndicator(
-                              color: AppColor.primaryBlueColor,
-                            ),
-                          );
+                          return const ListShimmer(rows: 7, rowHeight: 60);
                         } else if (state is ProfileLoaded) {
                           if (state.filteredProfiles.isEmpty) {
                             return const Center(

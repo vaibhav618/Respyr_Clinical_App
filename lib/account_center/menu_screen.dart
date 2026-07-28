@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'package:respyr_clinical/widgets/shimmer_placeholders.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -109,9 +111,7 @@ class _MenuScreenState extends State<MenuScreen> {
           future: _clinicDataFuture,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(
-                child: CircularProgressIndicator(color: Color(0xFF308BF9)),
-              );
+              return const ListShimmer(rows: 6, rowHeight: 56);
             }
 
             if (snapshot.hasError ||

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:respyr_clinical/widgets/shimmer_placeholders.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -150,10 +151,10 @@ class _ClinicalProfileScreenState extends State<ClinicalProfileScreen>
                 ),
                 const SizedBox(height: 15),
                 _isLoading
-                    ? Center(
-                      child: CircularProgressIndicator(
-                        color: AppColor.primaryBlueColor,
-                      ),
+                    ? const ListShimmer(
+                      rows: 6,
+                      rowHeight: 64,
+                      padding: EdgeInsets.zero,
                     )
                     : ListView.separated(
                       shrinkWrap: true,

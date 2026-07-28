@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'package:respyr_clinical/widgets/shimmer_placeholders.dart';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -72,15 +74,8 @@ class _PrivacyPolicyState extends State<PrivacyPolicy> {
       return Stack(
         children: [
           WebViewWidget(controller: _webViewController), // WebView content
-          if (isLoading) // Show loading indicator when loading
-            Container(
-              color: AppColor.whiteColor,
-              child: Center(
-                child: CircularProgressIndicator(
-                  color: AppColor.primaryBlueColor,
-                ),
-              ),
-            ),
+          if (isLoading) // Article-shaped skeleton while the page loads
+            const Positioned.fill(child: ArticleShimmer()),
         ],
       );
     } else {

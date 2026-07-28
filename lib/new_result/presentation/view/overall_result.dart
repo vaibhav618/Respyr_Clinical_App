@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:respyr_clinical/widgets/shimmer_placeholders.dart';
 import 'package:get/get.dart';
 import 'package:respyr_clinical/shared/urls.dart';
 
@@ -48,7 +49,8 @@ class ResultScreen extends StatelessWidget {
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
+            backgroundColor: Colors.white,
+            body: SafeArea(child: ListShimmer(rows: 5, rowHeight: 110)),
           );
         }
 

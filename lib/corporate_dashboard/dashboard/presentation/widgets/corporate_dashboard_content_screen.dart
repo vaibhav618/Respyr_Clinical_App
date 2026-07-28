@@ -1,5 +1,6 @@
 
 import 'package:flutter/material.dart';
+import 'package:respyr_clinical/widgets/shimmer_placeholders.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:respyr_clinical/corporate_dashboard/dashboard/presentation/widgets/score_trend.dart';
@@ -98,9 +99,10 @@ class _CorporateDashboardContentScreenState
             BlocBuilder<CorporateProfileTestsBloc, CorporateProfileTestsState>(
               builder: (context, state) {
                 if (state.status == CorporateProfileTestsStatus.loading) {
-                  return const Padding(
+                  return const ListShimmer(
+                    rows: 3,
+                    rowHeight: 72,
                     padding: EdgeInsets.symmetric(vertical: 16),
-                    child: Center(child: CircularProgressIndicator()),
                   );
                 }
 

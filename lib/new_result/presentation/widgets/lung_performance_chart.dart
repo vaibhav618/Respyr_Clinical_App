@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:respyr_clinical/widgets/shimmer_placeholders.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:respyr_clinical/shared/colors.dart';
 
 import '../../data/model/result_model.dart';
 
@@ -123,9 +123,7 @@ class _LungChartScreenState extends State<LungChartScreen> {
                 maxY: state.maxY,
               );
             } else {
-              return CircularProgressIndicator(
-                color: AppColor.primaryBlueColor,
-              );
+              return const BlockShimmer(height: 160);
             }
           },
         ),

@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:respyr_clinical/widgets/shimmer_placeholders.dart';
+
 import 'package:flutter/material.dart' hide AppBar;
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -493,7 +495,7 @@ class _CorporateDashboardState extends State<CorporateDashboard>
       body: Builder(
         builder: (_) {
           if (profileState.status == CorporateProfileStatus.loading) {
-            return const Center(child: CircularProgressIndicator());
+            return const ListShimmer(rows: 5, rowHeight: 96);
           }
 
           if (profileState.status == CorporateProfileStatus.failure) {

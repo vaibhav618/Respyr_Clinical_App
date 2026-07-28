@@ -96,6 +96,87 @@ class _ShimmerCardShell extends StatelessWidget {
   }
 }
 
+/// Generic list skeleton: [rows] stacked row-cards. Fits any "list of items"
+/// section (tickets, profiles, test rows) without a bespoke skeleton.
+class ListShimmer extends StatelessWidget {
+  final int rows;
+  final double rowHeight;
+  final EdgeInsetsGeometry padding;
+
+  const ListShimmer({
+    super.key,
+    this.rows = 6,
+    this.rowHeight = 64,
+    this.padding = const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      physics: const NeverScrollableScrollPhysics(),
+      child: Padding(
+        padding: padding,
+        child: AppShimmer(
+          child: Column(
+            children: [
+              for (int i = 0; i < rows; i++) ...[
+                ShimmerBox(height: rowHeight, radius: 12),
+                const SizedBox(height: 10),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Article-style skeleton (title + text lines) for document/webview pages
+/// like Terms & Conditions and Privacy Policy.
+class ArticleShimmer extends StatelessWidget {
+  const ArticleShimmer({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: Colors.white,
+      padding: const EdgeInsets.all(20),
+      alignment: Alignment.topLeft,
+      child: AppShimmer(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const ShimmerBox(height: 22, width: 220, radius: 6),
+            const SizedBox(height: 18),
+            for (int block = 0; block < 3; block++) ...[
+              for (int line = 0; line < 5; line++) ...[
+                ShimmerBox(
+                  height: 12,
+                  width: line == 4 ? 180 : double.infinity,
+                  radius: 4,
+                ),
+                const SizedBox(height: 8),
+              ],
+              const SizedBox(height: 18),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Single block skeleton for charts / stat sections that load in place.
+class BlockShimmer extends StatelessWidget {
+  final double height;
+  const BlockShimmer({super.key, this.height = 180});
+
+  @override
+  Widget build(BuildContext context) {
+    return AppShimmer(child: ShimmerBox(height: height, radius: 12));
+  }
+}
+
 /// Skeleton for the Test Log page: search bar + patient cards.
 class TestLogShimmer extends StatelessWidget {
   const TestLogShimmer({super.key});

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:respyr_clinical/widgets/shimmer_placeholders.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:respyr_clinical/shared/colors.dart';
 
 import '../bloc/ticket_bloc.dart';
 import '../repository/ticket_repository.dart';
@@ -34,11 +34,7 @@ class _TrackMyIssueState extends State<TrackMyIssue> {
         child: BlocBuilder<TicketCubit, TicketState>(
           builder: (context, state) {
             if (state is TicketLoading) {
-              return Center(
-                child: CircularProgressIndicator(
-                  color: AppColor.primaryBlueColor,
-                ),
-              );
+              return const ListShimmer(rows: 5, rowHeight: 92);
             } else if (state is TicketLoaded) {
               return ListView(
                 children: [
