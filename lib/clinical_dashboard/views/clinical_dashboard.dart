@@ -60,6 +60,12 @@ class _ClinicalDashboardMainState extends State<ClinicalDashboardMain>
   // the FutureBuilder made every setState (e.g. toggling the calendar) restart
   // it, flashing the loading skeleton as if the page reloaded.
   Future<Map<String, dynamic>?>? _testDataFuture;
+
+  // MUST live outside build(): a GlobalKey minted inside build() changes on
+  // every rebuild, which makes Flutter discard and remount the entire Scaffold
+  // subtree per setState — the whole screen visibly blinked on every calendar
+  // toggle.
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   int totalSubjectsOnboarded1 = 0;
   bool _hasInternet = true;
   bool _hasCheckedForUpdate = false;
@@ -238,10 +244,8 @@ class _ClinicalDashboardMainState extends State<ClinicalDashboardMain>
       return Errors().showDashboardLoadError(errorMessage: "Clinic not found");
     }
 
-    final GlobalKey<ScaffoldState> scaffoldKey = GlobalKey<ScaffoldState>();
-
     return Scaffold(
-      key: scaffoldKey,
+      key: _scaffoldKey,
       // Light background so the white dashboard cards read as cards.
       backgroundColor: const Color(0xFFF5F7FA),
       appBar: _buildCustomAppBar(),
