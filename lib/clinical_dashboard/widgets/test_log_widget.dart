@@ -127,7 +127,10 @@ class _TestLogWidgetState extends State<TestLogWidget> {
                 // what the handoff above listens for.
                 physics: const ClampingScrollPhysics(),
                 itemCount: widget.scoreData.length,
-                shrinkWrap: true,
+                // shrinkWrap builds EVERY row up front — fine for short
+                // lists (and avoids empty space below them), but for long
+                // ones let the 350px viewport build rows lazily on scroll.
+                shrinkWrap: widget.scoreData.length <= 10,
                 itemBuilder: (context, index) {
                   final item = widget.scoreData[index];
                   final score = getScoreByType(item, widget.scoreType);

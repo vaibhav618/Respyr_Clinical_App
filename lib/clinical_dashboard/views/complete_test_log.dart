@@ -21,10 +21,35 @@ class CompleteTestLog extends StatefulWidget {
 class _CompleteTestLogState extends State<CompleteTestLog> {
   final TextEditingController _controller = TextEditingController();
 
+  // Incremental rendering: only this many cards are built at first; scrolling
+  // near the bottom appends another page. Building the full list at once
+  // (shrinkWrap) laid out every card in one frame and froze the page open.
+  static const int _pageSize = 15;
+  int _visibleCount = _pageSize;
+  int _totalCount = 0;
+  final ScrollController _scrollController = ScrollController();
+
   @override
   void initState() {
     super.initState();
+    _scrollController.addListener(_maybeLoadMore);
     //context.read<TestLogBloc>().add(FetchTestLogs(widget.loginId));
+  }
+
+  void _maybeLoadMore() {
+    if (!_scrollController.hasClients) return;
+    final position = _scrollController.position;
+    if (position.pixels >= position.maxScrollExtent - 400 &&
+        _visibleCount < _totalCount) {
+      setState(() => _visibleCount += _pageSize);
+    }
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    _controller.dispose();
+    super.dispose();
   }
 
   @override
@@ -63,8 +88,14 @@ class _CompleteTestLogState extends State<CompleteTestLog> {
                     state.filteredList
                         .where((item) => item.profileId.isNotEmpty)
                         .toList();
+                _totalCount = filteredList.length;
+                final int builtCount =
+                    _visibleCount < filteredList.length
+                        ? _visibleCount
+                        : filteredList.length;
 
                 return SingleChildScrollView(
+                  controller: _scrollController,
                   child: Column(
                     children: [
                       const SizedBox(height: 16),
@@ -120,10 +151,13 @@ class _CompleteTestLogState extends State<CompleteTestLog> {
                                 letterSpacing: -0.60,
                               ),
                             ),
-                            onChanged:
-                                (value) => context.read<TestLogBloc>().add(
-                                  FilterTestLogs(value),
-                                ),
+                            onChanged: (value) {
+                              // New filter → start again from the first page.
+                              _visibleCount = _pageSize;
+                              context.read<TestLogBloc>().add(
+                                FilterTestLogs(value),
+                              );
+                            },
                           ),
                         ),
                       ),
@@ -152,7 +186,7 @@ class _CompleteTestLogState extends State<CompleteTestLog> {
                             ],
                           )
                           : ListView.builder(
-                            itemCount: filteredList.length,
+                            itemCount: builtCount,
                             shrinkWrap: true,
                             physics: const NeverScrollableScrollPhysics(),
                             itemBuilder: (context, index) {

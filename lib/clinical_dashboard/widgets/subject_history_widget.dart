@@ -33,6 +33,49 @@ class _SubjectHistoryWidgetState extends State<SubjectHistoryWidget> {
   String scoreType = "Db_Score";
   bool isLoading = false;
 
+  // Incremental rendering: build only this many history cards initially and
+  // append a page when the surrounding screen scrolls near its bottom.
+  // Building the whole history at once froze the profile screen open for
+  // subjects with hundreds of tests.
+  static const int _pageSize = 15;
+  int _visibleCount = _pageSize;
+  ScrollPosition? _pagePosition;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final ScrollPosition? position = Scrollable.maybeOf(context)?.position;
+    if (!identical(position, _pagePosition)) {
+      _pagePosition?.removeListener(_maybeLoadMore);
+      _pagePosition = position;
+      _pagePosition?.addListener(_maybeLoadMore);
+    }
+  }
+
+  void _maybeLoadMore() {
+    final ScrollPosition? position = _pagePosition;
+    if (position == null || !mounted) return;
+    if (position.pixels >= position.maxScrollExtent - 400 &&
+        _visibleCount < widget.scoreList.length) {
+      setState(() => _visibleCount += _pageSize);
+    }
+  }
+
+  @override
+  void didUpdateWidget(SubjectHistoryWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Fresh subject/data → start from the first page again.
+    if (oldWidget.scoreList.length != widget.scoreList.length) {
+      _visibleCount = _pageSize;
+    }
+  }
+
+  @override
+  void dispose() {
+    _pagePosition?.removeListener(_maybeLoadMore);
+    super.dispose();
+  }
+
   final List<String> items = [
     'Sugar score',
     'Liver stress score',
@@ -137,7 +180,10 @@ class _SubjectHistoryWidgetState extends State<SubjectHistoryWidget> {
 
                 /// Score List
                 ListView.builder(
-                  itemCount: widget.scoreList.length,
+                  itemCount:
+                      _visibleCount < widget.scoreList.length
+                          ? _visibleCount
+                          : widget.scoreList.length,
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
                   itemBuilder: (context, index) {
