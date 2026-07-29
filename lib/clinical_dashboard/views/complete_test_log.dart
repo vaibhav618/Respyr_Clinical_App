@@ -29,16 +29,27 @@ class _CompleteTestLogState extends State<CompleteTestLog> {
   int _totalCount = 0;
   final ScrollController _scrollController = ScrollController();
 
+  // Collapsing search: the body search bar cross-fades into the app bar as it
+  // scrolls under. Driven by a ValueNotifier so only the two fading widgets
+  // rebuild on scroll, never the card list.
+  final ValueNotifier<double> _searchT = ValueNotifier<double>(0);
+  static const double _fadeStart = 8;
+  static const double _fadeEnd = 56;
+
   @override
   void initState() {
     super.initState();
-    _scrollController.addListener(_maybeLoadMore);
+    _scrollController.addListener(_onScroll);
     //context.read<TestLogBloc>().add(FetchTestLogs(widget.loginId));
   }
 
-  void _maybeLoadMore() {
+  void _onScroll() {
     if (!_scrollController.hasClients) return;
     final position = _scrollController.position;
+
+    _searchT.value = ((position.pixels - _fadeStart) / (_fadeEnd - _fadeStart))
+        .clamp(0.0, 1.0);
+
     if (position.pixels >= position.maxScrollExtent - 400 &&
         _visibleCount < _totalCount) {
       setState(() => _visibleCount += _pageSize);
@@ -48,8 +59,72 @@ class _CompleteTestLogState extends State<CompleteTestLog> {
   @override
   void dispose() {
     _scrollController.dispose();
+    _searchT.dispose();
     _controller.dispose();
     super.dispose();
+  }
+
+  /// The search field, styled for either location. Shares [_controller] with
+  /// its twin so the query carries over as the bar docks into the app bar.
+  Widget _searchField({required bool compact}) {
+    return Container(
+      height: compact ? 40 : null,
+      decoration: ShapeDecoration(
+        color: Colors.white,
+        shape: RoundedRectangleBorder(
+          side: const BorderSide(color: Color(0xFFE5E7EB), width: 1),
+          borderRadius: BorderRadius.circular(10),
+        ),
+      ),
+      child: TextField(
+        controller: _controller,
+        style: GoogleFonts.poppins(
+          color: const Color(0xFF86BDFF),
+          fontSize: compact ? 13 : 15,
+          fontWeight: FontWeight.w600,
+          letterSpacing: -0.60,
+        ),
+        decoration: InputDecoration(
+          prefixIcon: Icon(
+            Icons.search,
+            color: const Color(0xFF86BDFF),
+            size: compact ? 20 : 24,
+          ),
+          suffixIcon: ValueListenableBuilder<TextEditingValue>(
+            valueListenable: _controller,
+            builder: (context, value, _) {
+              if (value.text.isEmpty) return const SizedBox.shrink();
+              return IconButton(
+                icon: Icon(Icons.close, size: compact ? 18 : 24),
+                onPressed: () {
+                  _controller.clear();
+                  _visibleCount = _pageSize;
+                  context.read<TestLogBloc>().add(FilterTestLogs(''));
+                  FocusScope.of(context).unfocus();
+                },
+              );
+            },
+          ),
+          contentPadding: EdgeInsets.symmetric(
+            horizontal: compact ? 12 : 20,
+            vertical: compact ? 8 : 16,
+          ),
+          border: InputBorder.none,
+          hintText: 'Search ‘Sagar’',
+          hintStyle: GoogleFonts.poppins(
+            color: const Color(0xFF86BDFF),
+            fontSize: compact ? 13 : 15,
+            fontWeight: FontWeight.w600,
+            letterSpacing: -0.60,
+          ),
+        ),
+        onChanged: (value) {
+          // New filter → start again from the first page.
+          _visibleCount = _pageSize;
+          context.read<TestLogBloc>().add(FilterTestLogs(value));
+        },
+      ),
+    );
   }
 
   @override
@@ -60,14 +135,39 @@ class _CompleteTestLogState extends State<CompleteTestLog> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.white,
-        title: Text(
-          "Test Log",
-          style: GoogleFonts.poppins(
-            color: const Color(0xFF5A5A5A),
-            fontSize: 20,
-            fontWeight: FontWeight.w600,
-            letterSpacing: -0.80,
-          ),
+        // Cross-fade: "Test Log" title at the top; the search bar docks in as
+        // its body twin scrolls under the app bar.
+        title: ValueListenableBuilder<double>(
+          valueListenable: _searchT,
+          builder: (context, t, _) {
+            return Stack(
+              alignment: Alignment.centerLeft,
+              children: [
+                IgnorePointer(
+                  ignoring: t > 0.5,
+                  child: Opacity(
+                    opacity: (1 - t).clamp(0.0, 1.0),
+                    child: Text(
+                      "Test Log",
+                      style: GoogleFonts.poppins(
+                        color: const Color(0xFF5A5A5A),
+                        fontSize: 20,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: -0.80,
+                      ),
+                    ),
+                  ),
+                ),
+                IgnorePointer(
+                  ignoring: t <= 0.5,
+                  child: Opacity(
+                    opacity: t,
+                    child: _searchField(compact: true),
+                  ),
+                ),
+              ],
+            );
+          },
         ),
       ),
       body: SafeArea(
@@ -99,66 +199,22 @@ class _CompleteTestLogState extends State<CompleteTestLog> {
                   child: Column(
                     children: [
                       const SizedBox(height: 16),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        child: Container(
-                          decoration: ShapeDecoration(
-                            color: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              side: const BorderSide(
-                                color: Color(0xFFE5E7EB),
-                                width: 1,
-                              ),
-                              borderRadius: BorderRadius.circular(10),
+                      // Fades out in lock-step with the app-bar search fading
+                      // in, so the bar reads as docking into the app bar.
+                      ValueListenableBuilder<double>(
+                        valueListenable: _searchT,
+                        builder: (context, t, child) {
+                          return IgnorePointer(
+                            ignoring: t > 0.5,
+                            child: Opacity(
+                              opacity: (1 - t).clamp(0.0, 1.0),
+                              child: child,
                             ),
-                          ),
-                          child: TextField(
-                            controller: _controller,
-                            style: GoogleFonts.poppins(
-                              color: const Color(0xFF86BDFF),
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
-                              letterSpacing: -0.60,
-                            ),
-                            decoration: InputDecoration(
-                              prefixIcon: const Icon(
-                                Icons.search,
-                                color: Color(0xFF86BDFF),
-                              ),
-                              suffixIcon: Visibility(
-                                visible: _controller.text.isNotEmpty,
-                                child: IconButton(
-                                  icon: const Icon(Icons.close),
-                                  onPressed: () {
-                                    _controller.clear();
-                                    context.read<TestLogBloc>().add(
-                                      FilterTestLogs(''),
-                                    );
-                                    FocusScope.of(context).unfocus();
-                                  },
-                                ),
-                              ),
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 20,
-                                vertical: 16,
-                              ),
-                              border: InputBorder.none,
-                              hintText: 'Search ‘Sagar’',
-                              hintStyle: GoogleFonts.poppins(
-                                color: const Color(0xFF86BDFF),
-                                fontSize: 15,
-                                fontWeight: FontWeight.w600,
-                                letterSpacing: -0.60,
-                              ),
-                            ),
-                            onChanged: (value) {
-                              // New filter → start again from the first page.
-                              _visibleCount = _pageSize;
-                              context.read<TestLogBloc>().add(
-                                FilterTestLogs(value),
-                              );
-                            },
-                          ),
+                          );
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          child: _searchField(compact: false),
                         ),
                       ),
                       const SizedBox(height: 20),
