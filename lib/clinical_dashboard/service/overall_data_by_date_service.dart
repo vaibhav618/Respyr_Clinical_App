@@ -8,26 +8,6 @@ import 'package:respyr_clinical/shared/urls.dart';
 class OverallDataByDateService {
   final String url = Urls.fetchOverallDataByDate;
 
-  static String _cacheKey(String loginId, String date) =>
-      'overall_data_cache_${loginId}_$date';
-
-  /// Last successful response for this clinic+date, if any. Used to paint the
-  /// dashboard instantly on relaunch (OEM battery managers kill the app in
-  /// the background) while fresh data loads behind it.
-  Future<OverallDataByDateModel?> readCached({
-    required String loginId,
-    required String date,
-  }) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final String? raw = prefs.getString(_cacheKey(loginId, date));
-      if (raw == null) return null;
-      return OverallDataByDateModel.fromJson(json.decode(raw));
-    } catch (_) {
-      return null; // Corrupt/outdated cache is never fatal — just refetch.
-    }
-  }
-
   Future<OverallDataByDateModel> fetchOverallData({
     required String loginId,
     required String date,
@@ -69,8 +49,8 @@ class OverallDataByDateService {
       if (response.statusCode == 200) {
         final jsonResponse = json.decode(response.body);
 
-        // Keep the raw payload so the next launch can paint immediately.
-        await prefs.setString(_cacheKey(loginId, date), response.body);
+
+
 
         // Log success (no PHI!)
         LogManager().logEvent(

@@ -5,7 +5,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:respyr_clinical/clinical_dashboard/views/subject_profile.dart';
 import 'package:respyr_clinical/widgets/internet_connectivity_check.dart';
 import 'package:respyr_clinical/widgets/shimmer_placeholders.dart';
-import '../../shared/session_restore.dart';
 import '../../utils/score_color_helper.dart';
 import '../bloc/test_log_bloc.dart';
 import '../helper/timestamp_helper.dart';
@@ -40,7 +39,6 @@ class _CompleteTestLogState extends State<CompleteTestLog> {
   @override
   void initState() {
     super.initState();
-    SessionRestore.save(SessionRestore.screenTestLog);
     _scrollController.addListener(_onScroll);
     //context.read<TestLogBloc>().add(FetchTestLogs(widget.loginId));
   }

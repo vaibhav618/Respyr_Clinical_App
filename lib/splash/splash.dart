@@ -11,16 +11,9 @@ import '../../clinical_dashboard/bloc/health_score_bloc.dart';
 import '../../clinical_dashboard/views/clinical_dashboard.dart';
 import '../authentication/screens/login_with_password.dart';
 import '../authentication/services/clinical_token_generating_api.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-
-import '../clinical_dashboard/bloc/test_log_bloc.dart';
-import '../clinical_dashboard/repositories/test_log_repository.dart';
 import '../clinical_dashboard/service/overall_data_by_date_service.dart';
-import '../clinical_dashboard/views/complete_test_log.dart';
-import '../clinical_dashboard/views/subject_profile.dart';
 import '../log_manager/log_manager.dart';
 import '../shared/get_stored_data_text.dart';
-import '../shared/session_restore.dart';
 import '../widgets/error.dart';
 
 class Splash extends StatefulWidget {
@@ -296,20 +289,6 @@ class _SplashState extends State<Splash> with WidgetsBindingObserver {
       }
     } else if (isOtpVerified && loginId != "NA") {
       LogManager().setUserId(loginId);
-
-      // Fast path: a token from a previous run is already on disk, so don't
-      // block the splash on a network round-trip. Go straight in and refresh
-      // the token in the background. This is what makes an OEM background
-      // kill invisible — relaunch lands on content, not a loading screen.
-      final prefs = await SharedPreferences.getInstance();
-      final String? cachedToken = prefs.getString('jwt_token');
-      if (cachedToken != null && cachedToken.isNotEmpty) {
-        _timeoutTimer?.cancel();
-        unawaited(JwtApiHelper.fetchAndStoreJwtToken(loginId: loginId));
-        await _navigateIntoApp(loginId);
-        return;
-      }
-
       await _getJwtTokenAndFetchData(loginId);
     } else {
       _timeoutTimer?.cancel();
@@ -354,58 +333,18 @@ class _SplashState extends State<Splash> with WidgetsBindingObserver {
       return;
     }
 
-    await _navigateIntoApp(loginId);
-  }
-
-  /// Enters the app at the dashboard, then — if the user was killed out of a
-  /// deeper screen moments ago — pushes that screen on top so they land
-  /// exactly where they left off (back still returns to the dashboard).
-  Future<void> _navigateIntoApp(String loginId) async {
-    if (!mounted) return;
-
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(
-        builder:
-            (_) => BlocProvider(
-              create: (_) => HealthScoreBloc(OverallDataByDateService()),
-              child: ClinicalDashboardMain(loginId: loginId),
-            ),
-      ),
-    );
-
-    final RestoredScreen? last = await SessionRestore.read();
-    if (last == null || !mounted) return;
-
-    switch (last.screen) {
-      case SessionRestore.screenSubjectProfile:
-        final String? subjectId = last.args['subjectId'];
-        if (subjectId == null || subjectId.isEmpty) return;
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder:
-                (_) => SubjectProfileScreen(
-                  clinicName: loginId,
-                  profileName: subjectId,
-                ),
-          ),
-        );
-        break;
-      case SessionRestore.screenTestLog:
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder:
-                (_) => BlocProvider(
-                  create: (_) => TestLogBloc()..add(FetchTestLogs(loginId)),
-                  child: CompleteTestLog(loginId: loginId),
-                ),
-          ),
-        );
-        break;
-      default:
-        break; // dashboard — already there
+    // Navigate to dashboard if token is stored
+    if (mounted) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder:
+              (_) => BlocProvider(
+                create: (_) => HealthScoreBloc(OverallDataByDateService()),
+                child: ClinicalDashboardMain(loginId: loginId),
+              ),
+        ),
+      );
     }
   }
 }

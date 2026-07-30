@@ -4,7 +4,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:respyr_clinical/widgets/internet_connectivity_check.dart';
 import 'package:respyr_clinical/widgets/shimmer_placeholders.dart';
 import '../../new_result/bloc/new_result_cubit.dart';
-import '../../shared/session_restore.dart';
 import '../../new_result/data/model/result_profile_data_model.dart';
 import '../bloc/subject_profile_bloc.dart';
 import '../events/subject_profile_event.dart';
@@ -43,10 +42,6 @@ class _SubjectProfileScreenState extends State<SubjectProfileScreen> {
   @override
   void initState() {
     super.initState();
-    SessionRestore.save(
-      SessionRestore.screenSubjectProfile,
-      args: {'subjectId': widget.profileName},
-    );
     _scrollController.addListener(_onScroll);
   }
 
