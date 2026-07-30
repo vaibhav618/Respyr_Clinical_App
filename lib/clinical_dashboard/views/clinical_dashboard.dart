@@ -25,6 +25,7 @@ import '../bloc/test_log_bloc.dart';
 import '../create_profile/create_profile.dart' show CreateProfile;
 import '../existing_profile/views/profile_screen.dart';
 import '../helper/abort_device_manager.dart';
+import '../helper/battery_optimization_helper.dart';
 import '../helper/fetch_clinic_test_counts.php.dart';
 import '../helper/get_clinical_test_count.dart';
 import '../repositories/test_log_repository.dart';
@@ -100,6 +101,13 @@ class _ClinicalDashboardMainState extends State<ClinicalDashboardMain>
     WidgetsBinding.instance.addObserver(this);
     _initData();
     _cacheLoginId(widget.loginId);
+    // One-time ask: exempt the app from battery optimization so OEM power
+    // managers (MIUI etc.) stop killing it in the background.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        BatteryOptimizationHelper.ensureBackgroundReliability(context);
+      }
+    });
     selectedDateNotifier.addListener(() {
       setState(() {
         selectedDate = DateTime.parse(selectedDateNotifier.value);
