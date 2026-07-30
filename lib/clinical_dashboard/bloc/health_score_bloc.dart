@@ -9,7 +9,19 @@ class HealthScoreBloc extends Bloc<OverallDataByDateEvent, HealthScoreState> {
 
   HealthScoreBloc(this.service) : super(HealthScoreInitial()) {
     on<FetchHealthScoreData>((event, emit) async {
-      emit(HealthScoreLoading());
+      // Paint the last known data for this date immediately (if we have it) so
+      // relaunching after a background kill shows content, not skeletons. The
+      // network call still runs and replaces it a moment later.
+      final cached = await service.readCached(
+        loginId: event.loginId,
+        date: event.date,
+      );
+      if (cached != null) {
+        emit(HealthScoreLoaded(cached));
+      } else {
+        emit(HealthScoreLoading());
+      }
+
       try {
         final response = await service.fetchOverallData(
           loginId: event.loginId,
@@ -17,7 +29,10 @@ class HealthScoreBloc extends Bloc<OverallDataByDateEvent, HealthScoreState> {
         );
         emit(HealthScoreLoaded(response));
       } catch (e) {
-        emit(HealthScoreError(e.toString()));
+        // Cached data is already on screen — don't replace it with an error.
+        if (cached == null) {
+          emit(HealthScoreError(e.toString()));
+        }
       }
     });
   }

@@ -24,6 +24,7 @@ import '../bloc/overall_data_by_date_state.dart';
 import '../bloc/test_log_bloc.dart';
 import '../create_profile/create_profile.dart' show CreateProfile;
 import '../existing_profile/views/profile_screen.dart';
+import '../../shared/session_restore.dart';
 import '../helper/abort_device_manager.dart';
 import '../helper/fetch_clinic_test_counts.php.dart';
 import '../helper/get_clinical_test_count.dart';
@@ -100,6 +101,9 @@ class _ClinicalDashboardMainState extends State<ClinicalDashboardMain>
     WidgetsBinding.instance.addObserver(this);
     _initData();
     _cacheLoginId(widget.loginId);
+    // Remember where the user is, so an OEM background kill resumes here
+    // instead of restarting the app from scratch.
+    SessionRestore.save(SessionRestore.screenDashboard);
     selectedDateNotifier.addListener(() {
       setState(() {
         selectedDate = DateTime.parse(selectedDateNotifier.value);
