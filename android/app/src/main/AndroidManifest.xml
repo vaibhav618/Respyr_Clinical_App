@@ -50,12 +50,6 @@
         android:name="android.permission.RECEIVE_BOOT_COMPLETED"
         tools:node="remove" />
 
-    <!-- Lets the app ASK the user for a battery-optimization exemption, so
-         aggressive OEMs (MIUI etc.) stop killing it in the background. The
-         user still decides via the system dialog. -->
-    <uses-permission
-        android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
-
 
 
 
