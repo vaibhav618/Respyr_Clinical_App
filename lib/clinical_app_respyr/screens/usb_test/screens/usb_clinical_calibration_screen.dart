@@ -81,6 +81,13 @@ class _UsbClinicalCalibrationScreenState
   Timer? _retryTimer;
   int elapsedSeconds = 0;
 
+  /// Total time spent waiting for the device to reach the inhale stage,
+  /// independent of the 60s retry cycle. Guarantees the screen can never hang
+  /// silently forever — if the device never responds we surface it instead.
+  int _totalWaitSeconds = 0;
+  static const int _maxWaitSeconds = 90;
+  bool _timeoutShown = false;
+
   @override
   void initState() {
     super.initState();
@@ -223,6 +230,18 @@ class _UsbClinicalCalibrationScreenState
             }
           });
         }
+
+        // Device came back after a drop: make sure the handshake timer is
+        // running again. Without this a momentary disconnect left calibration
+        // permanently stalled.
+        if (_isConnected &&
+            !_isDisposed &&
+            !_navigatedToInhaleScreen &&
+            !_handshakeDone &&
+            _retryTimer == null) {
+          debugPrint("🔌 USB reconnected — restarting calibration handshake");
+          _restartCalibration();
+        }
       },
       onDataReceived: _onUsbDataReceived,
       onError: (onError) {
@@ -350,17 +369,35 @@ class _UsbClinicalCalibrationScreenState
     _percentEchoWindowTimer = null;
 
     _retryTimer = Timer.periodic(const Duration(seconds: 1), (timer) async {
-      if (_isDisposed ||
-          _isPaused ||
-          _navigatedToInhaleScreen ||
-          !_usbService.isConnected) {
+      // Terminal conditions only — these mean the screen is finished with.
+      if (_isDisposed || _navigatedToInhaleScreen) {
         timer.cancel();
         _retryTimer = null;
         return;
       }
 
+      // Transient conditions: a momentary USB drop or a pause must NOT kill
+      // the timer. Cancelling here left the screen hung forever, because
+      // nothing restarted it once the device came back.
+      if (_isPaused || !_usbService.isConnected) {
+        return;
+      }
+
       elapsedSeconds++;
+      _totalWaitSeconds++;
       debugPrint("⏱️ USB Completed Seconds: $elapsedSeconds");
+
+      // Safety net: never let the user stare at a frozen calibration screen.
+      if (_totalWaitSeconds >= _maxWaitSeconds &&
+          !_handshakeDone &&
+          !_timeoutShown) {
+        _timeoutShown = true;
+        timer.cancel();
+        _retryTimer = null;
+        debugPrint("⛔ USB calibration timed out after $_totalWaitSeconds s");
+        _showCalibrationTimeout();
+        return;
+      }
 
       if (elapsedSeconds == 20 && !_handshakeDone) {
         _awaitingPercentEcho = true;
@@ -418,6 +455,54 @@ class _UsbClinicalCalibrationScreenState
       _animationController.reset();
       _animationController.repeat();
     }
+  }
+
+  /// Shown when the device never reaches the inhale stage within
+  /// [_maxWaitSeconds]. Previously the screen simply hung with no feedback.
+  void _showCalibrationTimeout() {
+    if (_isDisposed || !mounted) return;
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text("Device not responding"),
+        content: const Text(
+          "The device didn't finish getting ready. Check that it is properly "
+          "connected, then try again.",
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(dialogContext).pop();
+              _exitToDashboard();
+            },
+            child: const Text("Cancel"),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(dialogContext).pop();
+              _restartCalibration();
+            },
+            child: const Text("Retry"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Full restart of the handshake after a timeout: clears the retry state and
+  /// re-sends the initial signals from scratch.
+  Future<void> _restartCalibration() async {
+    if (_isDisposed) return;
+    _timeoutShown = false;
+    _totalWaitSeconds = 0;
+    elapsedSeconds = 0;
+    _handshakeDone = false;
+    _awaitingPercentEcho = false;
+    signalsAlreadySent = false;
+    _percentEchoWindowTimer?.cancel();
+    _percentEchoWindowTimer = null;
+    await _sendInitialSignal(force: true);
   }
 
   void _showErrorDialog(String message) {

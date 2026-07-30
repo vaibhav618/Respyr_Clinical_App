@@ -62,6 +62,13 @@ class _BluetoothCalibrationScreenState extends State<BluetoothCalibrationScreen>
 
   int elapsedSeconds = 0;
 
+  /// Total time spent waiting for the device to reach the inhale stage,
+  /// independent of the 60s retry cycle. Guarantees the screen can never hang
+  /// silently forever — if the device never responds we surface it instead.
+  int _totalWaitSeconds = 0;
+  static const int _maxWaitSeconds = 90;
+  bool _timeoutShown = false;
+
   final List<String> progressMessage = [
     "Cleaning inner\nChamber of Device",
     "Verifying Cleanliness",
@@ -114,6 +121,17 @@ class _BluetoothCalibrationScreenState extends State<BluetoothCalibrationScreen>
           if (isConnected) {
             _hasShownDisconnectedDialog = false;
             _isDisconnectDialogPop = false;
+
+            // Device came back after a drop: make sure the handshake timer is
+            // running again. Without this a momentary disconnect left
+            // calibration permanently stalled.
+            if (!_navigatedToInhaleScreen &&
+                !_inhaleReceived &&
+                !_handshakeDone &&
+                _timer == null) {
+              debugPrint("🔌 BLE reconnected — restarting calibration handshake");
+              _restartCalibration();
+            }
           }
 
           if (!isConnected &&
@@ -340,16 +358,34 @@ class _BluetoothCalibrationScreenState extends State<BluetoothCalibrationScreen>
     _percentEchoWindowTimer = null;
 
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) async {
-      if (_isDisposed ||
-          _inhaleReceived ||
-          _navigatedToInhaleScreen ||
-          !_bleManager.isConnected) {
+      // Terminal conditions only — these mean the screen is finished with.
+      if (_isDisposed || _inhaleReceived || _navigatedToInhaleScreen) {
         timer.cancel();
+        _timer = null;
+        return;
+      }
+
+      // A momentary BLE drop must NOT kill the timer: cancelling here left
+      // calibration hung forever, since nothing restarted it on reconnect.
+      if (!_bleManager.isConnected) {
         return;
       }
 
       elapsedSeconds++;
+      _totalWaitSeconds++;
       debugPrint("⏱️ Completed Seconds: $elapsedSeconds");
+
+      // Safety net: never let the user stare at a frozen calibration screen.
+      if (_totalWaitSeconds >= _maxWaitSeconds &&
+          !_handshakeDone &&
+          !_timeoutShown) {
+        _timeoutShown = true;
+        timer.cancel();
+        _timer = null;
+        debugPrint("⛔ BLE calibration timed out after $_totalWaitSeconds s");
+        _showCalibrationTimeout();
+        return;
+      }
 
       if (elapsedSeconds == 20 && !_handshakeDone) {
         _awaitingPercentEcho = true;
@@ -392,6 +428,54 @@ class _BluetoothCalibrationScreenState extends State<BluetoothCalibrationScreen>
     _animationController
       ..reset()
       ..repeat();
+  }
+
+  /// Shown when the device never reaches the inhale stage within
+  /// [_maxWaitSeconds]. Previously the screen simply hung with no feedback.
+  void _showCalibrationTimeout() {
+    if (_isDisposed || !mounted) return;
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text("Device not responding"),
+        content: const Text(
+          "The device didn't finish getting ready. Check that it is switched "
+          "on and nearby, then try again.",
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(dialogContext).pop();
+              _exitToDashboard();
+            },
+            child: const Text("Cancel"),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(dialogContext).pop();
+              _restartCalibration();
+            },
+            child: const Text("Retry"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Full restart of the handshake after a timeout: clears the retry state and
+  /// re-sends the initial signals from scratch.
+  Future<void> _restartCalibration() async {
+    if (_isDisposed) return;
+    _timeoutShown = false;
+    _totalWaitSeconds = 0;
+    elapsedSeconds = 0;
+    _handshakeDone = false;
+    _awaitingPercentEcho = false;
+    allSignalSent = false;
+    _percentEchoWindowTimer?.cancel();
+    _percentEchoWindowTimer = null;
+    await _sendInitialSignal(force: true);
   }
 
   void _showErrorDialog(String message) {
