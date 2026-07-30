@@ -20,6 +20,7 @@ import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:respyr_clinical/shared/urls.dart';
 import 'authentication/services/clinical_name_getx_controller.dart';
 import 'log_manager/device_info.dart';
+import 'shared/session_restore.dart';
 
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
     FlutterLocalNotificationsPlugin();
@@ -121,8 +122,36 @@ Future<void> main() async {
 
 class ProfileCubit {}
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   const MyApp({super.key});
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // `detached` means the user deliberately closed the app (swiped it away
+    // from recents). Forget the saved screen so the next launch starts at the
+    // dashboard — screen restore is only meant to paper over an OEM/system
+    // kill, never to second-guess a user who chose to close the app.
+    if (state == AppLifecycleState.detached) {
+      SessionRestore.clear();
+    }
+  }
 
   void _setupFCM() {
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
