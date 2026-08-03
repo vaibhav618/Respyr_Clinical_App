@@ -36,6 +36,10 @@ class UsbClinicalInhaleScreen extends StatefulWidget {
 class _UsbClinicalInhaleScreenState extends State<UsbClinicalInhaleScreen> {
   Timer? _timer;
   int _counter = 8;
+
+  /// Fires if the device never sends "blownow" after the countdown ends.
+  Timer? _blowWatchdogTimer;
+  bool _timeoutShown = false;
   bool _navigationToExhaleScreen = false;
   bool _isDisposed = false;
   String? _lastExtractedValue;
@@ -105,6 +109,8 @@ class _UsbClinicalInhaleScreenState extends State<UsbClinicalInhaleScreen> {
 
       if (_counter <= 0) {
         timer.cancel();
+        // Countdown done — from here we're purely waiting on the device.
+        _startBlowWatchdog();
       }
     });
   }
@@ -154,17 +160,78 @@ class _UsbClinicalInhaleScreenState extends State<UsbClinicalInhaleScreen> {
     if (data.contains("blownow") &&
         !_navigationToExhaleScreen &&
         _lastExtractedValue != null) {
-      _stopAllProcesses();
-      _usbDataSubscription?.cancel();
-
+      // Don't tear anything down before we know we can actually proceed:
+      // cancelling the USB subscription here and then bailing out on the
+      // internet check left the screen permanently stuck with no data feed.
       if (!_hasInternet) {
-        debugPrint("❌ No internet — holding at inhale screen.");
+        debugPrint("❌ No internet — holding at inhale screen, will retry.");
+        _pendingBlowValue = _lastExtractedValue;
         return;
       }
+
+      _stopAllProcesses();
+      _usbDataSubscription?.cancel();
       _navigateToUsbExhaleScreen(
         _lastExtractedValue!,
       ); // Use the last stored value
     }
+  }
+
+  /// A "blownow" that arrived while offline. Once connectivity returns we
+  /// continue from it instead of stranding the user on this screen.
+  String? _pendingBlowValue;
+
+  void _resumePendingBlowIfAny() {
+    if (_isDisposed || _navigationToExhaleScreen) return;
+    final String? pending = _pendingBlowValue;
+    if (pending == null || !_hasInternet) return;
+
+    _pendingBlowValue = null;
+    debugPrint("🔄 Internet back — resuming held blownow.");
+    _stopAllProcesses();
+    _usbDataSubscription?.cancel();
+    _navigateToUsbExhaleScreen(pending);
+  }
+
+  /// Watchdog: the countdown finishes at 0 and then this screen simply waits
+  /// for the device's "blownow". If that message never arrives — e.g. it was
+  /// emitted while the app was backgrounded — the screen used to sit at 00
+  /// forever with no feedback. Surface it instead.
+  void _startBlowWatchdog() {
+    _blowWatchdogTimer?.cancel();
+    _blowWatchdogTimer = Timer(const Duration(seconds: 45), () {
+      if (_isDisposed || _navigationToExhaleScreen || !mounted) return;
+      if (_pendingBlowValue != null) return; // waiting on internet, not device
+      debugPrint("⛔ Inhale screen: no blownow received — prompting user.");
+      _showInhaleTimeout();
+    });
+  }
+
+  void _showInhaleTimeout() {
+    if (_isDisposed || !mounted || _timeoutShown) return;
+    _timeoutShown = true;
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text("Didn't get a response"),
+        content: const Text(
+          "We didn't receive the blow signal from the device. This can happen "
+          "if the app was minimised during the test. Please start the test "
+          "again.",
+        ),
+        actions: [
+          TextButton(
+            onPressed: () async {
+              Navigator.of(dialogContext).pop();
+              _abortProcess();
+              await _exitToDashboard();
+            },
+            child: const Text("Back to dashboard"),
+          ),
+        ],
+      ),
+    );
   }
 
   void _navigateToUsbExhaleScreen(String data) {
@@ -326,6 +393,7 @@ class _UsbClinicalInhaleScreenState extends State<UsbClinicalInhaleScreen> {
   void dispose() {
     _isDisposed = true;
     _timer?.cancel();
+    _blowWatchdogTimer?.cancel();
     _usbDataSubscription?.cancel();
     _screenActive = false;
 
@@ -347,6 +415,8 @@ class _UsbClinicalInhaleScreenState extends State<UsbClinicalInhaleScreen> {
         setState(() {
           _hasInternet = hasInternet;
         });
+        // If a blow arrived while we were offline, continue it now.
+        _resumePendingBlowIfAny();
       },
       onRetry: () async {
         _abortProcess();

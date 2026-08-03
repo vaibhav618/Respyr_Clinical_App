@@ -36,6 +36,12 @@ class _BluetoothInhaleScreenState extends State<BluetoothInhaleScreen> {
   StreamSubscription<String>? _receivedDataSubscription;
 
   Timer? _timer;
+
+  /// Fires if the device never sends "blownow" after the countdown ends —
+  /// otherwise the screen sits at 00 forever with no feedback (e.g. when the
+  /// message was emitted while the app was backgrounded).
+  Timer? _blowWatchdogTimer;
+  bool _timeoutShown = false;
   bool _isConnected = false;
   int _counter = 8;
 
@@ -86,8 +92,47 @@ class _BluetoothInhaleScreenState extends State<BluetoothInhaleScreen> {
 
       if (_counter <= 0) {
         timer.cancel();
+        // Countdown done — from here we're purely waiting on the device.
+        _startBlowWatchdog();
       }
     });
+  }
+
+  void _startBlowWatchdog() {
+    _blowWatchdogTimer?.cancel();
+    _blowWatchdogTimer = Timer(const Duration(seconds: 45), () {
+      if (_isDisposed || _handledBlowNow || !mounted) return;
+      if (kDebugMode) {
+        print("⛔ Inhale screen: no blownow received — prompting user.");
+      }
+      _showInhaleTimeout();
+    });
+  }
+
+  void _showInhaleTimeout() {
+    if (_isDisposed || !mounted || _timeoutShown) return;
+    _timeoutShown = true;
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text("Didn't get a response"),
+        content: const Text(
+          "We didn't receive the blow signal from the device. This can happen "
+          "if the app was minimised during the test. Please start the test "
+          "again.",
+        ),
+        actions: [
+          TextButton(
+            onPressed: () async {
+              Navigator.of(dialogContext).pop();
+              await _exitToDashboard();
+            },
+            child: const Text("Back to dashboard"),
+          ),
+        ],
+      ),
+    );
   }
 
   void _attachListenersOnce() {
@@ -287,6 +332,7 @@ class _BluetoothInhaleScreenState extends State<BluetoothInhaleScreen> {
   @override
   void dispose() {
     _isDisposed = true;
+    _blowWatchdogTimer?.cancel();
     _stopAllProcesses();
     super.dispose();
   }
