@@ -168,10 +168,14 @@ class _BluetoothInhaleScreenState extends State<BluetoothInhaleScreen> {
         });
 
     _receivedDataSubscription = _bleManager.receivedDataStream.listen((data) {
-      if (!mounted || _isDisposed) return;
-
-      if (kDebugMode) {
-        print("New Data Received InhaleScreen: $data");
+      // debugPrint (not kDebugMode/print) so this is still visible in profile
+      // builds — it is the only way to tell whether "blownow" ever reached us.
+      debugPrint("📥 INHALE rx: $data");
+      if (!mounted || _isDisposed) {
+        debugPrint(
+          "⚠️ INHALE rx dropped (mounted=$mounted disposed=$_isDisposed)",
+        );
+        return;
       }
 
       // ✅ handle only ONCE

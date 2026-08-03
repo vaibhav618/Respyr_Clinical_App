@@ -56,10 +56,12 @@ class GenerationForegroundService {
         autoRunOnMyPackageReplaced: false,
         allowWakeLock: true,
         allowWifiLock: true,
-        // Closing the app from Recents genuinely ends the session. Without
-        // this the plugin re-launches the service ~1s after the task is
-        // removed, so a deliberate close would silently come back.
-        stopWithTask: true,
+        // NOTE: do NOT set `stopWithTask` here. Passing it from Dart makes the
+        // plugin install an ActivityLifecycleCallbacks hook that stops the
+        // service on the first onActivityPaused — i.e. the instant the app is
+        // minimised, which is exactly when we need it alive. Stop-on-close is
+        // configured via android:stopWithTask on the service in the manifest,
+        // which only fires on onTaskRemoved.
       ),
     );
   }

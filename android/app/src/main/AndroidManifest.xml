@@ -105,6 +105,7 @@
             android:name="com.pravera.flutter_foreground_task.service.ForegroundService"
             android:foregroundServiceType="connectedDevice|dataSync"
             android:exported="false"
+            android:stopWithTask="true"
             tools:replace="android:foregroundServiceType" />
 
         <!-- The generation service must NOT auto-restart after reboot (a reading

@@ -147,7 +147,16 @@ class _UsbClinicalInhaleScreenState extends State<UsbClinicalInhaleScreen> {
   }
 
   void _onUsbDataReceived(String data) {
-    if (!mounted || _isDisposed || !_screenActive) return;
+    // debugPrint (not kDebugMode/print) so this is still visible in profile
+    // builds — it is the only way to tell whether "blownow" ever reached us.
+    debugPrint("📥 INHALE rx: $data");
+    if (!mounted || _isDisposed || !_screenActive) {
+      debugPrint(
+        "⚠️ INHALE rx dropped (mounted=$mounted disposed=$_isDisposed "
+        "active=$_screenActive)",
+      );
+      return;
+    }
 
     final match = RegExp(r'/[\d.]+/').firstMatch(data);
     final extractedValue = match?.group(0);
