@@ -9,6 +9,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:respyr_clinical/clinical_app_respyr/screens/usb_test/screens/usb_clinical_calibration_screen.dart';
 import 'package:respyr_clinical/clinical_app_respyr/screens/usb_test/services/clinical_usb_communication_services.dart';
 import 'package:respyr_clinical/clinical_app_respyr/services/disconnected_error.dart';
+import 'package:respyr_clinical/clinical_app_respyr/services/generation_foreground_service.dart';
 import 'package:respyr_clinical/widgets/internet_connectivity_check.dart';
 import 'package:respyr_clinical/shared/audio_helper.dart';
 import 'package:respyr_clinical/shared/colors.dart';
@@ -45,6 +46,10 @@ class _UsbClinicalBreatheTubeState extends State<UsbClinicalBreatheTube> {
   @override
   void initState() {
     super.initState();
+
+    // A test session starts here. Hold the process at foreground priority for
+    // the whole flow so the OS can't kill us mid-test if the user switches away.
+    GenerationForegroundService.startForTest();
 
     _checkConnectionAndStart();
     _listenToDisconnection();

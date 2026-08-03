@@ -23,12 +23,14 @@ class _GenerationTaskHandler extends TaskHandler {
   Future<void> onDestroy(DateTime timestamp, bool isTimeout) async {}
 }
 
-/// Thin wrapper around [FlutterForegroundTask] scoped to result generation.
+/// Thin wrapper around [FlutterForegroundTask] scoped to a live breath test.
 ///
-/// Start it when generation begins (BLE data transfer + result API call) and
-/// stop it as soon as the result is shown or the attempt ends. While running,
-/// the OS keeps the process at foreground priority so it is not low-memory
-/// killed and Bluetooth/network keep working in the background.
+/// Start it the moment a test session begins (breathe-tube screen) and stop it
+/// only when the session ends — result shown, cancelled, or back on the
+/// dashboard. While it runs, the OS keeps the process at foreground priority,
+/// so aggressive OEM background killers (Samsung's `AL_Kill`, MIUI's
+/// `UserDefined`) cannot terminate the app mid-test, and Bluetooth/USB/network
+/// keep working even if the user minimises.
 class GenerationForegroundService {
   static const int _serviceId = 4711;
   static bool _initialized = false;
@@ -39,9 +41,9 @@ class GenerationForegroundService {
     FlutterForegroundTask.init(
       androidNotificationOptions: AndroidNotificationOptions(
         channelId: 'result_generation',
-        channelName: 'Result generation',
+        channelName: 'Breath test in progress',
         channelDescription:
-            'Keeps generating your reading while the app is in the background.',
+            'Keeps your test running if you switch away from the app.',
         onlyAlertOnce: true,
       ),
       iosNotificationOptions: const IOSNotificationOptions(
@@ -54,28 +56,56 @@ class GenerationForegroundService {
         autoRunOnMyPackageReplaced: false,
         allowWakeLock: true,
         allowWifiLock: true,
+        // Closing the app from Recents genuinely ends the session. Without
+        // this the plugin re-launches the service ~1s after the task is
+        // removed, so a deliberate close would silently come back.
+        stopWithTask: true,
       ),
     );
   }
 
-  /// Keep the app alive during a live reading: the connected BLE device is
-  /// transferring sensor data AND the result is uploaded over the network.
-  static Future<void> startForReading() async {
+  /// Keep the app alive for the whole test session — calibration, inhale,
+  /// exhale and result generation all talk to a connected device, and a kill at
+  /// any of those points strands the user mid-test.
+  static Future<void> startForTest() => _start(
+    title: 'Breath test in progress',
+    text: 'Keep Respyr open until the test finishes.',
+  );
+
+  /// Same service, retitled for the generation phase (BLE/USB data transfer
+  /// plus the result upload). Idempotent: if the session service is already
+  /// running from [startForTest], this only refreshes the notification text.
+  static Future<void> startForReading() => _start(
+    title: 'Generating your result',
+    text: 'Please keep the app open until your result is ready.',
+  );
+
+  static Future<void> _start({
+    required String title,
+    required String text,
+  }) async {
     try {
       _ensureInit();
-      if (await FlutterForegroundTask.isRunningService) return;
+      _StopOnResume.cancel();
+      if (await FlutterForegroundTask.isRunningService) {
+        await FlutterForegroundTask.updateService(
+          notificationTitle: title,
+          notificationText: text,
+        );
+        return;
+      }
       await FlutterForegroundTask.startService(
         serviceTypes: const [
           ForegroundServiceTypes.connectedDevice,
           ForegroundServiceTypes.dataSync,
         ],
         serviceId: _serviceId,
-        notificationTitle: 'Generating your result',
-        notificationText: 'Please keep the app open until your result is ready.',
+        notificationTitle: title,
+        notificationText: text,
         callback: generationForegroundCallback,
       );
     } catch (_) {
-      // Never let foreground-service issues break the reading flow itself.
+      // Never let foreground-service issues break the test flow itself.
     }
   }
 

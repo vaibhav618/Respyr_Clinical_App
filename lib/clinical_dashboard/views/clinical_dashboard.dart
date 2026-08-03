@@ -10,6 +10,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:respyr_clinical/account_center/menu_screen.dart';
+import 'package:respyr_clinical/clinical_app_respyr/services/generation_foreground_service.dart';
 import 'package:respyr_clinical/widgets/internet_connectivity_check.dart';
 import 'package:respyr_clinical/shared/colors.dart';
 import 'package:respyr_clinical/widgets/in_app_update.dart';
@@ -98,6 +99,11 @@ class _ClinicalDashboardMainState extends State<ClinicalDashboardMain>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    // Landing on the dashboard means no test is in flight — finished,
+    // cancelled, disconnected or timed out. Single place to release the
+    // foreground service so no abort path can leave it (and its notification)
+    // running.
+    GenerationForegroundService.stop();
     _initData();
     _cacheLoginId(widget.loginId);
     selectedDateNotifier.addListener(() {
