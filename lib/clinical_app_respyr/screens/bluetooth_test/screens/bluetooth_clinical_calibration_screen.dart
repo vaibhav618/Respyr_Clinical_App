@@ -7,10 +7,12 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:respyr_clinical/clinical_app_respyr/screens/bluetooth_test/screens/bluetooth_clinical_breathe_tube.dart';
 import 'package:respyr_clinical/clinical_app_respyr/screens/bluetooth_test/screens/bluetooth_clinical_inhale_screen.dart';
 import 'package:respyr_clinical/clinical_app_respyr/screens/bluetooth_test/services/clinical_bluetooth_manager.dart';
 import 'package:respyr_clinical/clinical_app_respyr/services/device_battery_utils.dart';
 import 'package:respyr_clinical/clinical_app_respyr/services/disconnected_error.dart';
+import 'package:respyr_clinical/clinical_app_respyr/services/test_interruption_watcher.dart';
 import 'package:respyr_clinical/shared/audio_helper.dart';
 import 'package:respyr_clinical/shared/colors.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -69,6 +71,12 @@ class _BluetoothCalibrationScreenState extends State<BluetoothCalibrationScreen>
   static const int _maxWaitSeconds = 90;
   bool _timeoutShown = false;
 
+  /// Leaving the app mid-calibration desynchronises the subject from the
+  /// device's prompts — see [TestInterruptionWatcher].
+  late final TestInterruptionWatcher _interruptionWatcher =
+      TestInterruptionWatcher(onInterrupted: _showTestInterrupted);
+  bool _interruptionShown = false;
+
   final List<String> progressMessage = [
     "Cleaning inner\nChamber of Device",
     "Verifying Cleanliness",
@@ -89,6 +97,7 @@ class _BluetoothCalibrationScreenState extends State<BluetoothCalibrationScreen>
   void initState() {
     super.initState();
 
+    _interruptionWatcher.start();
     _isConnected = _bleManager.isConnected;
 
     _initializeAnimationController();
@@ -463,6 +472,61 @@ class _BluetoothCalibrationScreenState extends State<BluetoothCalibrationScreen>
     );
   }
 
+  /// The user left the app part-way through the test. The device keeps running
+  /// its own sequence meanwhile, so by the time they return they have missed
+  /// the inhale cue and the reading can no longer be valid — offer a clean
+  /// restart rather than letting them walk into a Hold screen that will strand
+  /// at 00 waiting for a breath that already came and went.
+  void _showTestInterrupted() {
+    if (_isDisposed || !mounted || _interruptionShown) return;
+    if (_navigatedToInhaleScreen) return;
+    _interruptionShown = true;
+
+    _timer?.cancel();
+    _timer = null;
+    _audioHelper.stopAudio();
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text("Test interrupted"),
+        content: const Text(
+          "You left the app while the test was running, so the device is no "
+          "longer in step with you. Start the test again for an accurate "
+          "reading.",
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(dialogContext).pop();
+              abortProcess();
+              _exitToDashboard();
+            },
+            child: const Text("Back to dashboard"),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(dialogContext).pop();
+              _restartTestFromStart();
+            },
+            child: const Text("Start again"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Send the device back to a clean state and re-enter the flow from the
+  /// breathe-tube screen, so the subject gets every prompt from the beginning.
+  void _restartTestFromStart() {
+    abortProcess();
+    _stopAllProcesses();
+    Get.offAll(
+      () => BluetoothBreatheTube(profileDetails: widget.profileDetails),
+    );
+  }
+
   /// Full restart of the handshake after a timeout: clears the retry state and
   /// re-sends the initial signals from scratch.
   Future<void> _restartCalibration() async {
@@ -584,6 +648,7 @@ class _BluetoothCalibrationScreenState extends State<BluetoothCalibrationScreen>
   @override
   void dispose() {
     _isDisposed = true;
+    _interruptionWatcher.stop();
     _stopAllProcesses();
     _animationController.dispose();
     super.dispose();

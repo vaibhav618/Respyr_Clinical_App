@@ -8,7 +8,9 @@ import 'package:get_storage/get_storage.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:respyr_clinical/clinical_app_respyr/screens/usb_test/screens/usb_clinical_exhale_screen.dart';
 import 'package:respyr_clinical/clinical_app_respyr/screens/usb_test/services/clinical_usb_communication_services.dart';
+import 'package:respyr_clinical/clinical_app_respyr/screens/usb_test/screens/usb_clinical_breathe_tube.dart';
 import 'package:respyr_clinical/clinical_app_respyr/services/disconnected_error.dart';
+import 'package:respyr_clinical/clinical_app_respyr/services/test_interruption_watcher.dart';
 import 'package:respyr_clinical/widgets/internet_connectivity_check.dart';
 import 'package:respyr_clinical/shared/audio_helper.dart';
 import 'package:respyr_clinical/shared/colors.dart';
@@ -57,9 +59,17 @@ class _UsbClinicalInhaleScreenState extends State<UsbClinicalInhaleScreen> {
   Color profileColor = const Color(0xFF99E37F);
   bool _hasInternet = true;
   bool _screenActive = true;
+
+  /// Leaving the app here means the subject missed the inhale cue entirely —
+  /// see [TestInterruptionWatcher].
+  late final TestInterruptionWatcher _interruptionWatcher =
+      TestInterruptionWatcher(onInterrupted: _showTestInterrupted);
+  bool _interruptionShown = false;
+
   @override
   void initState() {
     super.initState();
+    _interruptionWatcher.start();
     Future.delayed(const Duration(milliseconds: 300), () {
       if (mounted && _usbService.isConnected) {
         setState(() {
@@ -225,9 +235,9 @@ class _UsbClinicalInhaleScreenState extends State<UsbClinicalInhaleScreen> {
       builder: (dialogContext) => AlertDialog(
         title: const Text("Didn't get a response"),
         content: const Text(
-          "We didn't receive the blow signal from the device. This can happen "
-          "if the app was minimised during the test. Please start the test "
-          "again.",
+          "We didn't receive the blow signal from the device. This usually "
+          "means the breath wasn't picked up, or the app was left during the "
+          "test. Start the test again.",
         ),
         actions: [
           TextButton(
@@ -238,7 +248,70 @@ class _UsbClinicalInhaleScreenState extends State<UsbClinicalInhaleScreen> {
             },
             child: const Text("Back to dashboard"),
           ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(dialogContext).pop();
+              _restartTestFromStart();
+            },
+            child: const Text("Try again"),
+          ),
         ],
+      ),
+    );
+  }
+
+  /// The user left the app during the Hold phase, so they missed the cue to
+  /// breathe and the device is waiting on a breath that will never come. Offer
+  /// a clean restart instead of leaving them on a screen frozen at 00.
+  void _showTestInterrupted() {
+    if (_isDisposed || !mounted || _interruptionShown) return;
+    if (_navigationToExhaleScreen || _timeoutShown) return;
+    _interruptionShown = true;
+
+    _timer?.cancel();
+    _blowWatchdogTimer?.cancel();
+    _audioHelper.stopAudio();
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text("Test interrupted"),
+        content: const Text(
+          "You left the app while the test was running, so the device is no "
+          "longer in step with you. Start the test again for an accurate "
+          "reading.",
+        ),
+        actions: [
+          TextButton(
+            onPressed: () async {
+              Navigator.of(dialogContext).pop();
+              _abortProcess();
+              await _exitToDashboard();
+            },
+            child: const Text("Back to dashboard"),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(dialogContext).pop();
+              _restartTestFromStart();
+            },
+            child: const Text("Start again"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Reset the device and re-enter the flow from the breathe-tube screen, so
+  /// the subject gets every prompt from the beginning.
+  void _restartTestFromStart() {
+    _abortProcess();
+    _stopAllProcesses();
+    Get.offAll(
+      () => UsbClinicalBreatheTube(
+        isClinicalTest: true,
+        profileDetails: widget.profileDetails,
       ),
     );
   }
@@ -401,6 +474,7 @@ class _UsbClinicalInhaleScreenState extends State<UsbClinicalInhaleScreen> {
   @override
   void dispose() {
     _isDisposed = true;
+    _interruptionWatcher.stop();
     _timer?.cancel();
     _blowWatchdogTimer?.cancel();
     _usbDataSubscription?.cancel();
@@ -509,7 +583,11 @@ class _UsbClinicalInhaleScreenState extends State<UsbClinicalInhaleScreen> {
                   ],
                 ),
                 Text(
-                  _counter > 4 ? 'Deep Inhale' : 'Hold',
+                  _counter > 4
+                      ? 'Deep Inhale'
+                      : _counter > 0
+                      ? 'Hold'
+                      : 'Waiting for device',
                   style: GoogleFonts.poppins(
                     fontSize: 25,
                     fontWeight: FontWeight.w600,
@@ -518,22 +596,33 @@ class _UsbClinicalInhaleScreenState extends State<UsbClinicalInhaleScreen> {
                 ),
                 Column(
                   children: [
-                    Text(
-                      '0$_counter',
-                      style: GoogleFonts.roboto(
-                        fontSize: 40,
-                        fontWeight: FontWeight.w400,
-                        color: AppColor.primaryBlackColor,
+                    // Past zero there is nothing left to count down — the
+                    // screen is purely waiting on the device. A frozen "00"
+                    // reads as a hang, so show live progress instead.
+                    if (_counter <= 0)
+                      const SizedBox(
+                        height: 40,
+                        width: 40,
+                        child: CircularProgressIndicator(strokeWidth: 3),
+                      )
+                    else ...[
+                      Text(
+                        '0$_counter',
+                        style: GoogleFonts.roboto(
+                          fontSize: 40,
+                          fontWeight: FontWeight.w400,
+                          color: AppColor.primaryBlackColor,
+                        ),
                       ),
-                    ),
-                    Text(
-                      'sec',
-                      style: GoogleFonts.roboto(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w400,
-                        color: AppColor.primaryBlackColor,
+                      Text(
+                        'sec',
+                        style: GoogleFonts.roboto(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w400,
+                          color: AppColor.primaryBlackColor,
+                        ),
                       ),
-                    ),
+                    ],
                   ],
                 ),
               ],
