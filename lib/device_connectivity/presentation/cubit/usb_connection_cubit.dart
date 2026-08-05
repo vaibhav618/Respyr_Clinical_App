@@ -141,6 +141,18 @@ class UsbCubit extends Cubit<UsbState> {
   final UsbRepository repository;
   Timer? _healthCheckTimer;
 
+  /// A device that has finished its cycle is silent between the "!" handshake
+  /// and the first calibration signal. One that is still working through the
+  /// cycle left behind by a cancelled reading keeps streaming — sensor values
+  /// while it is in calibration mode, bare counters while it is purging. Any
+  /// such unsolicited traffic means it is not ready to start a new test.
+  bool _watchingForChatter = false;
+  bool _sawChatter = false;
+
+  /// How long to listen before deciding the device is idle. The busy device
+  /// emits several packets a second, so this is comfortably long enough.
+  static const Duration _readinessProbe = Duration(milliseconds: 1500);
+
   UsbCubit(this.repository) : super(const UsbState()) {
     _init();
   }
@@ -177,6 +189,10 @@ class UsbCubit extends Cubit<UsbState> {
         print("Data Received from Device: $data");
         if (data.startsWith("H")) {
           emit(state.copyWith(deviceId: data.substring(1).trim()));
+          return;
+        }
+        if (_watchingForChatter && data.trim().isNotEmpty) {
+          _sawChatter = true;
         }
       },
       onCommandSent: (command) {
@@ -223,6 +239,20 @@ class UsbCubit extends Cubit<UsbState> {
     final deviceId = state.deviceId;
 
     if (deviceId != null) {
+      // Gate entry on the device actually being idle. A cancelled reading
+      // leaves it part-way through its own cycle, and it ignores the
+      // calibration signals until that finishes — so a test started now just
+      // sits in calibration until the device happens to come back. Replugging
+      // is the only thing that resets it, so say so instead of letting the
+      // user walk into a hang.
+      if (!await _isDeviceIdle()) {
+        if (context.mounted) {
+          emit(state.copyWith(isChecking: false));
+          await _showDeviceBusyDialog(context);
+        }
+        return;
+      }
+
       await clinicalDeviceCheckApi(deviceId);
       final prefs = await SharedPreferences.getInstance();
       final isReady = prefs.getBool("is_device_ready") ?? false;
@@ -256,6 +286,39 @@ class UsbCubit extends Cubit<UsbState> {
     if (context.mounted) {
       emit(state.copyWith(isChecking: false));
     }
+  }
+
+  /// Listen briefly and report whether the device stayed quiet. See
+  /// [_watchingForChatter] for why silence is the readiness signal.
+  Future<bool> _isDeviceIdle() async {
+    _sawChatter = false;
+    _watchingForChatter = true;
+    await Future.delayed(_readinessProbe);
+    _watchingForChatter = false;
+    if (_sawChatter) {
+      print("⛔ Device still busy from a previous test — blocking new test.");
+    }
+    return !_sawChatter;
+  }
+
+  Future<void> _showDeviceBusyDialog(BuildContext context) {
+    return showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text("Device not ready"),
+        content: const Text(
+          "The device is still finishing the previous test. Unplug it, plug it "
+          "back in, and start the test again.",
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text("OK"),
+          ),
+        ],
+      ),
+    );
   }
 
   @override

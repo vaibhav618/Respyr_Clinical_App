@@ -65,6 +65,20 @@ class _BluetoothClinicalDeviceConnectivityState
   bool _hasSentBraceCommand = false;
   bool _receivedPercentResponse = false;
 
+  /// A device that has finished its cycle only speaks when spoken to during
+  /// the handshake. One still working through the cycle left behind by a
+  /// cancelled reading keeps streaming sensor values or purge counters, and it
+  /// ignores calibration signals until it is done — so a test started now just
+  /// hangs in calibration. Watch for that traffic before letting the user in.
+  bool _watchingForChatter = false;
+  bool _sawChatter = false;
+  bool _probingReadiness = false;
+  static const Duration _readinessProbe = Duration(milliseconds: 1500);
+
+  /// Frames the device legitimately sends while handshaking: the `%` power-on
+  /// ack, the `H` hardware id, and `@voltage@` battery reports.
+  static final RegExp _handshakeFrame = RegExp(r'^(%|H.*|@.+@)$');
+
   bool _isConnectingInProgress = false;
 
   Timer? _connectingTimer;
@@ -322,6 +336,12 @@ class _BluetoothClinicalDeviceConnectivityState
 
         debugPrint("📨 Received: '$data'");
 
+        if (_watchingForChatter &&
+            data.isNotEmpty &&
+            !_handshakeFrame.hasMatch(data)) {
+          _sawChatter = true;
+        }
+
         if (data.contains("120")) {
           if (mounted) {
             setState(() {
@@ -368,8 +388,26 @@ class _BluetoothClinicalDeviceConnectivityState
   }
 
   Future<void> _navigateToNextIfNeeded() async {
-    if (_navigatedToNext) return;
+    if (_navigatedToNext || _probingReadiness) return;
     if (!mounted || _isDisposed) return;
+
+    // Listen before committing: a device still finishing its previous cycle
+    // will be streaming, and starting a test now would hang in calibration.
+    // Done before _navigatedToNext is set so the data listener stays live.
+    _probingReadiness = true;
+    _sawChatter = false;
+    _watchingForChatter = true;
+    await Future.delayed(_readinessProbe);
+    _watchingForChatter = false;
+    _probingReadiness = false;
+
+    if (!mounted || _isDisposed || _navigatedToNext) return;
+
+    if (_sawChatter) {
+      debugPrint("⛔ Device still busy from a previous test — blocking.");
+      _showDeviceBusyDialog();
+      return;
+    }
 
     _navigatedToNext = true;
 
@@ -388,6 +426,27 @@ class _BluetoothClinicalDeviceConnectivityState
     Get.offAll(
           () => BluetoothBreatheTube(
         profileDetails: widget.profileDetails,
+      ),
+    );
+  }
+
+  void _showDeviceBusyDialog() {
+    if (!mounted || _isDisposed) return;
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text("Device not ready"),
+        content: const Text(
+          "The device is still finishing the previous test. Switch it off and "
+          "on again, then start the test again.",
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text("OK"),
+          ),
+        ],
       ),
     );
   }
