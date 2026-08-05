@@ -215,7 +215,7 @@ class _UsbClinicalExhaleScreenState extends State<UsbClinicalExhaleScreen> {
   }
 
   void _abortProcess() {
-    _usbService.sendData("&");
+    _usbService.sendData("&", force: true);
   }
 
   void _navigateToDashboard() {
@@ -873,7 +873,7 @@ class UsbBlowProcessor {
             if (timeDifference >= Thresholds.abortDifference) {
               if (!isAbort) {
                 isAbort = true;
-                usbService.sendData("&");
+                usbService.sendData("&", force: true);
                 showImproperExhale(
                   context: context,
                   tryAgainButtonClicked: () {
@@ -968,7 +968,7 @@ class UsbBlowProcessor {
         );
       } else {
         if (!isAbort) {
-          usbService.sendData("&");
+          usbService.sendData("&", force: true);
           isAbort = true;
           showImproperExhale(
             context: context,

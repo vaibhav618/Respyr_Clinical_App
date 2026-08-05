@@ -110,7 +110,7 @@ class _UsbClinicalBreatheTubeState extends State<UsbClinicalBreatheTube> {
 
     try {
       if (_isConnected) {
-        _usbService.sendData("&");
+        _usbService.sendData("&", force: true);
         debugPrint("✅ Sent '&' to abort process");
       } else {
         debugPrint("⚠️ Device not connected, cannot send '&'");

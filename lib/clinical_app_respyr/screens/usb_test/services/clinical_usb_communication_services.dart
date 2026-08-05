@@ -161,21 +161,29 @@ class ClinicalUsbCommunicationServices {
     }
   }
 
-  Future<void> sendData(String data) async {
-    if (_isPaused) {
+  /// Writes [data] to the device and reports whether it actually went out.
+  ///
+  /// Pausing suppresses ordinary traffic, but the abort command must always
+  /// reach the device — leaving it mid-cycle is exactly what strands the next
+  /// test in calibration. Callers that must not be suppressed pass [force].
+  Future<bool> sendData(String data, {bool force = false}) async {
+    if (_isPaused && !force) {
       debugPrint("Cannot send data: USB communication is paused");
-      return;
+      return false;
     }
     try {
       if (_port != null) {
         await _port!.write(Uint8List.fromList(("$data\r\n").codeUnits));
         debugPrint("Command send : =>$data");
         _onCommandSent?.call(data);
+        return true;
       } else {
         _onError?.call("No USB port open");
+        return false;
       }
     } catch (e) {
       _onError?.call("Send error: $e");
+      return false;
     }
   }
 

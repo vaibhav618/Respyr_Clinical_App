@@ -10,6 +10,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:respyr_clinical/account_center/menu_screen.dart';
+import 'package:respyr_clinical/clinical_app_respyr/screens/usb_test/services/clinical_usb_communication_services.dart';
 import 'package:respyr_clinical/clinical_app_respyr/services/generation_foreground_service.dart';
 import 'package:respyr_clinical/widgets/internet_connectivity_check.dart';
 import 'package:respyr_clinical/shared/colors.dart';
@@ -104,6 +105,10 @@ class _ClinicalDashboardMainState extends State<ClinicalDashboardMain>
     // foreground service so no abort path can leave it (and its notification)
     // running.
     GenerationForegroundService.stop();
+    // The USB service is a singleton, so a test that paused it on the way out
+    // would leave it paused for the whole app — muting the stream the next
+    // test's readiness check relies on, and making it look idle when it isn't.
+    ClinicalUsbCommunicationServices().resumeCommunication();
     _initData();
     _cacheLoginId(widget.loginId);
     selectedDateNotifier.addListener(() {

@@ -219,7 +219,7 @@ class _UsbClinicalGeneratingResultState
 
   void _abortProcess() {
     if (_isConnected) {
-      _usbService.sendData("&");
+      _usbService.sendData("&", force: true);
     }
   }
 

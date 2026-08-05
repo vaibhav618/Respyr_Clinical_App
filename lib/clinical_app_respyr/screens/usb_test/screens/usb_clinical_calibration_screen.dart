@@ -530,10 +530,12 @@ class _UsbClinicalCalibrationScreenState
         ),
         actions: [
           TextButton(
-            onPressed: () {
+            onPressed: () async {
               Navigator.of(dialogContext).pop();
-              _abortProcess();
-              _exitToDashboard();
+              // Await: navigation tears the screen down, and the abort has to
+              // reach the device before that happens.
+              await _abortProcess();
+              await _exitToDashboard();
             },
             child: const Text("Back to dashboard"),
           ),
@@ -632,16 +634,20 @@ class _UsbClinicalCalibrationScreenState
     await storage.write('cancel_or_disconnect_time', now.toIso8601String());
   }
 
-  void _abortProcess() {
-    if (_isDisposed) return;
-
+  /// Not gated on [_isDisposed]: the interruption and cancel paths tear the
+  /// screen down around this call, and skipping the abort leaves the device
+  /// running its cycle — which is what strands the next test in calibration.
+  Future<void> _abortProcess() async {
     debugPrint("🛑 Aborting calibration...");
     debugPrint("USB connected: $_isConnected");
 
     try {
       if (_isConnected) {
-        _usbService.sendData("&");
-        debugPrint("✅ Sent '&' to abort process");
+        // force: paused USB comms must not swallow the abort.
+        final sent = await _usbService.sendData("&", force: true);
+        debugPrint(
+          sent ? "✅ Sent '&' to abort process" : "❌ '&' was NOT written",
+        );
       } else {
         debugPrint("⚠️ Device not connected, cannot send '&'");
       }
