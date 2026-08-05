@@ -7,7 +7,6 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:respyr_clinical/clinical_app_respyr/screens/bluetooth_test/screens/bluetooth_clinical_breathe_tube.dart';
 import 'package:respyr_clinical/clinical_app_respyr/screens/bluetooth_test/screens/bluetooth_clinical_exhale_screen.dart';
 import 'package:respyr_clinical/clinical_app_respyr/screens/bluetooth_test/services/clinical_bluetooth_manager.dart';
 import 'package:respyr_clinical/clinical_app_respyr/services/disconnected_error.dart';
@@ -139,21 +138,19 @@ class _BluetoothInhaleScreenState extends State<BluetoothInhaleScreen> {
             },
             child: const Text("Back to dashboard"),
           ),
-          TextButton(
-            onPressed: () {
-              Navigator.of(dialogContext).pop();
-              _restartTestFromStart();
-            },
-            child: const Text("Try again"),
-          ),
         ],
       ),
     );
   }
 
   /// The user left the app during the Hold phase, so they missed the cue to
-  /// breathe and the device is waiting on a breath that will never come. Offer
-  /// a clean restart instead of leaving them on a screen frozen at 00.
+  /// breathe and the device is waiting on a breath that will never come.
+  ///
+  /// The only way out is the dashboard. Re-entering the flow from here would
+  /// leave the device still in reading mode — it ignores the fresh signals and
+  /// the user lands on the same dead end. Starting a new test from the
+  /// dashboard re-runs the connect handshake, which is what actually resets
+  /// the device.
   void _showTestInterrupted() {
     if (_isDisposed || !mounted || _interruptionShown) return;
     if (_handledBlowNow || _timeoutShown) return;
@@ -167,11 +164,10 @@ class _BluetoothInhaleScreenState extends State<BluetoothInhaleScreen> {
       context: context,
       barrierDismissible: false,
       builder: (dialogContext) => AlertDialog(
-        title: const Text("Test interrupted"),
+        title: const Text("Test cancelled"),
         content: const Text(
-          "You left the app while the test was running, so the device is no "
-          "longer in step with you. Start the test again for an accurate "
-          "reading.",
+          "You left the app while the test was running, so this reading has "
+          "been cancelled. Please start the test again from the beginning.",
         ),
         actions: [
           TextButton(
@@ -181,25 +177,8 @@ class _BluetoothInhaleScreenState extends State<BluetoothInhaleScreen> {
             },
             child: const Text("Back to dashboard"),
           ),
-          TextButton(
-            onPressed: () {
-              Navigator.of(dialogContext).pop();
-              _restartTestFromStart();
-            },
-            child: const Text("Start again"),
-          ),
         ],
       ),
-    );
-  }
-
-  /// Reset the device and re-enter the flow from the breathe-tube screen, so
-  /// the subject gets every prompt from the beginning.
-  void _restartTestFromStart() {
-    abortProcess();
-    _stopAllProcesses();
-    Get.offAll(
-      () => BluetoothBreatheTube(profileDetails: widget.profileDetails),
     );
   }
 

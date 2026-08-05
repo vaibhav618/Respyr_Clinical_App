@@ -8,7 +8,6 @@ import 'package:get_storage/get_storage.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:respyr_clinical/clinical_app_respyr/screens/usb_test/screens/usb_clinical_exhale_screen.dart';
 import 'package:respyr_clinical/clinical_app_respyr/screens/usb_test/services/clinical_usb_communication_services.dart';
-import 'package:respyr_clinical/clinical_app_respyr/screens/usb_test/screens/usb_clinical_breathe_tube.dart';
 import 'package:respyr_clinical/clinical_app_respyr/services/disconnected_error.dart';
 import 'package:respyr_clinical/clinical_app_respyr/services/test_interruption_watcher.dart';
 import 'package:respyr_clinical/widgets/internet_connectivity_check.dart';
@@ -248,21 +247,19 @@ class _UsbClinicalInhaleScreenState extends State<UsbClinicalInhaleScreen> {
             },
             child: const Text("Back to dashboard"),
           ),
-          TextButton(
-            onPressed: () {
-              Navigator.of(dialogContext).pop();
-              _restartTestFromStart();
-            },
-            child: const Text("Try again"),
-          ),
         ],
       ),
     );
   }
 
   /// The user left the app during the Hold phase, so they missed the cue to
-  /// breathe and the device is waiting on a breath that will never come. Offer
-  /// a clean restart instead of leaving them on a screen frozen at 00.
+  /// breathe and the device is waiting on a breath that will never come.
+  ///
+  /// The only way out is the dashboard. Re-entering the flow from here would
+  /// leave the device still in reading mode — it ignores the fresh signals and
+  /// the user lands on the same dead end. Starting a new test from the
+  /// dashboard re-runs the connect handshake ("!"), which is what actually
+  /// resets the device.
   void _showTestInterrupted() {
     if (_isDisposed || !mounted || _interruptionShown) return;
     if (_navigationToExhaleScreen || _timeoutShown) return;
@@ -276,11 +273,10 @@ class _UsbClinicalInhaleScreenState extends State<UsbClinicalInhaleScreen> {
       context: context,
       barrierDismissible: false,
       builder: (dialogContext) => AlertDialog(
-        title: const Text("Test interrupted"),
+        title: const Text("Test cancelled"),
         content: const Text(
-          "You left the app while the test was running, so the device is no "
-          "longer in step with you. Start the test again for an accurate "
-          "reading.",
+          "You left the app while the test was running, so this reading has "
+          "been cancelled. Please start the test again from the beginning.",
         ),
         actions: [
           TextButton(
@@ -291,27 +287,7 @@ class _UsbClinicalInhaleScreenState extends State<UsbClinicalInhaleScreen> {
             },
             child: const Text("Back to dashboard"),
           ),
-          TextButton(
-            onPressed: () {
-              Navigator.of(dialogContext).pop();
-              _restartTestFromStart();
-            },
-            child: const Text("Start again"),
-          ),
         ],
-      ),
-    );
-  }
-
-  /// Reset the device and re-enter the flow from the breathe-tube screen, so
-  /// the subject gets every prompt from the beginning.
-  void _restartTestFromStart() {
-    _abortProcess();
-    _stopAllProcesses();
-    Get.offAll(
-      () => UsbClinicalBreatheTube(
-        isClinicalTest: true,
-        profileDetails: widget.profileDetails,
       ),
     );
   }
