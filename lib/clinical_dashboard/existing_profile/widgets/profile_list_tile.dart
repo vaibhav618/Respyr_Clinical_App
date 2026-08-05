@@ -8,7 +8,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../clinical_app_respyr/screens/bluetooth_test/screens/bluetooth_clinical_device_connectivity.dart';
 import '../../../common/floating_message.dart';
 import '../../../new_result/data/model/result_profile_data_model.dart';
+import '../../helper/abort_device_manager.dart';
 import '../../views/subject_profile.dart';
+import '../../widgets/check_abort_sheet.dart';
 import '../../widgets/connection_option_sheet.dart';
 import '../../widgets/update_region_sheet.dart';
 import '../models/profile_model.dart';
@@ -32,7 +34,7 @@ class ProfileListTile extends StatelessWidget {
   static Timer? _cooldownToastTimer;
 
   // ✅ added
-  Future<int> getRemainingCooldownSeconds({int cooldownSeconds = 40}) async {
+  Future<int> getRemainingCooldownSeconds({int cooldownSeconds = 60}) async {
     final prefs = await SharedPreferences.getInstance();
     final last = prefs.getInt('last_reading_time');
     if (last == null) return 0;
@@ -77,6 +79,30 @@ class ProfileListTile extends StatelessWidget {
     });
   }
 
+  /// Both cooldowns have to clear before a test can start: the one after a
+  /// completed reading and the one after an aborted one. The device keeps
+  /// working through its own cycle either way, and starting before it is done
+  /// leaves the user sitting in a calibration screen that cannot progress.
+  Future<void> _startTestWhenReady(
+    BuildContext context,
+    VoidCallback proceed,
+  ) async {
+    final remaining = await getRemainingCooldownSeconds();
+    if (remaining > 0) {
+      if (context.mounted) await showCooldownToast(context, remaining);
+      return;
+    }
+
+    if (await AbortDeviceManager.getAbortStatus()) {
+      if (context.mounted) {
+        CheckAbortSheet.show(context: context, onTakeTextClick: proceed);
+      }
+      return;
+    }
+
+    if (context.mounted) proceed();
+  }
+
   void _showConnectionOption(
     ResultProfileDataModel profileModel,
     BuildContext context,
@@ -91,32 +117,27 @@ class ProfileListTile extends StatelessWidget {
           onBluetoothTap: () async {
             Navigator.pop(context); // ✅ Close the bottom sheet
 
-            // ✅ added: cooldown check before navigating
-            final remaining = await getRemainingCooldownSeconds(
-              cooldownSeconds: 40,
-            );
-
-            if (remaining > 0) {
-              await showCooldownToast(context, remaining);
-              return;
-            }
-
-            Navigator.pop(context);
-            Get.to(
-              () => BluetoothClinicalDeviceConnectivity(
-                // isClinicalTest: true,
-                profileDetails: profileModel,
-              ),
-            );
+            await _startTestWhenReady(context, () {
+              Navigator.pop(context);
+              Get.to(
+                () => BluetoothClinicalDeviceConnectivity(
+                  // isClinicalTest: true,
+                  profileDetails: profileModel,
+                ),
+              );
+            });
           },
-          onUsbTap: () {
+          onUsbTap: () async {
             Navigator.pop(context);
-            Get.to(
-              () => UsbDeviceConnectivity(
-                isClinicalTest: true,
-                profileDetails: profileModel,
-              ),
-            );
+
+            await _startTestWhenReady(context, () {
+              Get.to(
+                () => UsbDeviceConnectivity(
+                  isClinicalTest: true,
+                  profileDetails: profileModel,
+                ),
+              );
+            });
           },
         );
       },

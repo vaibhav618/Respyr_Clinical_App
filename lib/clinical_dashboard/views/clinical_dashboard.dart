@@ -196,7 +196,7 @@ class _ClinicalDashboardMainState extends State<ClinicalDashboardMain>
   }
 
   // ✅ ADDED: cooldown seconds checker (uses last_reading_time from SharedPrefs)
-  Future<int> getRemainingCooldownSeconds({int cooldownSeconds = 40}) async {
+  Future<int> getRemainingCooldownSeconds({int cooldownSeconds = 60}) async {
     final prefs = await SharedPreferences.getInstance();
     final last = prefs.getInt('last_reading_time');
     if (last == null) return 0;
@@ -478,7 +478,7 @@ class _ClinicalDashboardMainState extends State<ClinicalDashboardMain>
           if (_hasInternet) {
             // ✅ ADDED: Bluetooth cooldown check here
             final remaining =
-            await getRemainingCooldownSeconds(cooldownSeconds: 40);
+            await getRemainingCooldownSeconds(cooldownSeconds: 60);
 
             if (!mounted) return;
 

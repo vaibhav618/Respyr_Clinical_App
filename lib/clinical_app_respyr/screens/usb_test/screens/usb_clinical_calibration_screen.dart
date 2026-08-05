@@ -172,6 +172,11 @@ class _UsbClinicalCalibrationScreenState
 
   Future<void> _exitToDashboard() async {
     _stopAllProcesses();
+    // Stamp the abort so the dashboard holds the next test back until the
+    // device has finished the cycle this one left it in. Bluetooth already did
+    // this; USB did not, so leaving calibration let the user start again
+    // straight away and land in a hung calibration.
+    await _setCancelOrDisconnectFlag();
     if (mounted) {
       _navigateToDashboard();
     }

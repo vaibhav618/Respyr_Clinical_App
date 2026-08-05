@@ -178,7 +178,7 @@ class _CreateProfileState extends State<CreateProfile> {
   }
 
   // ✅ added
-  Future<int> getRemainingCooldownSeconds({int cooldownSeconds = 40}) async {
+  Future<int> getRemainingCooldownSeconds({int cooldownSeconds = 60}) async {
     final prefs = await SharedPreferences.getInstance();
     final last = prefs.getInt('last_reading_time');
     if (last == null) return 0;
@@ -375,7 +375,7 @@ class _CreateProfileState extends State<CreateProfile> {
 
             // ✅ added: cooldown check before navigating
             final remaining = await getRemainingCooldownSeconds(
-              cooldownSeconds: 40,
+              cooldownSeconds: 60,
             );
             if (remaining > 0) {
               _isNavigating = false;

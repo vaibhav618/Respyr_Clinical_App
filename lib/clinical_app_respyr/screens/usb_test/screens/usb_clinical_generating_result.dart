@@ -12,6 +12,7 @@ import 'package:respyr_clinical/clinical_app_respyr/services/disconnected_error.
 import 'package:respyr_clinical/clinical_app_respyr/services/generation_foreground_service.dart';
 import 'package:respyr_clinical/widgets/internet_connectivity_check.dart';
 import 'package:respyr_clinical/shared/colors.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../new_result/bloc/new_result_bloc.dart';
 import '../../../../new_result/bloc/new_result_cubit.dart';
 import '../../../../new_result/data/model/result_model.dart';
@@ -238,6 +239,16 @@ class _UsbClinicalGeneratingResultState
       arguments: {
         'profile_details': widget.profileDetails, // full ResultProfileDataModel
       },
+    );
+  }
+
+  /// Records when a reading finished, so the cooldown before the next test is
+  /// measured from completion.
+  Future<void> saveCurrentTime() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(
+      'last_reading_time',
+      DateTime.now().millisecondsSinceEpoch,
     );
   }
 
@@ -832,6 +843,12 @@ class _UsbClinicalGeneratingResultState
     if (Get.isOverlaysOpen) {
       Get.back();
     }
+
+    // Stamp the completion so the next test is held off until the device has
+    // finished its cycle. The Bluetooth flow already did this; USB never did,
+    // so a second USB test could be started immediately and would then hang in
+    // calibration waiting for a device that was still busy.
+    saveCurrentTime();
 
     received120 = true;
 

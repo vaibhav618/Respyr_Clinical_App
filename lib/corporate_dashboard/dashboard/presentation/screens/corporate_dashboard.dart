@@ -363,7 +363,7 @@ class _CorporateDashboardState extends State<CorporateDashboard>
             }
 
             final remaining = await getRemainingCooldownSeconds(
-              cooldownSeconds: 40,
+              cooldownSeconds: 60,
             );
 
             if (!context.mounted) return;
@@ -413,7 +413,7 @@ class _CorporateDashboardState extends State<CorporateDashboard>
     );
   }
 
-  Future<int> getRemainingCooldownSeconds({int cooldownSeconds = 40}) async {
+  Future<int> getRemainingCooldownSeconds({int cooldownSeconds = 60}) async {
     final prefs = await SharedPreferences.getInstance();
     final last = prefs.getInt('last_reading_time');
 
