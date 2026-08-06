@@ -387,13 +387,14 @@ class ClinicalBluetoothManager {
         BluetoothCharacteristic? localWrite;
 
         for (final char in service.characteristics) {
-          if (kDebugMode) {
-            print("Service ${service.uuid} -> Char ${char.uuid} "
-                "notify=${char.properties.notify} "
-                "indicate=${char.properties.indicate} "
-                "write=${char.properties.write} "
-                "wwr=${char.properties.writeWithoutResponse}");
-          }
+          // debugPrint so the GATT table is visible in profile builds — it is
+          // the evidence needed when a device answers the handshake with
+          // something the protocol doesn't define.
+          debugPrint("GATT ${service.uuid} -> ${char.uuid} "
+              "notify=${char.properties.notify} "
+              "indicate=${char.properties.indicate} "
+              "write=${char.properties.write} "
+              "wwr=${char.properties.writeWithoutResponse}");
 
           if (localNotify == null &&
               (char.properties.notify || char.properties.indicate)) {
@@ -498,7 +499,10 @@ class ClinicalBluetoothManager {
         if (value.isEmpty) return;
 
         final received = String.fromCharCodes(value);
-        debugPrint("📨 Received: $received");
+        // Log raw bytes too: a one-character reply like "i" is ambiguous
+        // between a real response and a truncated frame, and only the bytes
+        // tell them apart.
+        debugPrint("📨 Received: $received  bytes=$value");
         _receivedDataController.add(received);
 
         if (received.trim() == '120') {
