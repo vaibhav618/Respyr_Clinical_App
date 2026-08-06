@@ -9,7 +9,14 @@ class ClinicalBluetoothManager {
   factory ClinicalBluetoothManager() => _instance;
   ClinicalBluetoothManager._internal();
 
-  final String targetDeviceName = 'RESPYR_01';
+  /// Devices are matched on this prefix, case-insensitively, rather than on one
+  /// exact name. Units in the field do not all advertise the same string —
+  /// "RESPYR_01" and "Respyr_M69" are both Respyr hardware — and an exact
+  /// comparison silently failed to find anything but the one hardcoded name.
+  final String targetDeviceNamePrefix = 'respyr';
+
+  bool _isRespyrDevice(String name) =>
+      name.toLowerCase().startsWith(targetDeviceNamePrefix);
 
   BluetoothDevice? _targetDevice;
   BluetoothCharacteristic? _notifyCharacteristic;
@@ -64,12 +71,12 @@ class ClinicalBluetoothManager {
     try {
       final state = await FlutterBluePlus.adapterState.first;
       if (state != BluetoothAdapterState.on) {
-        if (kDebugMode) print("❌ Bluetooth is not ON: $state");
+        debugPrint("❌ Bluetooth is not ON: $state");
         _connectionStatusController.add(false);
         return;
       }
 
-      if (kDebugMode) print("🔍 Starting scan...");
+      debugPrint("🔍 Starting scan...");
 
       // Start scan
       await FlutterBluePlus.startScan(
@@ -80,7 +87,7 @@ class ClinicalBluetoothManager {
       // Hard timeout safety
       _scanHardTimeoutTimer = Timer(hardTimeout, () async {
         if (_isScanning) {
-          if (kDebugMode) print("⏰ Scan hard-timeout. Resetting.");
+          debugPrint("⏰ Scan hard-timeout. Resetting.");
           _shouldStopAllProcesses = true;
           await _stopScanInternal();
           reset();
@@ -93,6 +100,8 @@ class ClinicalBluetoothManager {
       _scanSub = FlutterBluePlus.scanResults.listen((results) {
         if (_shouldStopAllProcesses || completer.isCompleted) return;
 
+        ScanResult? best;
+
         for (final r in results) {
           final adv = r.device.advName.trim();
           final platform = r.device.platformName.trim();
@@ -100,19 +109,29 @@ class ClinicalBluetoothManager {
 
           if (id.isEmpty) continue;
 
-          if (kDebugMode) {
-            print("Found: adv='$adv' platform='$platform' id=$id rssi=${r.rssi}");
-          }
+          // debugPrint, not kDebugMode/print: profile builds strip the latter,
+          // which left the whole scan invisible when it found nothing.
+          debugPrint(
+            "🔍 Found: adv='$adv' platform='$platform' id=$id rssi=${r.rssi}",
+          );
 
           final matchesName =
-              (adv.isNotEmpty && adv == targetDeviceName) ||
-                  (platform.isNotEmpty && platform == targetDeviceName);
+              (adv.isNotEmpty && _isRespyrDevice(adv)) ||
+                  (platform.isNotEmpty && _isRespyrDevice(platform));
 
-          if (matchesName) {
-            if (kDebugMode) print("🎯 Target device found!");
-            completer.complete(r);
-            break;
+          // Several units can be in range in a clinic, so take the strongest
+          // signal rather than whichever happened to be seen first.
+          if (matchesName && (best == null || r.rssi > best.rssi)) {
+            best = r;
           }
+        }
+
+        final ScanResult? target = best;
+        if (target != null) {
+          debugPrint(
+            "🎯 Target device: '${target.device.advName}' rssi=${target.rssi}",
+          );
+          completer.complete(target);
         }
       });
 
@@ -125,14 +144,14 @@ class ClinicalBluetoothManager {
       await _stopScanInternal();
 
       if (found == null) {
-        if (kDebugMode) print("❌ Target not found in scan window.");
+        debugPrint("❌ Target not found in scan window.");
         _connectionStatusController.add(false);
         return;
       }
 
       await _connectWithRetries(found.device, retries: connectRetries);
     } catch (e) {
-      if (kDebugMode) print("Scan/connect error: $e");
+      debugPrint("Scan/connect error: $e");
       _connectionStatusController.add(false);
     } finally {
       await _stopScanInternal();
@@ -142,24 +161,24 @@ class ClinicalBluetoothManager {
 
   Future<void> sendData(String data) async {
     if (_targetDevice == null) {
-      if (kDebugMode) print("❌ No target device.");
+      debugPrint("❌ No target device.");
       return;
     }
     if (!_isConnected) {
-      if (kDebugMode) print("❌ Device not connected.");
+      debugPrint("❌ Device not connected.");
       return;
     }
     if (_shouldStopAllProcesses) {
-      if (kDebugMode) print("❌ Stopped due to abort flag.");
+      debugPrint("❌ Stopped due to abort flag.");
       return;
     }
 
     if (!_isReadyForWrite || _writeCharacteristic == null) {
-      if (kDebugMode) print("❌ Not ready to write. Attempting recovery...");
+      debugPrint("❌ Not ready to write. Attempting recovery...");
       await _discoverServices();
 
       if (!_isReadyForWrite || _writeCharacteristic == null) {
-        if (kDebugMode) print("❌ Write characteristic still not available.");
+        debugPrint("❌ Write characteristic still not available.");
         return;
       }
     }
@@ -172,13 +191,13 @@ class ClinicalBluetoothManager {
       } else if (_writeCharacteristic!.properties.writeWithoutResponse) {
         await _writeCharacteristic!.write(bytes, withoutResponse: true);
       } else {
-        if (kDebugMode) print("❌ Characteristic does not support writing.");
+        debugPrint("❌ Characteristic does not support writing.");
         return;
       }
 
-      if (kDebugMode) print("✅ Sent: $data");
+      debugPrint("✅ Sent: $data");
     } catch (e) {
-      if (kDebugMode) print("❌ Send error: $e");
+      debugPrint("❌ Send error: $e");
     }
   }
 
@@ -203,7 +222,7 @@ class ClinicalBluetoothManager {
 
       await device.disconnect();
     } catch (e) {
-      if (kDebugMode) print("Disconnect error: $e");
+      debugPrint("Disconnect error: $e");
     } finally {
       _handleDisconnection();
     }
@@ -252,7 +271,7 @@ class ClinicalBluetoothManager {
       for (int attempt = 1; attempt <= retries; attempt++) {
         if (_shouldStopAllProcesses) return;
 
-        if (kDebugMode) print("🔌 Connect attempt $attempt/$retries...");
+        debugPrint("🔌 Connect attempt $attempt/$retries...");
 
         final ok = await _connectToDeviceOnce(device);
         if (ok) return;
@@ -260,7 +279,7 @@ class ClinicalBluetoothManager {
         await Future.delayed(Duration(milliseconds: 300 * attempt));
       }
 
-      if (kDebugMode) print("❌ All connect retries failed.");
+      debugPrint("❌ All connect retries failed.");
       _connectionStatusController.add(false);
     } finally {
       _isConnecting = false;
@@ -286,7 +305,7 @@ class ClinicalBluetoothManager {
           await _targetDevice!.requestMtu(247);
           await Future.delayed(const Duration(milliseconds: 150));
         } catch (e) {
-          if (kDebugMode) print("MTU request failed (ok): $e");
+          debugPrint("MTU request failed (ok): $e");
         }
 
         // Optional: some devices require bonding for notifications
@@ -295,12 +314,12 @@ class ClinicalBluetoothManager {
         try {
           final bondState = await _targetDevice!.bondState.first;
           if (bondState == BluetoothBondState.none) {
-            if (kDebugMode) print("🔐 Creating bond...");
+            debugPrint("🔐 Creating bond...");
             await _targetDevice!.createBond();
             await Future.delayed(const Duration(milliseconds: 500));
           }
         } catch (e) {
-          if (kDebugMode) print("Bond attempt failed (maybe not required): $e");
+          debugPrint("Bond attempt failed (maybe not required): $e");
         }
         */
       }
@@ -312,11 +331,11 @@ class ClinicalBluetoothManager {
       _connectionSubscription =
           _targetDevice!.connectionState.listen((state) async {
             if (state == BluetoothConnectionState.disconnected) {
-              if (kDebugMode) print("🔌 Disconnected!");
+              debugPrint("🔌 Disconnected!");
               _connectionStatusController.add(false);
               _handleDisconnection();
             } else if (state == BluetoothConnectionState.connected) {
-              if (kDebugMode) print("✅ Connected (state stream).");
+              debugPrint("✅ Connected (state stream).");
               _isConnected = true;
               _connectionStatusController.add(true);
             }
@@ -325,7 +344,7 @@ class ClinicalBluetoothManager {
       await _discoverServices();
       return _isReadyForWrite;
     } catch (e) {
-      if (kDebugMode) print("Connection error: $e");
+      debugPrint("Connection error: $e");
       await disconnect(force: true);
       return false;
     }
@@ -355,7 +374,7 @@ class ClinicalBluetoothManager {
     if (device == null || _shouldStopAllProcesses) return;
 
     try {
-      if (kDebugMode) print("🔎 Discovering services...");
+      debugPrint("🔎 Discovering services...");
 
       final services = await device.discoverServices();
 
@@ -420,20 +439,20 @@ class ClinicalBluetoothManager {
       _writeCharacteristic = bestWrite;
 
       if (_notifyCharacteristic == null) {
-        if (kDebugMode) print("❌ No notify/indicate characteristic found.");
+        debugPrint("❌ No notify/indicate characteristic found.");
       } else {
         await _enableNotify(_notifyCharacteristic!);
       }
 
       if (_writeCharacteristic == null) {
         _isReadyForWrite = false;
-        if (kDebugMode) print("❌ No valid write characteristic found.");
+        debugPrint("❌ No valid write characteristic found.");
       } else {
         _isReadyForWrite = true;
-        if (kDebugMode) print("✅ Write ready: ${_writeCharacteristic!.uuid}");
+        debugPrint("✅ Write ready: ${_writeCharacteristic!.uuid}");
       }
     } catch (e) {
-      if (kDebugMode) print("Service discovery error: $e");
+      debugPrint("Service discovery error: $e");
       _isReadyForWrite = false;
     }
   }
@@ -470,16 +489,16 @@ class ClinicalBluetoothManager {
           }
         }
       } catch (e) {
-        if (kDebugMode) print("CCCD write failed (maybe ok): $e");
+        debugPrint("CCCD write failed (maybe ok): $e");
       }
 
-      if (kDebugMode) print("✅ Notify enabled: ${c.uuid}");
+      debugPrint("✅ Notify enabled: ${c.uuid}");
 
       _notificationSubscription = c.onValueReceived.listen((value) {
         if (value.isEmpty) return;
 
         final received = String.fromCharCodes(value);
-        if (kDebugMode) print("📨 Received: $received");
+        debugPrint("📨 Received: $received");
         _receivedDataController.add(received);
 
         if (received.trim() == '120') {
@@ -489,7 +508,7 @@ class ClinicalBluetoothManager {
         }
       });
     } catch (e) {
-      if (kDebugMode) print("❌ Enable notify failed: $e");
+      debugPrint("❌ Enable notify failed: $e");
     } finally {
       _enablingNotify = false;
     }
@@ -513,6 +532,6 @@ class ClinicalBluetoothManager {
 
     _shouldStopAllProcesses = false;
 
-    if (kDebugMode) print("🔄 BLE reset");
+    debugPrint("🔄 BLE reset");
   }
 }
