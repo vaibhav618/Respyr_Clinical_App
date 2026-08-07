@@ -21,7 +21,14 @@ class ClinicalBluetoothManager {
   /// those if it happens to be closer.
   final String targetDeviceName = 'RESPYR_01';
 
-  bool _isRespyrDevice(String name) => _normalizeName(name) == targetDeviceName;
+  /// The canonical advertised name. A unit using it is always preferred.
+  bool _isPreferredDevice(String name) =>
+      _normalizeName(name) == targetDeviceName;
+
+  /// Any Respyr-branded unit. Used only as a fallback, because other Respyr
+  /// hardware exists that does not serve the clinical protocol.
+  bool _isRespyrDevice(String name) =>
+      _normalizeName(name).toLowerCase().startsWith('respyr');
 
   /// Strips control characters before comparing. This firmware NUL-pads its
   /// strings, so an advertised name can arrive as "RESPYR_01\x00\x00\x00" —
@@ -123,10 +130,17 @@ class ClinicalBluetoothManager {
 
       final completer = Completer<ScanResult?>();
 
+      // A unit advertising RESPYR_01 wins outright and ends the scan. Any other
+      // Respyr-branded unit is held as a fallback and only used once the scan
+      // window closes without a preferred one — otherwise a nearer device of a
+      // different model would be picked over the right one purely on signal
+      // strength.
+      ScanResult? fallback;
+
       _scanSub = FlutterBluePlus.scanResults.listen((results) {
         if (_shouldStopAllProcesses || completer.isCompleted) return;
 
-        ScanResult? best;
+        ScanResult? preferred;
 
         for (final r in results) {
           final adv = r.device.advName.trim();
@@ -142,18 +156,16 @@ class ClinicalBluetoothManager {
             "adv=[${_describeName(adv)}] platform=[${_describeName(platform)}]",
           );
 
-          final matchesName =
-              (adv.isNotEmpty && _isRespyrDevice(adv)) ||
-                  (platform.isNotEmpty && _isRespyrDevice(platform));
-
-          // Several units can be in range in a clinic, so take the strongest
-          // signal rather than whichever happened to be seen first.
-          if (matchesName && (best == null || r.rssi > best.rssi)) {
-            best = r;
+          // Strongest signal wins within a tier — a clinic can have several
+          // units in range.
+          if (_isPreferredDevice(adv) || _isPreferredDevice(platform)) {
+            if (preferred == null || r.rssi > preferred.rssi) preferred = r;
+          } else if (_isRespyrDevice(adv) || _isRespyrDevice(platform)) {
+            if (fallback == null || r.rssi > fallback!.rssi) fallback = r;
           }
         }
 
-        final ScanResult? target = best;
+        final ScanResult? target = preferred;
         if (target != null) {
           debugPrint(
             "🎯 Target: rssi=${target.rssi} "
@@ -164,12 +176,21 @@ class ClinicalBluetoothManager {
       });
 
       // Guarantee scan completion (never hang)
-      final found = await Future.any<ScanResult?>([
+      ScanResult? found = await Future.any<ScanResult?>([
         completer.future,
         Future.delayed(scanTimeout + const Duration(seconds: 1), () => null),
       ]);
 
       await _stopScanInternal();
+
+      if (found == null && fallback != null) {
+        found = fallback;
+        debugPrint(
+          "⚠️ No $targetDeviceName found; falling back to "
+          "[${_describeName(found!.device.advName)}] rssi=${found.rssi}. "
+          "This unit may not serve the clinical protocol.",
+        );
+      }
 
       if (found == null) {
         debugPrint("❌ Target not found in scan window.");
