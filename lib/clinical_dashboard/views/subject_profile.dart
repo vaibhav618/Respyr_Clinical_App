@@ -48,14 +48,17 @@ class _SubjectProfileScreenState extends State<SubjectProfileScreen> {
   void _onScroll() {
     final double offset =
         _scrollController.hasClients ? _scrollController.offset : 0;
-    _titleT.value =
-        ((offset - _fadeStart) / (_fadeEnd - _fadeStart)).clamp(0.0, 1.0);
+    _titleT.value = ((offset - _fadeStart) / (_fadeEnd - _fadeStart)).clamp(
+      0.0,
+      1.0,
+    );
   }
 
   @override
   void dispose() {
     _scrollController.dispose();
     _titleT.dispose();
+
     super.dispose();
   }
 
@@ -111,9 +114,7 @@ class _SubjectProfileScreenState extends State<SubjectProfileScreen> {
           child: BlocConsumer<SubjectProfileBloc, SubjectProfileState>(
             listener: (context, state) {
               if (state is SubjectProfileLoaded) {
-                setState(
-                  () => _loadedProfileName = state.profile.profileName,
-                );
+                setState(() => _loadedProfileName = state.profile.profileName);
               }
             },
             builder: (context, state) {

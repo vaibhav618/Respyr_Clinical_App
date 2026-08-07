@@ -18,6 +18,20 @@ class ClinicalBluetoothManager {
   bool _isRespyrDevice(String name) =>
       name.toLowerCase().startsWith(targetDeviceNamePrefix);
 
+  /// Renders a device name so control characters survive the log. A name
+  /// carrying an embedded NUL truncates the whole logcat line at that byte,
+  /// which hid both the rest of the scan record and the fact that the name is
+  /// not the clean string it appears to be. Dart's trim() drops whitespace but
+  /// NOT NUL, so such a name also silently fails an equality comparison.
+  String _describeName(String name) {
+    final escaped = name.codeUnits
+        .map((c) => c >= 0x20 && c < 0x7f
+            ? String.fromCharCode(c)
+            : "\\x${c.toRadixString(16).padLeft(2, '0')}")
+        .join();
+    return "$escaped (${name.codeUnits})";
+  }
+
   BluetoothDevice? _targetDevice;
   BluetoothCharacteristic? _notifyCharacteristic;
   BluetoothCharacteristic? _writeCharacteristic;
@@ -112,7 +126,8 @@ class ClinicalBluetoothManager {
           // debugPrint, not kDebugMode/print: profile builds strip the latter,
           // which left the whole scan invisible when it found nothing.
           debugPrint(
-            "🔍 Found: adv='$adv' platform='$platform' id=$id rssi=${r.rssi}",
+            "🔍 Found: id=$id rssi=${r.rssi} "
+            "adv=[${_describeName(adv)}] platform=[${_describeName(platform)}]",
           );
 
           final matchesName =
@@ -129,7 +144,8 @@ class ClinicalBluetoothManager {
         final ScanResult? target = best;
         if (target != null) {
           debugPrint(
-            "🎯 Target device: '${target.device.advName}' rssi=${target.rssi}",
+            "🎯 Target: rssi=${target.rssi} "
+            "adv=[${_describeName(target.device.advName)}]",
           );
           completer.complete(target);
         }
