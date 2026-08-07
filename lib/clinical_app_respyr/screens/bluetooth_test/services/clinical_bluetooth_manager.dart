@@ -9,14 +9,26 @@ class ClinicalBluetoothManager {
   factory ClinicalBluetoothManager() => _instance;
   ClinicalBluetoothManager._internal();
 
-  /// Devices are matched on this prefix, case-insensitively, rather than on one
-  /// exact name. Units in the field do not all advertise the same string —
-  /// "RESPYR_01" and "Respyr_M69" are both Respyr hardware — and an exact
-  /// comparison silently failed to find anything but the one hardcoded name.
-  final String targetDeviceNamePrefix = 'respyr';
+  /// Clinical units all advertise this exact name, whatever their individual
+  /// GAP name is — RESPYR_M003l/q/r all appear as "RESPYR_01" in the
+  /// advertisement. Matching the advertised name is therefore how the right
+  /// hardware is identified.
+  ///
+  /// Do NOT loosen this to a "Respyr" prefix. Other Respyr-branded devices
+  /// exist that expose a completely different BLE profile — Respyr_M69 serves
+  /// 5833ff01/ff02/ff03 instead of the ffe1 serial characteristic, and answers
+  /// every command with "i" — and a prefix match happily connects to one of
+  /// those if it happens to be closer.
+  final String targetDeviceName = 'RESPYR_01';
 
-  bool _isRespyrDevice(String name) =>
-      name.toLowerCase().startsWith(targetDeviceNamePrefix);
+  bool _isRespyrDevice(String name) => _normalizeName(name) == targetDeviceName;
+
+  /// Strips control characters before comparing. This firmware NUL-pads its
+  /// strings, so an advertised name can arrive as "RESPYR_01\x00\x00\x00" —
+  /// visually identical, but never equal, since trim() removes whitespace and
+  /// not NUL.
+  String _normalizeName(String name) =>
+      name.replaceAll(RegExp(r'[\x00-\x1f\x7f]'), '').trim();
 
   /// Renders a device name so control characters survive the log. A name
   /// carrying an embedded NUL truncates the whole logcat line at that byte,
