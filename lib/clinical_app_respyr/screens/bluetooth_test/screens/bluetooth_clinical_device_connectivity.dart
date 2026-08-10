@@ -79,10 +79,16 @@ class _BluetoothClinicalDeviceConnectivityState
   /// finishes, and the user is left on a connection screen that never moves.
   Timer? _handshakeTimer;
   bool _notRespondingShown = false;
-  static const Duration _handshakeTimeout = Duration(seconds: 25);
+  /// A ready device answers in well under a second — measured replies run
+  /// 80-400ms — so ten seconds is already generous, and waiting longer only
+  /// delays telling the user to power-cycle.
+  static const Duration _handshakeTimeout = Duration(seconds: 10);
 
+  /// Four retries at two seconds finish inside [_handshakeTimeout], so the two
+  /// cannot race — the retries give up first and report, with the timeout left
+  /// as the backstop for a device that says nothing at all.
   int _wakeUpRetries = 0;
-  static const int _maxWakeUpRetries = 8;
+  static const int _maxWakeUpRetries = 4;
   static const Duration _wakeUpRetryGap = Duration(milliseconds: 2000);
 
   /// A device that has finished its cycle only speaks when spoken to during
