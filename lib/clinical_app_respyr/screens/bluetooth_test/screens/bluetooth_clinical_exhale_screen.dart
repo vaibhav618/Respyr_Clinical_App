@@ -464,9 +464,15 @@ class _BluetoothExhaleScreenState extends State<BluetoothExhaleScreen> {
       }
     }
 
-    double threBaseVal = _blowProcessor.blowThresholdValue!;
+    // The threshold is only known once a base value has arrived from the
+    // device, which cannot have happened on the first build — this screen is
+    // mounted the moment "blownow" is seen. Force-unwrapping here threw on
+    // every entry to the screen. The USB screen already handled this; match it.
+    final double? threBaseVal = _blowProcessor.blowThresholdValue;
 
-    thresholdPercentage = Thresholds.calculateThresholdPercentage(threBaseVal);
+    thresholdPercentage = threBaseVal != null
+        ? Thresholds.calculateThresholdPercentage(threBaseVal)
+        : 0;
 
 
     return PopScope(
