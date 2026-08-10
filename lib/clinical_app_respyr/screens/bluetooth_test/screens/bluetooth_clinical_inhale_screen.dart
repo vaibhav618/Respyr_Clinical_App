@@ -53,6 +53,17 @@ class _BluetoothInhaleScreenState extends State<BluetoothInhaleScreen> {
   // ✅ prevents handling blownow multiple times
   bool _handledBlowNow = false;
 
+  /// The most recent base reading, e.g. "/909.44/".
+  ///
+  /// The device sends this immediately before "blownow", and the exhale screen
+  /// needs it to establish its blow threshold. They used to arrive glued into
+  /// one notification, so passing the blownow message along carried the base
+  /// value with it by luck. Now that notifications are reassembled into proper
+  /// lines they arrive separately, so keep the last one explicitly — the USB
+  /// inhale screen has always done this.
+  String? _lastBaseValue;
+  static final RegExp _baseValuePattern = RegExp(r'/[\d.]+/');
+
   // ✅ prevents attaching stream listeners multiple times
   bool _listenersAttached = false;
 
@@ -225,6 +236,11 @@ class _BluetoothInhaleScreenState extends State<BluetoothInhaleScreen> {
         return;
       }
 
+      final baseMatch = _baseValuePattern.firstMatch(data);
+      if (baseMatch != null) {
+        _lastBaseValue = baseMatch.group(0);
+      }
+
       // ✅ handle only ONCE
       if (!_handledBlowNow && data.contains("blownow")) {
         _handledBlowNow = true;
@@ -232,7 +248,9 @@ class _BluetoothInhaleScreenState extends State<BluetoothInhaleScreen> {
         // ✅ stop listening BEFORE navigation (prevents double receive)
         _stopAllProcesses();
 
-        _goToExhaleScreen(baseValue: data);
+        // Hand over the base reading, not the blownow message itself — the
+        // exhale screen derives its threshold from the former.
+        _goToExhaleScreen(baseValue: _lastBaseValue ?? data);
       }
     }, onError: (_) {
       if (mounted) _showErrorDialog("Error receiving data from device.");
