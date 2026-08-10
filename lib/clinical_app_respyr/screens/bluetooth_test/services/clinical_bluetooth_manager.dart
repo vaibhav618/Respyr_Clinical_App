@@ -55,15 +55,14 @@ class ClinicalBluetoothManager {
     return escaped;
   }
 
-  /// EXPERIMENT: a BLE terminal app talking to the pb unit over the same
-  /// characteristics gets proper replies where this app gets a placeholder
-  /// byte, and requesting a larger MTU is one of the few things this app does
-  /// that a minimal client does not. Firmware that mishandles the exchange can
-  /// leave its data path broken afterwards. Set true to restore the request.
-  static bool requestLargerMtu = false;
+  /// Ask for a larger MTU so a whole line fits in one notification. At the
+  /// default 23-byte MTU the payload is capped at 20 bytes, and the device's
+  /// lines get split across packets — a "blownow" arrived as a bare "w" once,
+  /// which stalls the test since the screen never sees the message.
+  static bool requestLargerMtu = true;
 
-  /// EXPERIMENT: see the write path in [sendData]. Off while the stale-GATT
-  /// theory is tested, so only one variable changes at a time.
+  /// The write characteristic declares write-with-response, which is what the
+  /// device gets. Left as a switch because it was useful while diagnosing.
   static bool forceWriteWithoutResponse = false;
 
   BluetoothDevice? _targetDevice;
@@ -93,6 +92,10 @@ class ClinicalBluetoothManager {
   // is delivered twice (which corrupts the server payload).
   Future<void>? _discoverInFlight;
   bool _enablingNotify = false;
+
+  /// Incoming bytes awaiting a line terminator — see [_onNotification].
+  final List<int> _rxBuffer = <int>[];
+  Timer? _rxFlushTimer;
 
   bool get isConnected => _isConnected;
   Stream<bool> get connectionStatusStream => _connectionStatusController.stream;
@@ -297,6 +300,50 @@ class ClinicalBluetoothManager {
     } catch (e) {
       debugPrint("❌ Send error: $e");
     }
+  }
+
+  /// Reassembles notifications into whole lines before publishing them.
+  ///
+  /// A notification is a transport packet, not a message. The device frames its
+  /// output with CRLF and a line can straddle two packets, so treating each
+  /// packet as a complete message loses data: a "blownow" once arrived as a
+  /// bare "w" after "/909.77/" turned up with no terminator, and the test hung
+  /// because no screen ever saw the message it was waiting for.
+  ///
+  /// Buffer instead, emit on each terminator, and keep any partial line for the
+  /// next packet.
+  void _onNotification(List<int> value) {
+    if (value.isEmpty) return;
+
+    _rxBuffer.addAll(value);
+    _rxFlushTimer?.cancel();
+
+    const int lf = 0x0a;
+    int idx;
+    while ((idx = _rxBuffer.indexOf(lf)) != -1) {
+      final List<int> line = _rxBuffer.sublist(0, idx);
+      _rxBuffer.removeRange(0, idx + 1);
+      _emitLine(line);
+    }
+
+    // Not every message is guaranteed to be terminated, so never hold a partial
+    // line indefinitely — publish it if nothing follows shortly.
+    if (_rxBuffer.isNotEmpty) {
+      _rxFlushTimer = Timer(const Duration(milliseconds: 250), () {
+        if (_rxBuffer.isEmpty) return;
+        final List<int> line = List<int>.from(_rxBuffer);
+        _rxBuffer.clear();
+        _emitLine(line);
+      });
+    }
+  }
+
+  void _emitLine(List<int> bytes) {
+    final String line = String.fromCharCodes(bytes).replaceAll('\r', '').trim();
+    if (line.isEmpty) return;
+
+    debugPrint("📨 Received: $line");
+    _receivedDataController.add(line);
   }
 
   Future<void> disconnect({bool force = false}) async {
@@ -665,22 +712,8 @@ class ClinicalBluetoothManager {
 
       debugPrint("✅ Notify enabled: ${c.uuid}");
 
-      _notificationSubscription = c.onValueReceived.listen((value) {
-        if (value.isEmpty) return;
-
-        final received = String.fromCharCodes(value);
-        // Log raw bytes too: a one-character reply like "i" is ambiguous
-        // between a real response and a truncated frame, and only the bytes
-        // tell them apart.
-        debugPrint("📨 Received: $received  bytes=$value");
-        _receivedDataController.add(received);
-
-        if (received.trim() == '120') {
-          if (kDebugMode) {
-            print("⚠️ Received 120 – ignoring disconnect trigger here");
-          }
-        }
-      });
+      _rxBuffer.clear();
+      _notificationSubscription = c.onValueReceived.listen(_onNotification);
     } catch (e) {
       debugPrint("❌ Enable notify failed: $e");
     } finally {
@@ -691,6 +724,12 @@ class ClinicalBluetoothManager {
   void _handleDisconnection() {
     _isConnected = false;
     _isReadyForWrite = false;
+
+    // Drop any half-received line so it cannot be spliced onto the first packet
+    // of the next connection.
+    _rxFlushTimer?.cancel();
+    _rxFlushTimer = null;
+    _rxBuffer.clear();
 
     _notifyCharacteristic = null;
     _writeCharacteristic = null;
