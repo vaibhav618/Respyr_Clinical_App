@@ -11,7 +11,6 @@ import 'package:respyr_clinical/clinical_app_respyr/screens/bluetooth_test/scree
 import 'package:respyr_clinical/clinical_app_respyr/screens/bluetooth_test/services/clinical_bluetooth_manager.dart';
 import 'package:respyr_clinical/clinical_app_respyr/services/device_battery_utils.dart';
 import 'package:respyr_clinical/clinical_app_respyr/services/disconnected_error.dart';
-import 'package:respyr_clinical/clinical_app_respyr/services/test_interruption_watcher.dart';
 import 'package:respyr_clinical/shared/audio_helper.dart';
 import 'package:respyr_clinical/shared/colors.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -70,11 +69,6 @@ class _BluetoothCalibrationScreenState extends State<BluetoothCalibrationScreen>
   static const int _maxWaitSeconds = 90;
   bool _timeoutShown = false;
 
-  /// Leaving the app mid-calibration desynchronises the subject from the
-  /// device's prompts — see [TestInterruptionWatcher].
-  late final TestInterruptionWatcher _interruptionWatcher =
-      TestInterruptionWatcher(onInterrupted: _showTestInterrupted);
-  bool _interruptionShown = false;
 
   final List<String> progressMessage = [
     "Cleaning inner\nChamber of Device",
@@ -96,7 +90,6 @@ class _BluetoothCalibrationScreenState extends State<BluetoothCalibrationScreen>
   void initState() {
     super.initState();
 
-    _interruptionWatcher.start();
     _isConnected = _bleManager.isConnected;
 
     _initializeAnimationController();
@@ -471,47 +464,6 @@ class _BluetoothCalibrationScreenState extends State<BluetoothCalibrationScreen>
     );
   }
 
-  /// The user left the app part-way through the test. The device keeps running
-  /// its own sequence meanwhile, so by the time they return they have missed
-  /// the inhale cue and the reading can no longer be valid.
-  ///
-  /// The only way out is the dashboard. Re-entering the flow from here would
-  /// leave the device still in reading mode — it ignores the fresh signals and
-  /// the user lands on the same dead end. Starting a new test from the
-  /// dashboard re-runs the connect handshake, which is what actually resets
-  /// the device.
-  void _showTestInterrupted() {
-    if (_isDisposed || !mounted || _interruptionShown) return;
-    if (_navigatedToInhaleScreen) return;
-    _interruptionShown = true;
-
-    _timer?.cancel();
-    _timer = null;
-    _audioHelper.stopAudio();
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text("Test cancelled"),
-        content: const Text(
-          "You left the app while the test was running, so this reading has "
-          "been cancelled. Please start the test again from the beginning.",
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.of(dialogContext).pop();
-              abortProcess();
-              _exitToDashboard();
-            },
-            child: const Text("Back to dashboard"),
-          ),
-        ],
-      ),
-    );
-  }
-
   /// Full restart of the handshake after a timeout: clears the retry state and
   /// re-sends the initial signals from scratch.
   Future<void> _restartCalibration() async {
@@ -633,7 +585,6 @@ class _BluetoothCalibrationScreenState extends State<BluetoothCalibrationScreen>
   @override
   void dispose() {
     _isDisposed = true;
-    _interruptionWatcher.stop();
     _stopAllProcesses();
     _animationController.dispose();
     super.dispose();

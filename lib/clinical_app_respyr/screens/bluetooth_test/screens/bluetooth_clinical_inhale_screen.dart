@@ -10,7 +10,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:respyr_clinical/clinical_app_respyr/screens/bluetooth_test/screens/bluetooth_clinical_exhale_screen.dart';
 import 'package:respyr_clinical/clinical_app_respyr/screens/bluetooth_test/services/clinical_bluetooth_manager.dart';
 import 'package:respyr_clinical/clinical_app_respyr/services/disconnected_error.dart';
-import 'package:respyr_clinical/clinical_app_respyr/services/test_interruption_watcher.dart';
 import 'package:respyr_clinical/shared/audio_helper.dart';
 import 'package:respyr_clinical/shared/colors.dart';
 
@@ -67,11 +66,6 @@ class _BluetoothInhaleScreenState extends State<BluetoothInhaleScreen> {
   // ✅ prevents attaching stream listeners multiple times
   bool _listenersAttached = false;
 
-  /// Leaving the app here means the subject missed the inhale cue entirely —
-  /// see [TestInterruptionWatcher].
-  late final TestInterruptionWatcher _interruptionWatcher =
-      TestInterruptionWatcher(onInterrupted: _showTestInterrupted);
-  bool _interruptionShown = false;
 
   final storage = GetStorage();
   final AudioHelper _audioHelper = AudioHelper();
@@ -79,7 +73,6 @@ class _BluetoothInhaleScreenState extends State<BluetoothInhaleScreen> {
   @override
   void initState() {
     super.initState();
-    _interruptionWatcher.start();
     _isConnected = _bleManager.isConnected;
 
     _startTimer();
@@ -140,45 +133,6 @@ class _BluetoothInhaleScreenState extends State<BluetoothInhaleScreen> {
           "We didn't receive the blow signal from the device. This usually "
           "means the breath wasn't picked up, or the app was left during the "
           "test. Start the test again.",
-        ),
-        actions: [
-          TextButton(
-            onPressed: () async {
-              Navigator.of(dialogContext).pop();
-              await _exitToDashboard();
-            },
-            child: const Text("Back to dashboard"),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// The user left the app during the Hold phase, so they missed the cue to
-  /// breathe and the device is waiting on a breath that will never come.
-  ///
-  /// The only way out is the dashboard. Re-entering the flow from here would
-  /// leave the device still in reading mode — it ignores the fresh signals and
-  /// the user lands on the same dead end. Starting a new test from the
-  /// dashboard re-runs the connect handshake, which is what actually resets
-  /// the device.
-  void _showTestInterrupted() {
-    if (_isDisposed || !mounted || _interruptionShown) return;
-    if (_handledBlowNow || _timeoutShown) return;
-    _interruptionShown = true;
-
-    _timer?.cancel();
-    _blowWatchdogTimer?.cancel();
-    _audioHelper.stopAudio();
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text("Test cancelled"),
-        content: const Text(
-          "You left the app while the test was running, so this reading has "
-          "been cancelled. Please start the test again from the beginning.",
         ),
         actions: [
           TextButton(
@@ -401,8 +355,6 @@ class _BluetoothInhaleScreenState extends State<BluetoothInhaleScreen> {
   @override
   void dispose() {
     _isDisposed = true;
-    _interruptionWatcher.stop();
-    _blowWatchdogTimer?.cancel();
     _stopAllProcesses();
     super.dispose();
   }

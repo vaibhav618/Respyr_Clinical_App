@@ -9,7 +9,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:respyr_clinical/clinical_app_respyr/screens/usb_test/screens/usb_clinical_inhale_screen.dart';
 import 'package:respyr_clinical/clinical_app_respyr/screens/usb_test/services/clinical_usb_communication_services.dart';
 import 'package:respyr_clinical/clinical_app_respyr/services/disconnected_error.dart';
-import 'package:respyr_clinical/clinical_app_respyr/services/test_interruption_watcher.dart';
 import 'package:respyr_clinical/widgets/internet_connectivity_check.dart';
 import 'package:respyr_clinical/shared/audio_helper.dart';
 import 'package:respyr_clinical/shared/colors.dart';
@@ -89,16 +88,10 @@ class _UsbClinicalCalibrationScreenState
   static const int _maxWaitSeconds = 90;
   bool _timeoutShown = false;
 
-  /// Leaving the app mid-calibration desynchronises the subject from the
-  /// device's prompts — see [TestInterruptionWatcher].
-  late final TestInterruptionWatcher _interruptionWatcher =
-      TestInterruptionWatcher(onInterrupted: _showTestInterrupted);
-  bool _interruptionShown = false;
 
   @override
   void initState() {
     super.initState();
-    _interruptionWatcher.start();
     _initializeAnimationController();
 
     Future.delayed(const Duration(milliseconds: 300), () {
@@ -503,47 +496,6 @@ class _UsbClinicalCalibrationScreenState
     );
   }
 
-  /// The user left the app part-way through the test. The device keeps running
-  /// its own sequence meanwhile, so by the time they return they have missed
-  /// the inhale cue and the reading can no longer be valid.
-  ///
-  /// The only way out is the dashboard. Re-entering the flow from here would
-  /// leave the device still in reading mode — it ignores the fresh signals and
-  /// the user lands on the same dead end. Starting a new test from the
-  /// dashboard re-runs the connect handshake ("!"), which is what actually
-  /// resets the device.
-  void _showTestInterrupted() {
-    if (_isDisposed || !mounted || _interruptionShown) return;
-    if (_navigatedToInhaleScreen) return;
-    _interruptionShown = true;
-
-    _pauseProcesses();
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text("Test cancelled"),
-        content: const Text(
-          "You left the app while the test was running, so this reading has "
-          "been cancelled. Please start the test again from the beginning.",
-        ),
-        actions: [
-          TextButton(
-            onPressed: () async {
-              Navigator.of(dialogContext).pop();
-              // Await: navigation tears the screen down, and the abort has to
-              // reach the device before that happens.
-              await _abortProcess();
-              await _exitToDashboard();
-            },
-            child: const Text("Back to dashboard"),
-          ),
-        ],
-      ),
-    );
-  }
-
   /// Full restart of the handshake after a timeout: clears the retry state and
   /// re-sends the initial signals from scratch.
   Future<void> _restartCalibration() async {
@@ -658,7 +610,6 @@ class _UsbClinicalCalibrationScreenState
 
   @override
   void dispose() {
-    _interruptionWatcher.stop();
     _stopAllProcesses();
     _animationController.dispose();
     super.dispose();
