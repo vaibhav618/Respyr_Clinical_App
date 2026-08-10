@@ -112,9 +112,10 @@ class _BluetoothInhaleScreenState extends State<BluetoothInhaleScreen> {
 
   void _startBlowWatchdog() {
     _blowWatchdogTimer?.cancel();
-    // 25s: long enough for a device that is simply slow to answer, short
-    // enough that a stuck one does not leave the user staring at the screen.
-    _blowWatchdogTimer = Timer(const Duration(seconds: 25), () {
+    // 10s. The device sends "blownow" about 5 seconds after "inhale", so this
+    // is already double the expected wait — anything longer just leaves the
+    // user watching a screen that is not going to change.
+    _blowWatchdogTimer = Timer(const Duration(seconds: 10), () {
       if (_isDisposed || _handledBlowNow || !mounted) return;
       if (kDebugMode) {
         print("⛔ Inhale screen: no blownow received — prompting user.");
