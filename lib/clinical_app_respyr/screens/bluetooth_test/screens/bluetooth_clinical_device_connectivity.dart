@@ -71,6 +71,16 @@ class _BluetoothClinicalDeviceConnectivityState
   /// Spaced generously: five retries 300ms apart were all answered with "i",
   /// while a terminal session that got a hardware id had seconds between
   /// commands, so the device may simply need longer than a burst allows.
+  /// Fires if the device never answers the "!" handshake with its hardware id.
+  ///
+  /// A test abandoned from the Hold screen leaves the device part-way through
+  /// its own cycle. It still advertises and still accepts a BLE connection, so
+  /// the screen says "Connected" — but it answers nothing until that cycle
+  /// finishes, and the user is left on a connection screen that never moves.
+  Timer? _handshakeTimer;
+  bool _notRespondingShown = false;
+  static const Duration _handshakeTimeout = Duration(seconds: 25);
+
   int _wakeUpRetries = 0;
   static const int _maxWakeUpRetries = 8;
   static const Duration _wakeUpRetryGap = Duration(milliseconds: 2000);
@@ -148,6 +158,8 @@ class _BluetoothClinicalDeviceConnectivityState
 
   void _stopAllProcesses() {
     _isDisposed = true;
+    _handshakeTimer?.cancel();
+    _handshakeTimer = null;
     _isDialogShowing = false;
 
     _dataStreamSubscription?.cancel();
@@ -378,12 +390,14 @@ class _BluetoothClinicalDeviceConnectivityState
             await _sendData("!");
           } else {
             debugPrint("⛔ Device kept reporting 'i' — giving up on wake-up.");
+            _showDeviceNotResponding();
           }
           return;
         }
 
         // Step 1: Confirm device ON
         if (data == "%" && !_receivedPercentResponse && _hasSentBraceCommand) {
+          _handshakeTimer?.cancel();
           _receivedPercentResponse = true;
           debugPrint(
               "✅ Device turned ON. Skipping battery, waiting for Hardware ID...");
@@ -400,6 +414,7 @@ class _BluetoothClinicalDeviceConnectivityState
 
         // Step 2: Hardware ID
         if (data.startsWith("H") && !isHardwareIdProcessed) {
+          _handshakeTimer?.cancel();
           // Keep digits only. The id can arrive with serial noise or trailing
           // markers ("H1120*" appears in device logs), and it goes straight
           // into an API call.
@@ -461,6 +476,62 @@ class _BluetoothClinicalDeviceConnectivityState
     Get.offAll(
           () => BluetoothBreatheTube(
         profileDetails: widget.profileDetails,
+      ),
+    );
+  }
+
+  /// Watches for the device answering the handshake at all.
+  void _startHandshakeWatchdog() {
+    _handshakeTimer?.cancel();
+    _handshakeTimer = Timer(_handshakeTimeout, () {
+      if (isHardwareIdProcessed || _receivedPercentResponse) return;
+      debugPrint("⛔ No handshake reply within $_handshakeTimeout.");
+      _showDeviceNotResponding();
+    });
+  }
+
+  /// The device is connected but will not talk.
+  ///
+  /// This is what a test abandoned from the Hold screen leaves behind: the
+  /// device is still working through its previous cycle, so it advertises and
+  /// accepts a connection — the screen even says "Connected" — but answers
+  /// nothing. Without this the user waits on a screen that will never move.
+  /// Power-cycling is what clears it.
+  void _showDeviceNotResponding() {
+    if (!mounted || _isDisposed || _notRespondingShown) return;
+    if (isHardwareIdProcessed || _receivedPercentResponse) return;
+    _notRespondingShown = true;
+
+    _handshakeTimer?.cancel();
+
+    if (mounted) {
+      setState(() {
+        isHardwareIdProcessing = false;
+        _isButtonEnabled = false;
+        _connectionStatusText = "Not Responding";
+      });
+    }
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text("Device not responding"),
+        content: const Text(
+          "The device is connected but isn't responding. It may still be "
+          "finishing the previous test.\n\nSwitch the device off and on again "
+          "(or unplug and reconnect it), then start the test again.",
+        ),
+        actions: [
+          TextButton(
+            onPressed: () async {
+              Navigator.of(dialogContext).pop();
+              await _bleManager.disconnect(force: true);
+              if (mounted && !_isDisposed) Get.back();
+            },
+            child: const Text("OK"),
+          ),
+        ],
       ),
     );
   }
@@ -849,6 +920,7 @@ class _BluetoothClinicalDeviceConnectivityState
           try {
             if (_bleManager.isConnected && !isHardwareIdProcessed) {
               _hasSentBraceCommand = true;
+              _startHandshakeWatchdog();
               await _sendData("!");
             }
           } catch (_) {
