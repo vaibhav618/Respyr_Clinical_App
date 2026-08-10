@@ -79,20 +79,14 @@ class ProfileListTile extends StatelessWidget {
     });
   }
 
-  /// Both cooldowns have to clear before a test can start: the one after a
-  /// completed reading and the one after an aborted one. The device keeps
-  /// working through its own cycle either way, and starting before it is done
-  /// leaves the user sitting in a calibration screen that cannot progress.
+  /// The device needs its cool-down before another test, whether the last one
+  /// finished or was abandoned part-way — starting early leaves the user in a
+  /// calibration screen that cannot progress. Both cases are covered by the
+  /// one cooling-down sheet.
   Future<void> _startTestWhenReady(
     BuildContext context,
     VoidCallback proceed,
   ) async {
-    final remaining = await getRemainingCooldownSeconds();
-    if (remaining > 0) {
-      if (context.mounted) await showCooldownToast(context, remaining);
-      return;
-    }
-
     if (await AbortDeviceManager.getAbortStatus()) {
       if (context.mounted) {
         CheckAbortSheet.show(context: context, onTakeTextClick: proceed);

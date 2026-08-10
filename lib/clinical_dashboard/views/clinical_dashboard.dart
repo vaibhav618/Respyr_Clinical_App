@@ -481,17 +481,9 @@ class _ClinicalDashboardMainState extends State<ClinicalDashboardMain>
         onDashboardTap: () => _initData(),
         onTakeTestTap: () async {
           if (_hasInternet) {
-            // ✅ ADDED: Bluetooth cooldown check here
-            final remaining =
-            await getRemainingCooldownSeconds(cooldownSeconds: 60);
-
-            if (!mounted) return;
-
-            if (remaining > 0) {
-              await showCooldownToast(context, remaining);
-              return;
-            }
-
+            // The cooling-down sheet covers both a cancelled test and a
+            // completed reading, so there is no separate toast path — the
+            // wait looked different depending on how the last test ended.
             checkDeviceAbortStatus();
           } else {
             ScaffoldMessenger.of(context).showSnackBar(

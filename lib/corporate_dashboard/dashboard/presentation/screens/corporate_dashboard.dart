@@ -362,14 +362,14 @@ class _CorporateDashboardState extends State<CorporateDashboard>
               return;
             }
 
-            final remaining = await getRemainingCooldownSeconds(
-              cooldownSeconds: 60,
-            );
+            // Same cooling-down sheet as everywhere else, whether the previous
+            // test completed or was abandoned.
+            final coolingDown = await AbortDeviceManager.getAbortStatus();
 
             if (!context.mounted) return;
 
-            if (remaining > 0) {
-              await showCooldownToast(context, remaining);
+            if (coolingDown) {
+              CheckAbortSheet.show(context: context);
               return;
             }
 

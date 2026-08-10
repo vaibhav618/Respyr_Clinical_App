@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:get_storage/get_storage.dart';
+import '../helper/abort_device_manager.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class CheckAbortSheet {
@@ -34,46 +34,30 @@ class _CoolingDownContent extends StatefulWidget {
 }
 
 class _CoolingDownContentState extends State<_CoolingDownContent> {
-  int _remainingSeconds = 60;
+  int _remainingSeconds = 0;
   bool _isButtonEnabled = false;
+  CooldownReason _reason = CooldownReason.completed;
   Timer? _timer;
 
   @override
   void initState() {
     super.initState();
     _calculateRemainingTime();
-    _startTimer();
   }
 
-  void _calculateRemainingTime() {
-    final storage = GetStorage();
-    final storedTimeStr = storage.read('cancel_or_disconnect_time');
+  /// Reads the shared cooldown, which covers both a cancelled test and a
+  /// completed reading, so this sheet can be shown for either.
+  Future<void> _calculateRemainingTime() async {
+    final cooldown = await AbortDeviceManager.getCooldown();
+    if (!mounted) return;
 
-    if (storedTimeStr == null) {
-      _remainingSeconds = 0;
-      _isButtonEnabled = true;
-      return;
-    }
+    setState(() {
+      _remainingSeconds = cooldown.remainingSeconds;
+      _reason = cooldown.reason;
+      _isButtonEnabled = !cooldown.isCoolingDown;
+    });
 
-    final storedTime = DateTime.tryParse(storedTimeStr);
-    if (storedTime == null) {
-      _remainingSeconds = 0;
-      _isButtonEnabled = true;
-      return;
-    }
-
-    final now = DateTime.now();
-    final diffSeconds =
-        now.isBefore(storedTime) ? 0 : now.difference(storedTime).inSeconds;
-    final remaining = 60 - diffSeconds;
-
-    if (remaining > 0 && remaining <= 60) {
-      _remainingSeconds = remaining;
-      _isButtonEnabled = false;
-    } else {
-      _remainingSeconds = 0;
-      _isButtonEnabled = true;
-    }
+    _startTimer();
   }
 
   void _startTimer() {
@@ -151,7 +135,9 @@ class _CoolingDownContentState extends State<_CoolingDownContent> {
                 Text(
                   _isButtonEnabled
                       ? "Device is ready now. You can continue with the test."
-                      : "You aborted the previous test. Respyr needs to cool down. Please wait for 1 minute before starting the next test.",
+                      : _reason == CooldownReason.aborted
+                      ? "You aborted the previous test. Respyr needs to cool down. Please wait for 1 minute before starting the next test."
+                      : "Respyr needs to cool down after a reading. Please wait for 1 minute before starting the next test.",
                   textAlign: TextAlign.center,
                   style: GoogleFonts.poppins(
                     color: const Color(0xFF535359),

@@ -16,6 +16,8 @@ import 'package:shared_preferences/shared_preferences.dart'; // ✅ added
 
 import '../../common/floating_message.dart';
 import '../../log_manager/log_manager.dart';
+import '../helper/abort_device_manager.dart';
+import '../widgets/check_abort_sheet.dart';
 import '../../new_result/data/model/result_profile_data_model.dart';
 import '../utils/user_region_manager.dart';
 import '../widgets/account_creation_success.dart';
@@ -373,13 +375,12 @@ class _CreateProfileState extends State<CreateProfile> {
             isTakeTestWindowOpen = true;
             _isNavigating = true;
 
-            // ✅ added: cooldown check before navigating
-            final remaining = await getRemainingCooldownSeconds(
-              cooldownSeconds: 60,
-            );
-            if (remaining > 0) {
+            // The device needs its cool-down before another test. Show the same
+            // cooling-down sheet as everywhere else, whether the previous test
+            // completed or was abandoned.
+            if (await AbortDeviceManager.getAbortStatus()) {
               _isNavigating = false;
-              await showCooldownToast(remaining);
+              if (context.mounted) CheckAbortSheet.show(context: context);
               return;
             }
 
