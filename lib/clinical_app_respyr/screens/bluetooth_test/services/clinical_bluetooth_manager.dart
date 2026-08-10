@@ -43,12 +43,16 @@ class ClinicalBluetoothManager {
   /// not the clean string it appears to be. Dart's trim() drops whitespace but
   /// NOT NUL, so such a name also silently fails an equality comparison.
   String _describeName(String name) {
+    final bool printable =
+        name.codeUnits.every((c) => c >= 0x20 && c < 0x7f);
+    if (printable) return name;
+
     final escaped = name.codeUnits
         .map((c) => c >= 0x20 && c < 0x7f
             ? String.fromCharCode(c)
             : "\\x${c.toRadixString(16).padLeft(2, '0')}")
         .join();
-    return "$escaped (${name.codeUnits})";
+    return escaped;
   }
 
   /// EXPERIMENT: a BLE terminal app talking to the pb unit over the same
@@ -151,6 +155,9 @@ class ClinicalBluetoothManager {
       Timer? fallbackGrace;
       const Duration fallbackGracePeriod = Duration(milliseconds: 1500);
 
+      /// Device ids already logged during this scan — see the listener below.
+      final Set<String> logged = <String>{};
+
       _scanSub = FlutterBluePlus.scanResults.listen((results) {
         if (_shouldStopAllProcesses || completer.isCompleted) return;
 
@@ -164,13 +171,16 @@ class ClinicalBluetoothManager {
           if (id.isEmpty) continue;
 
           // debugPrint, not kDebugMode/print: profile builds strip the latter,
-          // which left the whole scan invisible when it found nothing. Skip the
-          // unnamed devices — a busy room produces dozens per batch, repeatedly,
-          // and none of them can ever match.
-          if (adv.isNotEmpty || platform.isNotEmpty) {
+          // which left the whole scan invisible when it found nothing.
+          //
+          // Log each device once per scan. scanResults re-emits the cumulative
+          // list on every batch, so logging unconditionally repeated every
+          // device several times over; and unnamed devices, of which a busy
+          // room has dozens, can never match anything.
+          if ((adv.isNotEmpty || platform.isNotEmpty) && logged.add(id)) {
             debugPrint(
-              "🔍 Found: id=$id rssi=${r.rssi} "
-              "adv=[${_describeName(adv)}] platform=[${_describeName(platform)}]",
+              "🔍 Found: $id rssi=${r.rssi} "
+              "'${_describeName(adv.isNotEmpty ? adv : platform)}'",
             );
           }
 
@@ -251,7 +261,10 @@ class ClinicalBluetoothManager {
     }
 
     if (!_isReadyForWrite || _writeCharacteristic == null) {
-      debugPrint("❌ Not ready to write. Attempting recovery...");
+      // Normal race, not a failure: the screen can send its first command
+      // before discovery has finished. The single-flight guard means this
+      // awaits the discovery already running rather than starting a second.
+      debugPrint("⏳ Write not ready yet — waiting for service discovery.");
       await _discoverServices();
 
       if (!_isReadyForWrite || _writeCharacteristic == null) {
@@ -283,41 +296,6 @@ class ClinicalBluetoothManager {
       debugPrint("✅ Sent: $data");
     } catch (e) {
       debugPrint("❌ Send error: $e");
-    }
-  }
-
-  /// TEMPORARY DIAGNOSTIC. Reads the standard Device Information service and
-  /// logs it.
-  ///
-  /// A BLE terminal app showing a "device id" may be reading it from here
-  /// rather than from the "!" command, in which case the device answering that
-  /// read proves nothing about whether its command protocol works. Delete once
-  /// that is settled.
-  Future<void> _dumpDeviceInformation(List<BluetoothService> services) async {
-    const Map<String, String> names = {
-      '2a23': 'System ID',
-      '2a24': 'Model Number',
-      '2a25': 'Serial Number',
-      '2a26': 'Firmware Revision',
-      '2a27': 'Hardware Revision',
-      '2a28': 'Software Revision',
-      '2a29': 'Manufacturer',
-    };
-
-    for (final service in services) {
-      if (!"${service.uuid}".toLowerCase().contains('180a')) continue;
-
-      for (final char in service.characteristics) {
-        final String key = "${char.uuid}".toLowerCase();
-        final String label = names[key] ?? key;
-        if (!char.properties.read) continue;
-        try {
-          final value = await char.read();
-          debugPrint("📇 DIS $label = '${String.fromCharCodes(value)}' $value");
-        } catch (e) {
-          debugPrint("📇 DIS $label read failed: $e");
-        }
-      }
     }
   }
 
@@ -510,7 +488,6 @@ class ClinicalBluetoothManager {
 
       final services = await device.discoverServices();
 
-      await _dumpDeviceInformation(services);
 
       BluetoothCharacteristic? bestNotify;
       BluetoothCharacteristic? bestWrite;
