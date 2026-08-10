@@ -209,7 +209,9 @@ class _UsbClinicalInhaleScreenState extends State<UsbClinicalInhaleScreen> {
   /// forever with no feedback. Surface it instead.
   void _startBlowWatchdog() {
     _blowWatchdogTimer?.cancel();
-    _blowWatchdogTimer = Timer(const Duration(seconds: 45), () {
+    // 25s: long enough for a device that is simply slow to answer, short
+    // enough that a stuck one does not leave the user staring at the screen.
+    _blowWatchdogTimer = Timer(const Duration(seconds: 25), () {
       if (_isDisposed || _navigationToExhaleScreen || !mounted) return;
       if (_pendingBlowValue != null) return; // waiting on internet, not device
       debugPrint("⛔ Inhale screen: no blownow received — prompting user.");
