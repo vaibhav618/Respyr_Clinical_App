@@ -65,6 +65,16 @@ class _BluetoothClinicalDeviceConnectivityState
   bool _hasSentBraceCommand = false;
   bool _receivedPercentResponse = false;
 
+  /// pb units reply "i" to "!" while still waking; see Step 0 in the data
+  /// listener. Bounded so a device that only ever says "i" cannot loop.
+  ///
+  /// Spaced generously: five retries 300ms apart were all answered with "i",
+  /// while a terminal session that got a hardware id had seconds between
+  /// commands, so the device may simply need longer than a burst allows.
+  int _wakeUpRetries = 0;
+  static const int _maxWakeUpRetries = 8;
+  static const Duration _wakeUpRetryGap = Duration(milliseconds: 2000);
+
   /// A device that has finished its cycle only speaks when spoken to during
   /// the handshake. One still working through the cycle left behind by a
   /// cancelled reading keeps streaming sensor values or purge counters, and it
@@ -350,6 +360,28 @@ class _BluetoothClinicalDeviceConnectivityState
           }
         }
 
+        // Step 0: wake-up marker.
+        //
+        // A pb unit answers the first "!" after connecting with a bare "i"
+        // rather than its hardware id — it is still waking. Waiting for an "H"
+        // that is never coming is what left this screen stuck on every
+        // connection to those devices, since the app only ever asked once.
+        // Ask again.
+        if (data == "i" && !isHardwareIdProcessed) {
+          if (_wakeUpRetries < _maxWakeUpRetries) {
+            _wakeUpRetries++;
+            debugPrint(
+              "🔁 Device still waking ('i') — re-sending '!' "
+              "($_wakeUpRetries/$_maxWakeUpRetries)",
+            );
+            await Future.delayed(_wakeUpRetryGap);
+            await _sendData("!");
+          } else {
+            debugPrint("⛔ Device kept reporting 'i' — giving up on wake-up.");
+          }
+          return;
+        }
+
         // Step 1: Confirm device ON
         if (data == "%" && !_receivedPercentResponse && _hasSentBraceCommand) {
           _receivedPercentResponse = true;
@@ -368,7 +400,10 @@ class _BluetoothClinicalDeviceConnectivityState
 
         // Step 2: Hardware ID
         if (data.startsWith("H") && !isHardwareIdProcessed) {
-          final id = data.replaceFirst("H", "").trim();
+          // Keep digits only. The id can arrive with serial noise or trailing
+          // markers ("H1120*" appears in device logs), and it goes straight
+          // into an API call.
+          final id = data.replaceAll(RegExp(r'[^0-9]'), '');
 
           final prefs = await SharedPreferences.getInstance();
           await prefs.setString('hardware_id', id);

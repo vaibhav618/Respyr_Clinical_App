@@ -51,6 +51,17 @@ class ClinicalBluetoothManager {
     return "$escaped (${name.codeUnits})";
   }
 
+  /// EXPERIMENT: a BLE terminal app talking to the pb unit over the same
+  /// characteristics gets proper replies where this app gets a placeholder
+  /// byte, and requesting a larger MTU is one of the few things this app does
+  /// that a minimal client does not. Firmware that mishandles the exchange can
+  /// leave its data path broken afterwards. Set true to restore the request.
+  static bool requestLargerMtu = false;
+
+  /// EXPERIMENT: see the write path in [sendData]. Off while the stale-GATT
+  /// theory is tested, so only one variable changes at a time.
+  static bool forceWriteWithoutResponse = false;
+
   BluetoothDevice? _targetDevice;
   BluetoothCharacteristic? _notifyCharacteristic;
   BluetoothCharacteristic? _writeCharacteristic;
@@ -130,12 +141,15 @@ class ClinicalBluetoothManager {
 
       final completer = Completer<ScanResult?>();
 
-      // A unit advertising RESPYR_01 wins outright and ends the scan. Any other
-      // Respyr-branded unit is held as a fallback and only used once the scan
-      // window closes without a preferred one — otherwise a nearer device of a
-      // different model would be picked over the right one purely on signal
-      // strength.
+      // A unit advertising RESPYR_01 wins outright and ends the scan. Other
+      // Respyr units are equally valid hardware, so they only wait out a short
+      // grace period — long enough for a RESPYR_01 to appear and take
+      // precedence, rather than the whole scan window. Waiting for the window
+      // to close cost ten seconds on every connection to a pb unit, against
+      // roughly two seconds for the connection and handshake themselves.
       ScanResult? fallback;
+      Timer? fallbackGrace;
+      const Duration fallbackGracePeriod = Duration(milliseconds: 1500);
 
       _scanSub = FlutterBluePlus.scanResults.listen((results) {
         if (_shouldStopAllProcesses || completer.isCompleted) return;
@@ -150,11 +164,15 @@ class ClinicalBluetoothManager {
           if (id.isEmpty) continue;
 
           // debugPrint, not kDebugMode/print: profile builds strip the latter,
-          // which left the whole scan invisible when it found nothing.
-          debugPrint(
-            "🔍 Found: id=$id rssi=${r.rssi} "
-            "adv=[${_describeName(adv)}] platform=[${_describeName(platform)}]",
-          );
+          // which left the whole scan invisible when it found nothing. Skip the
+          // unnamed devices — a busy room produces dozens per batch, repeatedly,
+          // and none of them can ever match.
+          if (adv.isNotEmpty || platform.isNotEmpty) {
+            debugPrint(
+              "🔍 Found: id=$id rssi=${r.rssi} "
+              "adv=[${_describeName(adv)}] platform=[${_describeName(platform)}]",
+            );
+          }
 
           // Strongest signal wins within a tier — a clinic can have several
           // units in range.
@@ -171,7 +189,23 @@ class ClinicalBluetoothManager {
             "🎯 Target: rssi=${target.rssi} "
             "adv=[${_describeName(target.device.advName)}]",
           );
+          fallbackGrace?.cancel();
           completer.complete(target);
+          return;
+        }
+
+        // Seen a Respyr unit that isn't the preferred name: give a RESPYR_01
+        // a brief chance to appear, then take this one.
+        if (fallback != null && fallbackGrace == null) {
+          fallbackGrace = Timer(fallbackGracePeriod, () {
+            final ScanResult? candidate = fallback;
+            if (completer.isCompleted || candidate == null) return;
+            debugPrint(
+              "🎯 Target (no $targetDeviceName nearby): rssi=${candidate.rssi} "
+              "adv=[${_describeName(candidate.device.advName)}]",
+            );
+            completer.complete(candidate);
+          });
         }
       });
 
@@ -181,16 +215,10 @@ class ClinicalBluetoothManager {
         Future.delayed(scanTimeout + const Duration(seconds: 1), () => null),
       ]);
 
+      fallbackGrace?.cancel();
       await _stopScanInternal();
 
-      if (found == null && fallback != null) {
-        found = fallback;
-        debugPrint(
-          "⚠️ No $targetDeviceName found; falling back to "
-          "[${_describeName(found!.device.advName)}] rssi=${found.rssi}. "
-          "This unit may not serve the clinical protocol.",
-        );
-      }
+      found ??= fallback;
 
       if (found == null) {
         debugPrint("❌ Target not found in scan window.");
@@ -235,7 +263,15 @@ class ClinicalBluetoothManager {
     try {
       final bytes = data.codeUnits;
 
-      if (_writeCharacteristic!.properties.write) {
+      // EXPERIMENT: the pb unit's write characteristic declares write=true and
+      // wwr=false, so this has only ever written with response. That
+      // declaration is advisory — devices commonly accept write-without-
+      // response regardless, and terminal apps use it for several module
+      // types. It is the last untested degree of freedom in the write path.
+      if (forceWriteWithoutResponse) {
+        debugPrint("🧪 Writing WITHOUT response: $bytes");
+        await _writeCharacteristic!.write(bytes, withoutResponse: true);
+      } else if (_writeCharacteristic!.properties.write) {
         await _writeCharacteristic!.write(bytes, withoutResponse: false);
       } else if (_writeCharacteristic!.properties.writeWithoutResponse) {
         await _writeCharacteristic!.write(bytes, withoutResponse: true);
@@ -247,6 +283,41 @@ class ClinicalBluetoothManager {
       debugPrint("✅ Sent: $data");
     } catch (e) {
       debugPrint("❌ Send error: $e");
+    }
+  }
+
+  /// TEMPORARY DIAGNOSTIC. Reads the standard Device Information service and
+  /// logs it.
+  ///
+  /// A BLE terminal app showing a "device id" may be reading it from here
+  /// rather than from the "!" command, in which case the device answering that
+  /// read proves nothing about whether its command protocol works. Delete once
+  /// that is settled.
+  Future<void> _dumpDeviceInformation(List<BluetoothService> services) async {
+    const Map<String, String> names = {
+      '2a23': 'System ID',
+      '2a24': 'Model Number',
+      '2a25': 'Serial Number',
+      '2a26': 'Firmware Revision',
+      '2a27': 'Hardware Revision',
+      '2a28': 'Software Revision',
+      '2a29': 'Manufacturer',
+    };
+
+    for (final service in services) {
+      if (!"${service.uuid}".toLowerCase().contains('180a')) continue;
+
+      for (final char in service.characteristics) {
+        final String key = "${char.uuid}".toLowerCase();
+        final String label = names[key] ?? key;
+        if (!char.properties.read) continue;
+        try {
+          final value = await char.read();
+          debugPrint("📇 DIS $label = '${String.fromCharCodes(value)}' $value");
+        } catch (e) {
+          debugPrint("📇 DIS $label read failed: $e");
+        }
+      }
     }
   }
 
@@ -349,28 +420,23 @@ class ClinicalBluetoothManager {
       await Future.delayed(const Duration(milliseconds: 300));
 
       if (!kIsWeb && Platform.isAndroid) {
-        // MTU helps CCCD/write stability on many Android phones
-        try {
-          await _targetDevice!.requestMtu(247);
-          await Future.delayed(const Duration(milliseconds: 150));
-        } catch (e) {
-          debugPrint("MTU request failed (ok): $e");
+        // MTU helps CCCD/write stability on many Android phones.
+        //
+        // EXPERIMENT: see [requestLargerMtu].
+        if (requestLargerMtu) {
+          try {
+            await _targetDevice!.requestMtu(247);
+            await Future.delayed(const Duration(milliseconds: 150));
+          } catch (e) {
+            debugPrint("MTU request failed (ok): $e");
+          }
+        } else {
+          debugPrint("🧪 Skipping MTU request (default MTU retained)");
         }
 
-        // Optional: some devices require bonding for notifications
-        // If your device is not bonded, uncomment below.
-        /*
-        try {
-          final bondState = await _targetDevice!.bondState.first;
-          if (bondState == BluetoothBondState.none) {
-            debugPrint("🔐 Creating bond...");
-            await _targetDevice!.createBond();
-            await Future.delayed(const Duration(milliseconds: 500));
-          }
-        } catch (e) {
-          debugPrint("Bond attempt failed (maybe not required): $e");
-        }
-        */
+        // Deliberately no bonding. These devices refuse to pair — createBond
+        // fails and Android shows the user a "pairing declined by device"
+        // error — and they serve their characteristics without it.
       }
 
       _isConnected = true;
@@ -425,13 +491,100 @@ class ClinicalBluetoothManager {
     try {
       debugPrint("🔎 Discovering services...");
 
+      // Android caches a device's GATT table and keeps serving the cached copy
+      // after the device's firmware changes its services. That is very likely
+      // what is happening with the pb units: they appear to serve 5833ff01,
+      // which no serial terminal app supports — Serial Bluetooth Terminal
+      // matches only ffe0/ffe1, Nordic, Microchip and Telit, and refuses to
+      // connect otherwise — yet it talks to these devices successfully. So the
+      // table we are being shown is probably stale. Drop it and re-read.
+      if (!kIsWeb && Platform.isAndroid) {
+        try {
+          await device.clearGattCache();
+          debugPrint("🧹 Cleared cached GATT table");
+          await Future.delayed(const Duration(milliseconds: 300));
+        } catch (e) {
+          debugPrint("🧹 clearGattCache failed (may be unsupported): $e");
+        }
+      }
+
       final services = await device.discoverServices();
+
+      await _dumpDeviceInformation(services);
 
       BluetoothCharacteristic? bestNotify;
       BluetoothCharacteristic? bestWrite;
 
+      // 0) Known serial characteristics first, by UUID, across all services.
+      //
+      // nRF Connect shows the pb unit serving a Nordic UART service whose write
+      // characteristic is Nordic (6e400003) while its notify characteristic is
+      // a Microchip UUID (49535343-1e4d). The two halves live under different
+      // UUID families, so anything that insists on finding both inside one
+      // service misses it — which is how this app ended up on 5833ff02/ff03
+      // instead, the only self-consistent pair on offer, and the one the device
+      // answers with a placeholder byte.
+      //
+      // So rank characteristics directly and let the pair span services.
+      // 5833 is excluded here and left to the fallback below: it looks like a
+      // serial pipe but does not behave as one.
+      const List<String> writePriority = [
+        '49535343-8841', // Microchip write
+        '6e400002', // Nordic RX (phone -> device)
+        '6e400003', // Nordic TX, writable on this hybrid module
+        'ffe1', // legacy single-characteristic module
+      ];
+      const List<String> notifyPriority = [
+        '49535343-1e4d', // Microchip read/notify
+        '6e400003', // Nordic TX (device -> phone)
+        '6e400002',
+        'ffe1',
+      ];
+
+      BluetoothCharacteristic? pickByPriority(
+        List<String> priority,
+        bool Function(BluetoothCharacteristic) usable,
+      ) {
+        for (final wanted in priority) {
+          for (final service in services) {
+            if ("${service.uuid}".toLowerCase().contains('5833')) continue;
+            for (final char in service.characteristics) {
+              if (!"${char.uuid}".toLowerCase().contains(wanted)) continue;
+              if (usable(char)) return char;
+            }
+          }
+        }
+        return null;
+      }
+
+      bestWrite = pickByPriority(
+        writePriority,
+        (c) => c.properties.write || c.properties.writeWithoutResponse,
+      );
+      // Require a CCCD: a notify characteristic without one cannot actually be
+      // subscribed to, and trying stalls the connection.
+      bestNotify = pickByPriority(
+        notifyPriority,
+        (c) =>
+            (c.properties.notify || c.properties.indicate) &&
+            c.descriptors.any(
+              (d) => "${d.uuid}".toLowerCase().contains('2902'),
+            ),
+      );
+
+      if (bestWrite != null && bestNotify != null) {
+        debugPrint(
+          "✅ Matched serial profile: write=${bestWrite.uuid} "
+          "notify=${bestNotify.uuid}",
+        );
+      } else {
+        bestWrite = null;
+        bestNotify = null;
+      }
+
       // 1) First pass: pick notify+write from SAME service (best for UART style)
       for (final service in services) {
+        if (bestNotify != null && bestWrite != null) break;
         BluetoothCharacteristic? localNotify;
         BluetoothCharacteristic? localWrite;
 
@@ -440,6 +593,7 @@ class ClinicalBluetoothManager {
           // the evidence needed when a device answers the handshake with
           // something the protocol doesn't define.
           debugPrint("GATT ${service.uuid} -> ${char.uuid} "
+              "read=${char.properties.read} "
               "notify=${char.properties.notify} "
               "indicate=${char.properties.indicate} "
               "write=${char.properties.write} "
@@ -518,29 +672,19 @@ class ClinicalBluetoothManager {
     _notificationSubscription = null;
 
     try {
-      // Some stacks behave better if we disable then enable
-      try {
-        await c.setNotifyValue(false);
-        await Future.delayed(const Duration(milliseconds: 120));
-      } catch (_) {}
-
+      // Subscribe once, the way a BLE terminal app does.
+      //
+      // This used to disable notifications, re-enable them, and then write the
+      // CCCD descriptor by hand on top — three descriptor writes where the
+      // protocol calls for one. A terminal app talking to the same device over
+      // the same characteristic gets proper replies, so the extra writes are
+      // the difference worth removing: a module whose stream state is disturbed
+      // by a redundant disable/re-enable answers every command with the same
+      // status byte afterwards.
+      //
+      // setNotifyValue(true) writes the CCCD itself, so nothing is lost.
       await c.setNotifyValue(true);
       await Future.delayed(const Duration(milliseconds: 200));
-
-      // Extra safety: write CCCD 0x2902 explicitly (helps some Android devices)
-      try {
-        for (final d in c.descriptors) {
-          // CCCD = 00002902-0000-1000-8000-00805f9b34fb
-          if (d.uuid.toString().toLowerCase().contains("2902")) {
-            final isIndicate = c.properties.indicate && !c.properties.notify;
-            final value = isIndicate ? [0x02, 0x00] : [0x01, 0x00];
-            await d.write(value);
-            break;
-          }
-        }
-      } catch (e) {
-        debugPrint("CCCD write failed (maybe ok): $e");
-      }
 
       debugPrint("✅ Notify enabled: ${c.uuid}");
 
