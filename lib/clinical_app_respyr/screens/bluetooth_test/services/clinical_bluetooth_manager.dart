@@ -158,8 +158,10 @@ class ClinicalBluetoothManager {
       Timer? fallbackGrace;
       const Duration fallbackGracePeriod = Duration(milliseconds: 1500);
 
-      /// Device ids already logged during this scan — see the listener below.
-      final Set<String> logged = <String>{};
+      /// Named devices seen during this scan, by id. Only reported if the scan
+      /// ends without a target — when it succeeds nobody needs the list, and
+      /// printing every device on every batch buried the useful lines.
+      final Map<String, String> seen = <String, String>{};
 
       _scanSub = FlutterBluePlus.scanResults.listen((results) {
         if (_shouldStopAllProcesses || completer.isCompleted) return;
@@ -173,18 +175,11 @@ class ClinicalBluetoothManager {
 
           if (id.isEmpty) continue;
 
-          // debugPrint, not kDebugMode/print: profile builds strip the latter,
-          // which left the whole scan invisible when it found nothing.
-          //
-          // Log each device once per scan. scanResults re-emits the cumulative
-          // list on every batch, so logging unconditionally repeated every
-          // device several times over; and unnamed devices, of which a busy
-          // room has dozens, can never match anything.
-          if ((adv.isNotEmpty || platform.isNotEmpty) && logged.add(id)) {
-            debugPrint(
-              "🔍 Found: $id rssi=${r.rssi} "
-              "'${_describeName(adv.isNotEmpty ? adv : platform)}'",
-            );
+          // Remember named devices in case the scan comes up empty; unnamed
+          // ones, of which a busy room has dozens, can never match anything.
+          if (adv.isNotEmpty || platform.isNotEmpty) {
+            seen[id] = "$id rssi=${r.rssi} "
+                "'${_describeName(adv.isNotEmpty ? adv : platform)}'";
           }
 
           // Strongest signal wins within a tier — a clinic can have several
@@ -199,8 +194,8 @@ class ClinicalBluetoothManager {
         final ScanResult? target = preferred;
         if (target != null) {
           debugPrint(
-            "🎯 Target: rssi=${target.rssi} "
-            "adv=[${_describeName(target.device.advName)}]",
+            "🎯 Connecting to '${_describeName(target.device.advName)}' "
+            "rssi=${target.rssi}",
           );
           fallbackGrace?.cancel();
           completer.complete(target);
@@ -214,8 +209,9 @@ class ClinicalBluetoothManager {
             final ScanResult? candidate = fallback;
             if (completer.isCompleted || candidate == null) return;
             debugPrint(
-              "🎯 Target (no $targetDeviceName nearby): rssi=${candidate.rssi} "
-              "adv=[${_describeName(candidate.device.advName)}]",
+              "🎯 Connecting to "
+              "'${_describeName(candidate.device.advName)}' "
+              "rssi=${candidate.rssi} (no $targetDeviceName nearby)",
             );
             completer.complete(candidate);
           });
@@ -234,7 +230,16 @@ class ClinicalBluetoothManager {
       found ??= fallback;
 
       if (found == null) {
-        debugPrint("❌ Target not found in scan window.");
+        // Report what WAS in range. A scan that finds nothing is otherwise
+        // indistinguishable from a device that is switched off, and this list
+        // is what showed that the unit on the bench was advertising a name the
+        // app did not accept.
+        debugPrint(
+          "❌ No Respyr device found. ${seen.length} named device(s) in range:",
+        );
+        for (final line in seen.values) {
+          debugPrint("   • $line");
+        }
         _connectionStatusController.add(false);
         return;
       }
