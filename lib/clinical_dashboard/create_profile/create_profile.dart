@@ -375,12 +375,19 @@ class _CreateProfileState extends State<CreateProfile> {
             isTakeTestWindowOpen = true;
             _isNavigating = true;
 
-            // The device needs its cool-down before another test. Show the same
-            // cooling-down sheet as everywhere else, whether the previous test
-            // completed or was abandoned.
+            // Cool-down before another test: the sheet for an aborted one, a
+            // message for a completed one.
             if (await AbortDeviceManager.getAbortStatus()) {
               _isNavigating = false;
               if (context.mounted) CheckAbortSheet.show(context: context);
+              return;
+            }
+
+            final remaining =
+                await AbortDeviceManager.completedRemainingSeconds();
+            if (remaining > 0) {
+              _isNavigating = false;
+              await showCooldownToast(remaining);
               return;
             }
 

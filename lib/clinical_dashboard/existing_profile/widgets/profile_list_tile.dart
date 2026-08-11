@@ -81,8 +81,10 @@ class ProfileListTile extends StatelessWidget {
 
   /// The device needs its cool-down before another test, whether the last one
   /// finished or was abandoned part-way — starting early leaves the user in a
-  /// calibration screen that cannot progress. Both cases are covered by the
-  /// one cooling-down sheet.
+  /// calibration screen that cannot progress.
+  ///
+  /// An aborted test gets the cooling-down sheet; a completed one just gets a
+  /// message, matching how the Take Test button behaves on the dashboard.
   Future<void> _startTestWhenReady(
     BuildContext context,
     VoidCallback proceed,
@@ -91,6 +93,12 @@ class ProfileListTile extends StatelessWidget {
       if (context.mounted) {
         CheckAbortSheet.show(context: context, onTakeTextClick: proceed);
       }
+      return;
+    }
+
+    final remaining = await AbortDeviceManager.completedRemainingSeconds();
+    if (remaining > 0) {
+      if (context.mounted) await showCooldownToast(context, remaining);
       return;
     }
 

@@ -10,12 +10,20 @@ class BottomNavigationBarWidget extends StatelessWidget {
   final int activeIndex;
    String label3;
 
+  /// Seconds left of the cool-down after a completed reading, or 0 when ready.
+  ///
+  /// While counting down the button is visibly locked and shows the time
+  /// remaining. It still calls [onTakeTestTap] so the tap can be answered with
+  /// the reason, rather than appearing to do nothing.
+  final int lockedForSeconds;
+
    BottomNavigationBarWidget({
     super.key,
     required this.onDashboardTap,
     required this.onTakeTestTap,
     required this.onProfileTap,
     required this.activeIndex,
+    this.lockedForSeconds = 0,
     this.label3 ="Test History"
   });
 
@@ -97,21 +105,27 @@ class BottomNavigationBarWidget extends StatelessWidget {
   }
 
   Widget _buildTakeTestButton(VoidCallback onClick) {
+    final bool locked = lockedForSeconds > 0;
+
     return Expanded(
       child: InkWell(
         onTap: onClick,
         child: Container(
           decoration: BoxDecoration(
-            color: const Color(0xFF308BF9),
+            color: locked ? const Color(0xFFA1A1A1) : const Color(0xFF308BF9),
             borderRadius: BorderRadius.circular(10),
           ),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              SvgPicture.asset("assets/sagar/icon-park-outline_wind.svg"),
+              locked
+                  ? const Icon(Icons.lock_clock, color: Colors.white, size: 22)
+                  : SvgPicture.asset(
+                      "assets/sagar/icon-park-outline_wind.svg",
+                    ),
               const SizedBox(height: 4),
               Text(
-                "Take Test",
+                locked ? "Wait ${lockedForSeconds}s" : "Take Test",
                 style: GoogleFonts.poppins(
                   color: Colors.white,
                   fontSize: 12,

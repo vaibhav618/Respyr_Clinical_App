@@ -109,6 +109,8 @@ class _ClinicalDashboardMainState extends State<ClinicalDashboardMain>
     // would leave it paused for the whole app — muting the stream the next
     // test's readiness check relies on, and making it look idle when it isn't.
     ClinicalUsbCommunicationServices().resumeCommunication();
+    // Landing here after a reading means the button may still be locked.
+    _refreshTakeTestLock();
     _initData();
     _cacheLoginId(widget.loginId);
     selectedDateNotifier.addListener(() {
@@ -159,12 +161,16 @@ class _ClinicalDashboardMainState extends State<ClinicalDashboardMain>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _cooldownToastTimer?.cancel(); // ✅ ADDED
+    _takeTestLockTimer?.cancel();
     super.dispose();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
+      // The cool-down keeps running while the app is away, so re-read it
+      // rather than resuming a stale countdown.
+      _refreshTakeTestLock();
       _initData();
     }
   }
@@ -212,6 +218,38 @@ class _ClinicalDashboardMainState extends State<ClinicalDashboardMain>
 
     final remaining = cooldownSeconds - diff;
     return remaining > 0 ? remaining : 0;
+  }
+
+  /// Drives the Take Test button's locked state after a completed reading.
+  ///
+  /// Ticks once a second while there is time left, then unlocks itself. Kept as
+  /// state rather than a dialog because someone working through a list of
+  /// patients should see the wait, not have to dismiss it.
+  int _takeTestLockSeconds = 0;
+  Timer? _takeTestLockTimer;
+
+  Future<void> _refreshTakeTestLock() async {
+    final remaining = await AbortDeviceManager.completedRemainingSeconds();
+    if (!mounted) return;
+
+    setState(() => _takeTestLockSeconds = remaining);
+
+    _takeTestLockTimer?.cancel();
+    if (remaining <= 0) return;
+
+    _takeTestLockTimer = Timer.periodic(const Duration(seconds: 1), (t) {
+      if (!mounted) {
+        t.cancel();
+        return;
+      }
+      setState(() {
+        _takeTestLockSeconds--;
+        if (_takeTestLockSeconds <= 0) {
+          _takeTestLockSeconds = 0;
+          t.cancel();
+        }
+      });
+    });
   }
 
   // ✅ ADDED: FloatingMessage toast countdown
@@ -479,11 +517,24 @@ class _ClinicalDashboardMainState extends State<ClinicalDashboardMain>
       bottomNavigationBar: BottomNavigationBarWidget(
         activeIndex: 0,
         onDashboardTap: () => _initData(),
+        lockedForSeconds: _takeTestLockSeconds,
         onTakeTestTap: () async {
           if (_hasInternet) {
-            // The cooling-down sheet covers both a cancelled test and a
-            // completed reading, so there is no separate toast path — the
-            // wait looked different depending on how the last test ended.
+            // Locked after a completed reading: say how long is left rather
+            // than letting the tap look like it did nothing.
+            if (_takeTestLockSeconds > 0) {
+              FloatingMessage.show(
+                context,
+                message:
+                    'Respyr is cooling down — please wait '
+                    '$_takeTestLockSeconds seconds',
+                type: FloatingMessageType.warning,
+                fromTop: false,
+              );
+              return;
+            }
+
+            // An aborted test still gets the cooling-down sheet.
             checkDeviceAbortStatus();
           } else {
             ScaffoldMessenger.of(context).showSnackBar(

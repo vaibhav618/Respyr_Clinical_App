@@ -36,7 +36,6 @@ class _CoolingDownContent extends StatefulWidget {
 class _CoolingDownContentState extends State<_CoolingDownContent> {
   int _remainingSeconds = 0;
   bool _isButtonEnabled = false;
-  CooldownReason _reason = CooldownReason.completed;
   Timer? _timer;
 
   @override
@@ -45,18 +44,12 @@ class _CoolingDownContentState extends State<_CoolingDownContent> {
     _calculateRemainingTime();
   }
 
-  /// Reads the shared cooldown, which covers both a cancelled test and a
-  /// completed reading, so this sheet can be shown for either.
-  Future<void> _calculateRemainingTime() async {
-    final cooldown = await AbortDeviceManager.getCooldown();
-    if (!mounted) return;
-
-    setState(() {
-      _remainingSeconds = cooldown.remainingSeconds;
-      _reason = cooldown.reason;
-      _isButtonEnabled = !cooldown.isCoolingDown;
-    });
-
+  /// This sheet is for an aborted test only. A completed reading locks the Take
+  /// Test button instead, which is less intrusive for someone working through a
+  /// list of patients.
+  void _calculateRemainingTime() {
+    _remainingSeconds = AbortDeviceManager.abortedRemainingSeconds();
+    _isButtonEnabled = _remainingSeconds <= 0;
     _startTimer();
   }
 
@@ -135,9 +128,7 @@ class _CoolingDownContentState extends State<_CoolingDownContent> {
                 Text(
                   _isButtonEnabled
                       ? "Device is ready now. You can continue with the test."
-                      : _reason == CooldownReason.aborted
-                      ? "You aborted the previous test. Respyr needs to cool down. Please wait for 1 minute before starting the next test."
-                      : "Respyr needs to cool down after a reading. Please wait for 1 minute before starting the next test.",
+                      : "You aborted the previous test. Respyr needs to cool down. Please wait for 1 minute before starting the next test.",
                   textAlign: TextAlign.center,
                   style: GoogleFonts.poppins(
                     color: const Color(0xFF535359),
