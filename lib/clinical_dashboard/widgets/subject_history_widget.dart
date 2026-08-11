@@ -94,18 +94,8 @@ class _SubjectHistoryWidgetState extends State<SubjectHistoryWidget> {
         }
 
         if (state is NewResultSuccess) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder:
-                  (context) => ResultScreen(
-                    userResultData: state.result,
-                    userProfileData: widget.profileDataModel,
-                    blowValuesList: [],
-                  ),
-            ),
-          );
-
+          // One push only. This also pushed a second, provider-less copy of the
+          // result screen, which was then discarded by the navigation below.
           _navigateToResultScreen(state.result, widget.profileDataModel);
         } else if (state is NewResultFailure) {
           ScaffoldMessenger.of(
@@ -323,15 +313,20 @@ class _SubjectHistoryWidgetState extends State<SubjectHistoryWidget> {
       Get.back(); // Close any open overlays/dialogs
     }
 
-    Navigator.of(context).popUntil((route) => route.isFirst);
-
-    Get.offAll(
-      () => ChangeNotifierProvider(
-        create: (_) => ResultViewModel()..initialize(profileDetails),
-        child: ResultScreen(
-          userResultData: result,
-          userProfileData: profileDetails,
-          blowValuesList: [],
+    // Push, don't replace. This used to popUntil(isFirst) and then Get.offAll,
+    // which threw away the history the user was browsing — so closing the
+    // result had nowhere to return to and dropped them on the dashboard.
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ChangeNotifierProvider(
+          create: (_) => ResultViewModel()..initialize(profileDetails),
+          child: ResultScreen(
+            userResultData: result,
+            userProfileData: profileDetails,
+            blowValuesList: const [],
+            fromHistory: true,
+          ),
         ),
       ),
     );

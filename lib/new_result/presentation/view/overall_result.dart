@@ -16,11 +16,20 @@ class ResultScreen extends StatelessWidget {
   final ResultProfileDataModel userProfileData;
   final List<double> blowValuesList;
 
+  /// True when opened from a patient's test history rather than at the end of
+  /// a reading.
+  ///
+  /// Closing should undo however the screen was reached: browsing history goes
+  /// back to that list, while a reading has no meaningful place to return to —
+  /// the test flow behind it is finished — so it goes to the dashboard.
+  final bool fromHistory;
+
   const ResultScreen({
     super.key,
     required this.userResultData,
     required this.userProfileData,
     required this.blowValuesList,
+    this.fromHistory = false,
   });
 
   @override
@@ -100,6 +109,11 @@ class ResultScreen extends StatelessWidget {
   void _navigateToDashboard() {
     if (Get.isOverlaysOpen) {
       Get.back();
+    }
+
+    if (fromHistory) {
+      Get.back();
+      return;
     }
 
     Get.offAllNamed(
