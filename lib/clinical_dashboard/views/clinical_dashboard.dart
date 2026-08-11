@@ -220,16 +220,18 @@ class _ClinicalDashboardMainState extends State<ClinicalDashboardMain>
     return remaining > 0 ? remaining : 0;
   }
 
-  /// Drives the Take Test button's locked state after a completed reading.
+  /// Drives the Take Test button's locked state during the cool-down, however
+  /// the previous test ended.
   ///
   /// Ticks once a second while there is time left, then unlocks itself. Kept as
   /// state rather than a dialog because someone working through a list of
-  /// patients should see the wait, not have to dismiss it.
+  /// patients should see the wait, not have to dismiss it. What a tap does
+  /// still depends on the reason — see the button's handler.
   int _takeTestLockSeconds = 0;
   Timer? _takeTestLockTimer;
 
   Future<void> _refreshTakeTestLock() async {
-    final remaining = await AbortDeviceManager.completedRemainingSeconds();
+    final remaining = await AbortDeviceManager.remainingSeconds();
     if (!mounted) return;
 
     setState(() => _takeTestLockSeconds = remaining);
@@ -520,21 +522,28 @@ class _ClinicalDashboardMainState extends State<ClinicalDashboardMain>
         lockedForSeconds: _takeTestLockSeconds,
         onTakeTestTap: () async {
           if (_hasInternet) {
-            // Locked after a completed reading: say how long is left rather
-            // than letting the tap look like it did nothing.
+            // Locked during the cool-down. An aborted test gets the sheet,
+            // which explains what happened; a completed one just needs the
+            // time remaining.
             if (_takeTestLockSeconds > 0) {
-              FloatingMessage.show(
-                context,
-                message:
-                    'Respyr is cooling down — please wait '
-                    '$_takeTestLockSeconds seconds',
-                type: FloatingMessageType.warning,
-                fromTop: false,
-              );
+              if (AbortDeviceManager.abortedRemainingSeconds() > 0) {
+                CheckAbortSheet.show(
+                  context: context,
+                  onTakeTextClick: performTakeTest,
+                );
+              } else {
+                FloatingMessage.show(
+                  context,
+                  message:
+                      'Respyr is cooling down — please wait '
+                      '$_takeTestLockSeconds seconds',
+                  type: FloatingMessageType.warning,
+                  fromTop: false,
+                );
+              }
               return;
             }
 
-            // An aborted test still gets the cooling-down sheet.
             checkDeviceAbortStatus();
           } else {
             ScaffoldMessenger.of(context).showSnackBar(
