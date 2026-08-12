@@ -1,6 +1,5 @@
 import 'dart:async'; // ✅ added
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:respyr_clinical/device_connectivity/presentation/pages/device_connectivity_screen.dart';
@@ -233,70 +232,96 @@ class ProfileListTile extends StatelessWidget {
           );
         }
       },
-      child: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-            child: Column(
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    SvgPicture.asset("assets/sagar/profile41.svg", width: 32),
-                    const SizedBox(width: 20),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          profile.subjectId,
-                          style: GoogleFonts.poppins(
-                            color: const Color(0xFF252525),
-                            fontSize: 10,
-                            fontWeight: FontWeight.w400,
-                            height: 1.10,
-                            letterSpacing: -0.36,
-                          ),
-                        ),
-                        const SizedBox(height: 5),
-                        Text(
-                          profile.profileName,
-                          style: GoogleFonts.poppins(
-                            color: const Color(0xFF252525),
-                            fontSize: 15,
-                            fontWeight: FontWeight.w400,
-                            height: 1.10,
-                            letterSpacing: -0.36,
-                          ),
-                        ),
-                        const SizedBox(height: 5),
-                        Text(
-                          "${profile.age} yrs, ${profile.gender}",
-                          style: GoogleFonts.poppins(
-                            color: const Color(0xFF252525),
-                            fontSize: 12,
-                            fontWeight: FontWeight.w400,
-                            letterSpacing: -0.20,
-                          ),
-                        ),
-                      ],
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFFE5E7EB)),
+        ),
+        child: Row(
+          children: [
+            _initialAvatar(),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    profile.profileName,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.poppins(
+                      color: const Color(0xFF252525),
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
                     ),
-                    const Spacer(),
-                    const SizedBox(
-                      height: 24,
-                      child: Icon(Icons.chevron_right_sharp),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    "${profile.age} yrs  •  ${profile.gender}",
+                    style: GoogleFonts.poppins(
+                      color: const Color(0xFF535359),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w400,
                     ),
-                  ],
-                ),
-              ],
+                  ),
+                  const SizedBox(height: 6),
+                  _subjectIdPill(),
+                ],
+              ),
             ),
-          ),
-          const Divider(
-            height: 0.5,
-            color: Color(0xFFF5F7FA),
-            indent: 20,
-            endIndent: 20,
-          ),
-        ],
+            const SizedBox(width: 8),
+            const Icon(
+              Icons.chevron_right_rounded,
+              color: Color(0xFFA1A1A1),
+              size: 22,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Initial in a tinted circle — same treatment as the subject profile header,
+  /// so a subject looks the same wherever they appear.
+  Widget _initialAvatar() {
+    final String name = profile.profileName.trim();
+    return Container(
+      height: 46,
+      width: 46,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: const Color(0xFF308BF9).withValues(alpha: 0.10),
+        shape: BoxShape.circle,
+      ),
+      child: Text(
+        name.isNotEmpty ? name[0].toUpperCase() : "?",
+        style: GoogleFonts.poppins(
+          color: const Color(0xFF308BF9),
+          fontSize: 19,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+
+  /// The subject id is a reference, not a headline — give it the quiet
+  /// treatment so the name leads.
+  Widget _subjectIdPill() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF5F7FA),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        profile.subjectId,
+        style: GoogleFonts.poppins(
+          color: const Color(0xFF535359),
+          fontSize: 11,
+          fontWeight: FontWeight.w500,
+        ),
       ),
     );
   }

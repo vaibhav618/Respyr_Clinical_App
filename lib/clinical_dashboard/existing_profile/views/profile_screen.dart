@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:respyr_clinical/widgets/shimmer_placeholders.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:respyr_clinical/shared/colors.dart';
 import 'package:respyr_clinical/widgets/internet_connectivity_check.dart';
 import '../../create_profile/create_profile.dart';
 import '../bloc/profile_bloc.dart';
@@ -17,6 +16,54 @@ class ExistingProfilesListScreen extends StatelessWidget {
     required this.isCreateAccountButtonShow,
     super.key,
   });
+
+  /// Covers both "this clinic has no subjects yet" and "the search matched
+  /// nothing" — the previous bare "No profiles found." gave no sense of which.
+  Widget _emptyState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 40),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              height: 64,
+              width: 64,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: const Color(0xFF308BF9).withValues(alpha: 0.08),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.person_search_rounded,
+                color: Color(0xFF308BF9),
+                size: 30,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              "No subjects found",
+              style: GoogleFonts.poppins(
+                color: const Color(0xFF252525),
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              "Try a different name or ID, or add a new subject.",
+              textAlign: TextAlign.center,
+              style: GoogleFonts.poppins(
+                color: const Color(0xFF535359),
+                fontSize: 13,
+                fontWeight: FontWeight.w400,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -34,14 +81,15 @@ class ExistingProfilesListScreen extends StatelessWidget {
               title: Text(
                 "Subjects",
                 style: GoogleFonts.poppins(
-                  color: const Color(0xFF5A5A5A),
+                  color: const Color(0xFF252525),
                   fontSize: 20,
                   fontWeight: FontWeight.w600,
                   letterSpacing: -0.80,
                 ),
               ),
             ),
-            backgroundColor: Colors.white,
+            // Light background so the subject cards read as cards.
+            backgroundColor: const Color(0xFFF5F7FA),
             body: InternetConnectivityHandler(
               isBody: true,
               onConnectivityChanged: (hasInternet) {
@@ -52,34 +100,34 @@ class ExistingProfilesListScreen extends StatelessWidget {
               child: Column(
                 children: [
                   Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 25,
-                    ),
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
                     child: Container(
-                      decoration: ShapeDecoration(
-                        color: const Color(0xFFF5F7FA),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFFE5E7EB)),
                       ),
                       child: TextField(
+                        style: GoogleFonts.poppins(
+                          color: const Color(0xFF252525),
+                          fontSize: 15,
+                          fontWeight: FontWeight.w400,
+                        ),
                         decoration: InputDecoration(
                           prefixIcon: const Icon(
                             Icons.search,
-                            color: Color(0xFF86BDFF),
+                            color: Color(0xFFA1A1A1),
                           ),
                           contentPadding: const EdgeInsets.symmetric(
                             horizontal: 20,
-                            vertical: 16,
+                            vertical: 14,
                           ),
                           border: InputBorder.none,
-                          hintText: 'Search ‘abc’',
+                          hintText: 'Search by name or ID',
                           hintStyle: GoogleFonts.poppins(
-                            color: const Color(0xFF86BDFF),
+                            color: const Color(0xFFA1A1A1),
                             fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                            letterSpacing: -0.60,
+                            fontWeight: FontWeight.w400,
                           ),
                         ),
                         onChanged: (query) {
@@ -94,15 +142,16 @@ class ExistingProfilesListScreen extends StatelessWidget {
                     child: BlocBuilder<ProfileBloc, ProfileState>(
                       builder: (context, state) {
                         if (state is ProfileLoading) {
-                          return const ListShimmer(rows: 7, rowHeight: 60);
+                          return const ListShimmer(rows: 7, rowHeight: 76);
                         } else if (state is ProfileLoaded) {
                           if (state.filteredProfiles.isEmpty) {
-                            return const Center(
-                              child: Text('No profiles found.'),
-                            );
+                            return _emptyState();
                           }
-                          return ListView.builder(
+                          return ListView.separated(
+                            padding: const EdgeInsets.fromLTRB(16, 4, 16, 90),
                             itemCount: state.filteredProfiles.length,
+                            separatorBuilder: (_, __) =>
+                                const SizedBox(height: 10),
                             itemBuilder: (context, index) {
                               return ProfileListTile(
                                 profile: state.filteredProfiles[index],
@@ -117,7 +166,16 @@ class ExistingProfilesListScreen extends StatelessWidget {
                             },
                           );
                         } else if (state is ProfileError) {
-                          return Center(child: Text(state.message));
+                          return Center(
+                            child: Text(
+                              state.message,
+                              textAlign: TextAlign.center,
+                              style: GoogleFonts.poppins(
+                                color: const Color(0xFF535359),
+                                fontSize: 14,
+                              ),
+                            ),
+                          );
                         }
                         return const SizedBox();
                       },
@@ -141,14 +199,14 @@ class ExistingProfilesListScreen extends StatelessWidget {
                         "Create new profile",
                         style: GoogleFonts.poppins(
                           color: Colors.white,
-                          fontSize: 12,
+                          fontSize: 13,
                           fontWeight: FontWeight.w600,
-                          height: 1.10,
-                          letterSpacing: -0.48,
+                          letterSpacing: -0.20,
                         ),
                       ),
                       icon: const Icon(Icons.add, color: Colors.white),
-                      backgroundColor: Colors.blue,
+                      // Primary Blue, not Colors.blue — the latter is off-palette.
+                      backgroundColor: const Color(0xFF308BF9),
                     )
                     : SizedBox.shrink(),
           );
