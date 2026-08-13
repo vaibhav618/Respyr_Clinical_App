@@ -13,7 +13,6 @@ import 'package:respyr_clinical/account_center/menu_screen.dart';
 import 'package:respyr_clinical/clinical_app_respyr/screens/usb_test/services/clinical_usb_communication_services.dart';
 import 'package:respyr_clinical/clinical_app_respyr/services/generation_foreground_service.dart';
 import 'package:respyr_clinical/widgets/internet_connectivity_check.dart';
-import 'package:respyr_clinical/shared/colors.dart';
 import 'package:respyr_clinical/widgets/in_app_update.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:table_calendar/table_calendar.dart';
@@ -679,7 +678,9 @@ class _ClinicalDashboardMainState extends State<ClinicalDashboardMain>
               clinicalTestCountData: clinicalTestCountData,
             ),
             transitionsBuilder: (context, animation, secondaryAnimation, child) {
-              const begin = Offset(1.0, 0.0); // Start from right
+              // Slides in from the left, from under the profile badge that
+              // opens it — the badge sits at the left edge of the app bar.
+              const begin = Offset(-1.0, 0.0);
               const end = Offset.zero;
               const curve = Curves.ease;
 
@@ -718,61 +719,86 @@ class _ClinicalDashboardMainState extends State<ClinicalDashboardMain>
       firstDay: DateTime(2020),
       lastDay: DateTime.now(),
       focusedDay: selectedDate,
-      selectedDayPredicate: (day) => _markedEvents.any(
-            (markedDay) =>
-        markedDay.year == day.year &&
-            markedDay.month == day.month &&
-            markedDay.day == day.day,
-      ),
+      // The day the user is on. This used to return true for every day that
+      // had tests, so the selected-day styling landed on all of them and the
+      // actual selection was never shown.
+      selectedDayPredicate: (day) => isSameDay(day, selectedDate),
       onDaySelected: _onDaySelected,
-      daysOfWeekHeight: 20,
+      daysOfWeekHeight: 28,
+      // Column headings are labels, not data — set them back so the dates
+      // themselves lead.
       daysOfWeekStyle: DaysOfWeekStyle(
-        weekdayStyle: GoogleFonts.mulish(
-          fontSize: 14,
-          fontWeight: FontWeight.w400,
-          color: AppColor.primaryBlackColor,
+        weekdayStyle: GoogleFonts.poppins(
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          color: const Color(0xFFA1A1A1),
         ),
-        weekendStyle: GoogleFonts.mulish(
-          fontSize: 14,
-          fontWeight: FontWeight.w400,
-          color: AppColor.primaryBlackColor,
+        weekendStyle: GoogleFonts.poppins(
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          color: const Color(0xFFA1A1A1),
         ),
       ),
       calendarStyle: CalendarStyle(
-        disabledTextStyle: GoogleFonts.roboto(
+        disabledTextStyle: GoogleFonts.poppins(
           fontSize: 14,
-          color: Colors.grey[500],
+          color: const Color(0xFFC9CDD3),
         ),
+        // Selected day: filled. Today: outlined. A day with tests keeps its
+        // dot underneath, so all three can show at once — before this, both
+        // decorations were white circles on a white sheet, i.e. invisible.
         selectedDecoration: const BoxDecoration(
-          color: Colors.white,
+          color: Color(0xFF308BF9),
           shape: BoxShape.circle,
         ),
-        todayDecoration: const BoxDecoration(
+        selectedTextStyle: GoogleFonts.poppins(
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
           color: Colors.white,
+        ),
+        todayDecoration: BoxDecoration(
+          color: const Color(0xFF308BF9).withValues(alpha: 0.08),
           shape: BoxShape.circle,
+          border: Border.all(color: const Color(0xFF308BF9), width: 1.5),
         ),
-        weekendTextStyle: GoogleFonts.roboto(
+        todayTextStyle: GoogleFonts.poppins(
           fontSize: 14,
-          color: const Color(0xFFEA5455),
+          fontWeight: FontWeight.w600,
+          color: const Color(0xFF308BF9),
         ),
-        defaultTextStyle: GoogleFonts.roboto(
+        // Weekends were Error Red, which reads as something being wrong.
+        weekendTextStyle: GoogleFonts.poppins(
           fontSize: 14,
-          color: AppColor.primaryBlackColor,
+          color: const Color(0xFF535359),
+        ),
+        defaultTextStyle: GoogleFonts.poppins(
+          fontSize: 14,
+          color: const Color(0xFF252525),
         ),
         outsideDaysVisible: false,
-        todayTextStyle: GoogleFonts.roboto(
-          fontSize: 14,
-          color: AppColor.primaryBlackColor,
-        ),
+        cellMargin: const EdgeInsets.all(5),
       ),
       headerStyle: HeaderStyle(
         formatButtonVisible: false,
         titleCentered: true,
+        headerPadding: const EdgeInsets.fromLTRB(8, 4, 8, 10),
         titleTextStyle: GoogleFonts.poppins(
-          fontSize: 18,
+          fontSize: 16,
           fontWeight: FontWeight.w600,
-          color: AppColor.primaryBlackColor,
+          color: const Color(0xFF252525),
         ),
+        leftChevronIcon: const Icon(
+          Icons.chevron_left_rounded,
+          color: Color(0xFF535359),
+          size: 24,
+        ),
+        rightChevronIcon: const Icon(
+          Icons.chevron_right_rounded,
+          color: Color(0xFF535359),
+          size: 24,
+        ),
+        leftChevronMargin: EdgeInsets.zero,
+        rightChevronMargin: EdgeInsets.zero,
       ),
       calendarBuilders: CalendarBuilders(markerBuilder: _markerBuilder),
     );
@@ -803,19 +829,21 @@ class _ClinicalDashboardMainState extends State<ClinicalDashboardMain>
 
     if (!isMarked) return null;
 
-    return Center(
+    // A dot beneath the number, not a disc over it. Painting a filled circle
+    // with its own day number on top of the cell meant a day with tests could
+    // not also show as today or as the current selection — it simply replaced
+    // them.
+    final bool isSelected = isSameDay(day, selectedDate);
+
+    return Positioned(
+      bottom: 4,
       child: Container(
-        height: 35,
-        width: 35,
+        height: 5,
+        width: 5,
         decoration: BoxDecoration(
-          color: AppColor.primaryBlueColor,
+          // On the filled selection the dot has to sit on blue, so invert it.
+          color: isSelected ? Colors.white : const Color(0xFF308BF9),
           shape: BoxShape.circle,
-        ),
-        child: Center(
-          child: Text(
-            '${day.day}',
-            style: GoogleFonts.roboto(fontSize: 14, color: AppColor.whiteColor),
-          ),
         ),
       ),
     );
