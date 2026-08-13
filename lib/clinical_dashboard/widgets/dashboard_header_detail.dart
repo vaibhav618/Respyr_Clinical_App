@@ -1,97 +1,185 @@
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
-/// Home header: the selected day and how many tests were taken on it,
-/// as a row of equal stats.
+import 'dashboard_theme.dart';
+
+/// Top-of-dashboard summary: how many tests were recorded on the selected day,
+/// and how much of the clinic's test allowance is left.
 ///
-/// Three columns of the same shape, each a value over a small caption. A
-/// bordered box holding two loose facts always looked half empty however the
-/// contents were arranged; giving them a consistent grid fills the width
-/// honestly and leaves room for a fourth stat later.
+/// Replaces two separate blocks — a three-column date/day/count strip at the
+/// top and a quota meter buried at the very bottom of the page. The strip
+/// spent two of its three columns restating the date already shown in the app
+/// bar, and the quota is something you want to see before working through a
+/// list of patients, not after scrolling past one.
 Widget dashboardHeader({
   required DateTime formattedDate,
   required int totalTestCount,
+  required int creditsUsed,
+  required int creditsTotal,
+  required bool creditsVisible,
 }) {
-  final String dayMonth = DateFormat('d MMM').format(formattedDate);
-  final String year = DateFormat('y').format(formattedDate);
-  final String dayLabel = DateFormat('EEEE').format(formattedDate);
+  final DateTime now = DateTime.now();
+  final bool isToday = formattedDate.year == now.year &&
+      formattedDate.month == now.month &&
+      formattedDate.day == now.day;
+
+  final String dateLine = DateFormat('EEEE, d MMMM').format(formattedDate);
 
   return Padding(
-    padding: const EdgeInsets.symmetric(horizontal: 16),
+    padding: const EdgeInsets.symmetric(horizontal: DashTheme.gutter),
     child: Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 16),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFFFFF),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE5E7EB), width: 1),
-      ),
-      child: Row(
+      decoration: DashTheme.card,
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _stat(value: dayMonth, caption: year),
-          _divider(),
-          _stat(value: dayLabel, caption: "DAY"),
-          _divider(),
-          _stat(
-            // A bare "0" reads as a glitch; a dash reads as "none".
-            value: totalTestCount == 0 ? "—" : totalTestCount.toString(),
-            caption: "TESTS",
-            isMuted: totalTestCount == 0,
-            emphasise: totalTestCount > 0,
+          Row(
+            children: [
+              Text(
+                isToday ? "TODAY" : "SELECTED DAY",
+                style: GoogleFonts.poppins(
+                  color: DashTheme.blue,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 1.2,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  dateLine,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.poppins(
+                    color: DashTheme.faint,
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ],
           ),
+          const SizedBox(height: 10),
+          _testCountLine(totalTestCount),
+          if (creditsVisible) ...[
+            const SizedBox(height: 16),
+            Divider(height: 1, thickness: 1, color: DashTheme.line),
+            const SizedBox(height: 14),
+            _credits(creditsUsed, creditsTotal),
+          ],
         ],
       ),
     ),
   );
 }
 
-Widget _stat({
-  required String value,
-  required String caption,
-  bool isMuted = false,
-  bool emphasise = false,
-}) {
-  return Expanded(
-    child: Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          value,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: GoogleFonts.poppins(
-            color: isMuted
-                ? const Color(0xFFA1A1A1)
-                : emphasise
-                ? const Color(0xFF308BF9)
-                : const Color(0xFF252525),
-            // The count is the figure people are actually checking, so it
-            // carries a little more weight than the two date columns.
-            fontSize: emphasise ? 20 : 16,
-            fontWeight: FontWeight.w600,
-            height: 1.15,
-          ),
+/// The count leads at display size, with the word beside it — a bare number
+/// over a "TESTS" caption made the reader assemble the sentence themselves.
+Widget _testCountLine(int count) {
+  if (count == 0) {
+    return Text(
+      "No tests recorded",
+      style: GoogleFonts.poppins(
+        color: DashTheme.muted,
+        fontSize: 19,
+        fontWeight: FontWeight.w600,
+        height: 1.15,
+        letterSpacing: -0.4,
+      ),
+    );
+  }
+
+  return Row(
+    crossAxisAlignment: CrossAxisAlignment.baseline,
+    textBaseline: TextBaseline.alphabetic,
+    children: [
+      Text(
+        count.toString(),
+        style: GoogleFonts.poppins(
+          color: DashTheme.blue,
+          fontSize: 30,
+          fontWeight: FontWeight.w600,
+          height: 1,
+          letterSpacing: -0.8,
         ),
-        const SizedBox(height: 5),
-        Text(
-          caption,
-          style: GoogleFonts.poppins(
-            color: const Color(0xFF535359),
-            fontSize: 10,
-            fontWeight: FontWeight.w500,
-            letterSpacing: 1.1,
-          ),
+      ),
+      const SizedBox(width: 8),
+      Text(
+        count == 1 ? "test recorded" : "tests recorded",
+        style: GoogleFonts.poppins(
+          color: DashTheme.ink,
+          fontSize: 15,
+          fontWeight: FontWeight.w500,
+          letterSpacing: -0.2,
         ),
-      ],
-    ),
+      ),
+    ],
   );
 }
 
-Widget _divider() {
-  return Container(
-    width: 1,
-    height: 34,
-    color: const Color(0xFFE5E7EB),
+Widget _credits(int used, int total) {
+  // Guard the divide: the quota endpoint can report 0, and x/0 renders as NaN
+  // width, which throws inside the progress indicator.
+  final double progress = total > 0 ? (used / total).clamp(0.0, 1.0) : 0.0;
+  final bool low = progress >= 0.9;
+
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Row(
+        children: [
+          Expanded(
+            child: Text(
+              "Test credits used",
+              style: GoogleFonts.poppins(
+                color: DashTheme.muted,
+                fontSize: 12.5,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          Text(
+            "$used",
+            style: GoogleFonts.poppins(
+              color: DashTheme.ink,
+              fontSize: 13.5,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          Text(
+            " / $total",
+            style: GoogleFonts.poppins(
+              color: DashTheme.faint,
+              fontSize: 13.5,
+              fontWeight: FontWeight.w400,
+            ),
+          ),
+        ],
+      ),
+      const SizedBox(height: 8),
+      LinearProgressIndicator(
+        value: progress,
+        minHeight: 6,
+        borderRadius: BorderRadius.circular(3),
+        color: low ? DashTheme.poor : DashTheme.good,
+        backgroundColor: DashTheme.line,
+      ),
+      if (low) ...[
+        const SizedBox(height: 8),
+        Text(
+          total - used <= 0
+              ? "You're out of test credits. Contact support to continue testing."
+              : "${total - used} credits left. Contact support to top up.",
+          style: GoogleFonts.poppins(
+            color: DashTheme.poor,
+            fontSize: 11.5,
+            fontWeight: FontWeight.w500,
+            height: 1.3,
+          ),
+        ),
+      ],
+    ],
   );
 }

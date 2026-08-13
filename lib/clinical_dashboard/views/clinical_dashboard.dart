@@ -28,17 +28,20 @@ import '../existing_profile/views/profile_screen.dart';
 import '../helper/abort_device_manager.dart';
 import '../helper/fetch_clinic_test_counts.php.dart';
 import '../helper/get_clinical_test_count.dart';
+import '../model/OverallDataByDateModel.dart';
 import '../repositories/test_log_repository.dart';
 import '../task_manager/task_manager.dart';
 import '../widgets/bottom_navigation.dart';
 import '../widgets/check_abort_sheet.dart';
 import '../widgets/custom_appbar.dart';
 import '../widgets/dashboard_header_detail.dart';
+import '../widgets/dashboard_theme.dart';
 import '../widgets/errors.dart';
 import '../widgets/overall_analytics_widget.dart';
+import '../widgets/score_type_selector.dart';
 import '../widgets/take_test_sheet.dart';
-import '../widgets/test_details_widget.dart';
 import '../widgets/test_limit_completed_sheet.dart';
+import '../widgets/test_log_widget.dart';
 import 'complete_test_log.dart';
 
 // ✅ ADDED (update path if needed)
@@ -82,6 +85,13 @@ class _ClinicalDashboardMainState extends State<ClinicalDashboardMain>
   // ✅ ADDED (cooldown toast timer)
   Timer? _cooldownToastTimer;
 
+  bool get _isViewingToday {
+    final DateTime now = DateTime.now();
+    return selectedDate.year == now.year &&
+        selectedDate.month == now.month &&
+        selectedDate.day == now.day;
+  }
+
   String get formattedDate {
     return "${selectedDate.month.toString().padLeft(2, '0')}/"
         "${selectedDate.day.toString().padLeft(2, '0')}/"
@@ -90,6 +100,14 @@ class _ClinicalDashboardMainState extends State<ClinicalDashboardMain>
 
   final List<DateTime> _markedEvents = [];
   bool _isCalendarVisible = false;
+
+  /// Which score the distribution chart and the reading list are showing.
+  ///
+  /// Held here rather than inside the analytics panel: the list needs the same
+  /// value, and when each owned its own copy the chart could be showing one
+  /// score while the rows underneath showed another.
+  String _selectedScoreType = ScoreTypeSelector.options.keys.first;
+
   ValueNotifier<String> selectedDateNotifier = ValueNotifier<String>(
     DateFormat('yyyy-MM-dd').format(DateTime.now()),
   );
@@ -324,9 +342,7 @@ class _ClinicalDashboardMainState extends State<ClinicalDashboardMain>
           children: [
             SingleChildScrollView(
               controller: _scrollController,
-              child: Column(
-                children: [
-                  BlocBuilder<HealthScoreBloc, HealthScoreState>(
+              child: BlocBuilder<HealthScoreBloc, HealthScoreState>(
                 builder: (context, state) {
                   if (state is HealthScoreLoading) {
                     return const DashboardShimmer();
@@ -343,98 +359,38 @@ class _ClinicalDashboardMainState extends State<ClinicalDashboardMain>
                         if (snapshot.connectionState ==
                             ConnectionState.waiting) {
                           return const DashboardShimmer();
-                        } else if (snapshot.hasError) {
-                          return const Center(
-                            child: Text('Error loading test data'),
-                          );
-                        } else if (snapshot.hasData && snapshot.data != null) {
-                          if (clinicalTestCountData == null) {
-                            WidgetsBinding.instance.addPostFrameCallback((_) {
-                              setState(() {
-                                clinicalTestCountData = snapshot.data;
-                                totalSubjectsOnboarded1 =
-                                    totalSubjectsOnboarded1;
-                              });
-                            });
-                          }
-
-                          // NOTE: no nested SingleChildScrollView here — the
-                          // page already scrolls. A nested one becomes the
-                          // "nearest scrollable" for descendants and silently
-                          // swallows the test-log edge handoff.
-                          return Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                SizedBox(height: 20),
-                                dashboardHeader(
-                                  formattedDate: selectedDate,
-                                  totalTestCount: scores.length,
-                                ),
-                                SizedBox(height: 20),
-                                Visibility(
-                                  visible: scores.isNotEmpty,
-                                  child: OverallAnalyticsWidget(
-                                    genderDistribution: analytics
-                                        .genderDistribution
-                                        .map(
-                                          (gender, data) => MapEntry(
-                                        gender,
-                                        ScoreTypesForGender(
-                                          dbScore: ScoreBreakdown(
-                                            good: data.dbScore.good,
-                                            fair: data.dbScore.fair,
-                                            poor: data.dbScore.poor,
-                                          ),
-                                          liverScore: ScoreBreakdown(
-                                            good: data.liverScore.good,
-                                            fair: data.liverScore.fair,
-                                            poor: data.liverScore.poor,
-                                          ),
-                                          gutScorePer: ScoreBreakdown(
-                                            good: data.gutScorePer.good,
-                                            fair: data.gutScorePer.fair,
-                                            poor: data.gutScorePer.poor,
-                                          ),
-                                          blowScore: ScoreBreakdown(
-                                            good: data.blowScore.good,
-                                            fair: data.blowScore.fair,
-                                            poor: data.blowScore.poor,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                    date: formattedDate,
-                                    scoreData: scores,
-                                    loginId: widget.loginId,
-                                  ),
-                                ),
-                                const SizedBox(height: 24),
-                                TestDetailsWidget(
-                                  clinicalTestCountData: snapshot.data,
-                                  totalSubjectsOnboarded: totalSubjectsOnboarded1,
-                                ),
-                                const SizedBox(height: 24),
-                              ],
-                          );
-                        } else {
-                          return const Center(
-                            child: Text('No test data found'),
-                          );
                         }
+
+                        if (clinicalTestCountData == null &&
+                            snapshot.data != null) {
+                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                            if (!mounted) return;
+                            setState(() {
+                              clinicalTestCountData = snapshot.data;
+                            });
+                          });
+                        }
+
+                        // The quota is a secondary panel — a failure to read
+                        // it should not blank out the day's readings, which
+                        // is what returning an error message here used to do.
+                        return _dashboardContent(
+                          scores: scores,
+                          analytics: analytics,
+                          testData: snapshot.data,
+                        );
                       },
                     );
                   } else if (state is HealthScoreError) {
                     final now = DateTime.now();
-                    final isToday =
-                        selectedDate.year == now.year &&
-                            selectedDate.month == now.month &&
-                            selectedDate.day == now.day;
 
-                    if (isToday) {
-                      return const Center(
-                        child: Text(
-                          "No test data found for today.",
-                          style: TextStyle(fontSize: 16, color: Colors.black54),
+                    if (_isViewingToday) {
+                      return Padding(
+                        padding: const EdgeInsets.only(top: 80),
+                        child: _emptyState(
+                          icon: Icons.insights_rounded,
+                          title: "No readings yet today",
+                          message: "Readings you take today will appear here.",
                         ),
                       );
                     } else {
@@ -458,16 +414,12 @@ class _ClinicalDashboardMainState extends State<ClinicalDashboardMain>
                         });
                       }
 
-                      return const Center(
-                        child: Text("Loading previous date data..."),
-                      );
+                      return const DashboardShimmer();
                     }
                   }
 
-                      return const SizedBox.shrink();
-                    },
-                  ),
-                ],
+                  return const SizedBox.shrink();
+                },
               ),
             ),
 
@@ -570,6 +522,224 @@ class _ClinicalDashboardMainState extends State<ClinicalDashboardMain>
             ),
           );
         },
+      ),
+    );
+  }
+
+  /// The page, once the day's readings are in.
+  ///
+  /// Reads top to bottom as: what happened on this day → how the results
+  /// distributed → the individual readings. The old order put the day's
+  /// summary first, then a single box holding a title, a dropdown, a chart
+  /// and the full log, and finished with the clinic's test quota — a piece of
+  /// account admin sitting below a list that can run to dozens of rows.
+  Widget _dashboardContent({
+    required List<ScoreData> scores,
+    required Analytics analytics,
+    required Map<String, dynamic>? testData,
+  }) {
+    final int creditsUsed =
+        int.tryParse(testData?[scoreCountKey]?.toString() ?? '') ?? 0;
+    final int creditsTotal =
+        int.tryParse(testData?[testNoKey]?.toString() ?? '') ?? 0;
+    final bool creditsVisible = testData != null &&
+        (testData[testAllowKey]?.toString().toLowerCase() ?? 'false') !=
+            'false';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 16),
+        dashboardHeader(
+          formattedDate: selectedDate,
+          totalTestCount: scores.length,
+          creditsUsed: creditsUsed,
+          creditsTotal: creditsTotal,
+          creditsVisible: creditsVisible,
+        ),
+        if (scores.isEmpty) ...[
+          const SizedBox(height: 40),
+          // A reading is always filed under the day it was taken, so only the
+          // today view can offer to add one. Telling someone looking at last
+          // Tuesday to "take a test to add one" promised something the app
+          // cannot do.
+          if (_isViewingToday)
+            _emptyState(
+              icon: Icons.insights_rounded,
+              title: "No readings yet today",
+              message: "Readings you take today will appear here.",
+            )
+          else
+            _emptyState(
+              icon: Icons.event_busy_rounded,
+              title: "No readings on this day",
+              message: "Choose another date from the calendar above.",
+            ),
+        ] else ...[
+          const SizedBox(height: 24),
+          _sectionHeading("Results breakdown"),
+          const SizedBox(height: 12),
+          // The score picker sits above both the chart and the log, because
+          // it drives them both.
+          ScoreTypeSelector(
+            selected: _selectedScoreType,
+            onChanged: (value) =>
+                setState(() => _selectedScoreType = value),
+          ),
+          const SizedBox(height: 14),
+          OverallAnalyticsWidget(
+            genderDistribution: analytics.genderDistribution.map(
+              (gender, data) => MapEntry(
+                gender,
+                ScoreTypesForGender(
+                  dbScore: ScoreBreakdown(
+                    good: data.dbScore.good,
+                    fair: data.dbScore.fair,
+                    poor: data.dbScore.poor,
+                  ),
+                  liverScore: ScoreBreakdown(
+                    good: data.liverScore.good,
+                    fair: data.liverScore.fair,
+                    poor: data.liverScore.poor,
+                  ),
+                  gutScorePer: ScoreBreakdown(
+                    good: data.gutScorePer.good,
+                    fair: data.gutScorePer.fair,
+                    poor: data.gutScorePer.poor,
+                  ),
+                  blowScore: ScoreBreakdown(
+                    good: data.blowScore.good,
+                    fair: data.blowScore.fair,
+                    poor: data.blowScore.poor,
+                  ),
+                ),
+              ),
+            ),
+            scoreType: _selectedScoreType,
+          ),
+          const SizedBox(height: 26),
+          _sectionHeading(
+            scores.length == 1 ? "1 reading" : "${scores.length} readings",
+            action: "Full history",
+            onAction: _openFullTestLog,
+          ),
+          const SizedBox(height: 12),
+          TestLogWidget(
+            loginId: widget.loginId,
+            scoreType: _selectedScoreType,
+            scoreData: scores,
+          ),
+        ],
+        const SizedBox(height: 28),
+      ],
+    );
+  }
+
+  /// Section titles sit on the page rather than inside the card they label,
+  /// so the cards themselves stay uniform and the eye can find the breaks.
+  Widget _sectionHeading(String title, {String? action, VoidCallback? onAction}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: DashTheme.gutter),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              title,
+              style: GoogleFonts.poppins(
+                color: DashTheme.ink,
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                letterSpacing: -0.3,
+              ),
+            ),
+          ),
+          if (action != null)
+            InkWell(
+              onTap: onAction,
+              borderRadius: BorderRadius.circular(6),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                child: Row(
+                  children: [
+                    Text(
+                      action,
+                      style: GoogleFonts.poppins(
+                        color: DashTheme.blue,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: -0.2,
+                      ),
+                    ),
+                    const Icon(
+                      Icons.chevron_right_rounded,
+                      color: DashTheme.blue,
+                      size: 18,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _emptyState({
+    required IconData icon,
+    required String title,
+    required String message,
+  }) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 48),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              height: 64,
+              width: 64,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: DashTheme.blue.withValues(alpha: 0.08),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: DashTheme.blue, size: 30),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.poppins(
+                color: DashTheme.ink,
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.poppins(
+                color: DashTheme.muted,
+                fontSize: 13,
+                fontWeight: FontWeight.w400,
+                height: 1.4,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _openFullTestLog() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => BlocProvider(
+          create: (_) => TestLogBloc()..add(FetchTestLogs(widget.loginId)),
+          child: CompleteTestLog(loginId: widget.loginId),
+        ),
       ),
     );
   }
@@ -678,9 +848,9 @@ class _ClinicalDashboardMainState extends State<ClinicalDashboardMain>
               clinicalTestCountData: clinicalTestCountData,
             ),
             transitionsBuilder: (context, animation, secondaryAnimation, child) {
-              // Slides in from the left, from under the profile badge that
-              // opens it — the badge sits at the left edge of the app bar.
-              const begin = Offset(-1.0, 0.0);
+              // Comes in from the same edge as the badge that opens it. The
+              // badge is back on the right, so this is too.
+              const begin = Offset(1.0, 0.0);
               const end = Offset.zero;
               const curve = Curves.ease;
 

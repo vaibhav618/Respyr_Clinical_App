@@ -8,6 +8,7 @@ import '../../new_result/data/model/result_profile_data_model.dart';
 import '../bloc/subject_profile_bloc.dart';
 import '../events/subject_profile_event.dart';
 import '../repositories/subject_profile_repository.dart';
+
 import '../state/subject_profile_state.dart';
 import '../widgets/subject_history_widget.dart';
 

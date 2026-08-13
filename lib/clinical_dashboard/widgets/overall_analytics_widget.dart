@@ -1,10 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:respyr_clinical/clinical_dashboard/widgets/pie_chart_analytics.dart';
-import 'package:respyr_clinical/clinical_dashboard/widgets/test_log_widget.dart';
-import 'package:respyr_clinical/shared/colors.dart';
 
-import '../model/OverallDataByDateModel.dart';
+import 'dashboard_theme.dart';
 
 class ScoreBreakdown {
   final int good;
@@ -36,40 +33,36 @@ class ScoreTypesForGender {
   });
 }
 
-class OverallAnalyticsWidget extends StatefulWidget {
+/// Result distribution for the selected score type.
+///
+/// This used to be the whole lower half of the dashboard in a single box: a
+/// heading, the score dropdown, the chart, and the full test log all inside
+/// one border. The card now does one thing. The score choice is owned by the
+/// dashboard — the log needs it too, and having each panel hold its own copy
+/// meant the two could disagree about what was being shown.
+class OverallAnalyticsWidget extends StatelessWidget {
   final Map<String, ScoreTypesForGender> genderDistribution;
-  final String date;
-  final List<ScoreData> scoreData;
-  final String loginId;
+  final String scoreType;
 
   const OverallAnalyticsWidget({
     super.key,
     required this.genderDistribution,
-    required this.date,
-    required this.scoreData,
-    required this.loginId,
+    required this.scoreType,
   });
 
-  @override
-  State<OverallAnalyticsWidget> createState() => _OverallAnalyticsWidgetState();
-}
-
-class _OverallAnalyticsWidgetState extends State<OverallAnalyticsWidget> {
-  String selectedScoreType = 'Sugar score';
-
-  final Map<String, String> scoreTypeMap = {
+  static const Map<String, String> scoreTypeMap = {
     'Sugar score': 'dbScore',
     'Liver stress score': 'liverScore',
     'Gut fermentation score': 'gutScorePer',
     'Respiratory score': 'blowScore',
   };
 
-  ScoreBreakdown _getCombinedBreakdown() {
+  ScoreBreakdown _combinedBreakdown() {
     ScoreBreakdown total = ScoreBreakdown(good: 0, fair: 0, poor: 0);
 
-    final selectedKey = scoreTypeMap[selectedScoreType];
+    final selectedKey = scoreTypeMap[scoreType];
 
-    widget.genderDistribution.forEach((gender, data) {
+    genderDistribution.forEach((gender, data) {
       if (gender == 'Male' || gender == 'Female') {
         switch (selectedKey) {
           case 'liverScore':
@@ -94,99 +87,20 @@ class _OverallAnalyticsWidgetState extends State<OverallAnalyticsWidget> {
 
   @override
   Widget build(BuildContext context) {
-    final breakdown = _getCombinedBreakdown();
+    final breakdown = _combinedBreakdown();
     final totalTest = breakdown.good + breakdown.fair + breakdown.poor;
+
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(horizontal: DashTheme.gutter),
       child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: const Color(0xFFE5E7EB), width: 1),
-        ),
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Column(
-                children: [
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      "Overall Test Analytics",
-                      style: GoogleFonts.poppins(
-                        color: const Color(0xFF252525),
-                        fontSize: 17,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: -0.40,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  // Full-width score picker under the title.
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(horizontal: 14),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: const Color(0xFFE5E7EB),
-                        width: 1,
-                      ),
-                    ),
-                    child: DropdownButton<String>(
-                      value: selectedScoreType,
-                      isExpanded: true,
-                      underline: const SizedBox(),
-                      icon: const Icon(
-                        Icons.keyboard_arrow_down_rounded,
-                        color: Color(0xFF308BF9),
-                        size: 24,
-                      ),
-                      borderRadius: BorderRadius.circular(12),
-                      dropdownColor: AppColor.whiteColor,
-                      onChanged: (value) {
-                        if (value != null) {
-                          setState(() => selectedScoreType = value);
-                        }
-                      },
-                      items:
-                          scoreTypeMap.keys.map((type) {
-                            return DropdownMenuItem(
-                              value: type,
-                              child: Text(
-                                type,
-                                style: GoogleFonts.poppins(
-                                  color: const Color(0xFF535359),
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            );
-                          }).toList(),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  PieChartTestAnalyticsWidget(
-                    poor: breakdown.poor,
-                    fair: breakdown.fair,
-                    good: breakdown.good,
-                    totalTest: totalTest,
-                    date: widget.date, // ✅ This uses the passed formattedDate
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-            TestLogWidget(
-              loginId: widget.loginId,
-              scoreType: selectedScoreType,
-              scoreData: widget.scoreData,
-            ),
-          ],
+        decoration: DashTheme.card,
+        padding: const EdgeInsets.fromLTRB(16, 20, 16, 18),
+        child: PieChartTestAnalyticsWidget(
+          poor: breakdown.poor,
+          fair: breakdown.fair,
+          good: breakdown.good,
+          totalTest: totalTest,
+          scoreType: scoreType,
         ),
       ),
     );

@@ -3,12 +3,14 @@ import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import 'dashboard_theme.dart';
+
 class BottomNavigationBarWidget extends StatelessWidget {
   final VoidCallback onDashboardTap;
   final VoidCallback onTakeTestTap;
   final VoidCallback onProfileTap;
   final int activeIndex;
-   String label3;
+  final String label3;
 
   /// Seconds left of the cool-down after a completed reading, or 0 when ready.
   ///
@@ -17,20 +19,20 @@ class BottomNavigationBarWidget extends StatelessWidget {
   /// the reason, rather than appearing to do nothing.
   final int lockedForSeconds;
 
-   BottomNavigationBarWidget({
+  const BottomNavigationBarWidget({
     super.key,
     required this.onDashboardTap,
     required this.onTakeTestTap,
     required this.onProfileTap,
     required this.activeIndex,
     this.lockedForSeconds = 0,
-    this.label3 ="Test History"
+    this.label3 = "Test History",
   });
 
   @override
   Widget build(BuildContext context) {
     SystemChrome.setSystemUIOverlayStyle(
-      SystemUiOverlayStyle(
+      const SystemUiOverlayStyle(
         systemNavigationBarColor: Colors.white,
         systemNavigationBarIconBrightness: Brightness.dark,
       ),
@@ -38,21 +40,15 @@ class BottomNavigationBarWidget extends StatelessWidget {
     return SafeArea(
       top: false,
       child: Container(
-        height: 80,
-        padding: EdgeInsets.only(top: 5, bottom: 15),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0x0C000000),
-              blurRadius: 10,
-              offset: Offset.zero,
-              spreadRadius: 5,
-            ),
-          ],
+        height: 76,
+        padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
+        decoration: const BoxDecoration(
+          color: DashTheme.white,
+          // A hairline, matching the app bar. The old diffuse shadow sat on a
+          // white page and mostly read as a smudge.
+          border: Border(top: BorderSide(color: DashTheme.line)),
         ),
         child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
             _buildNavItem(
               label: 'Dashboard',
@@ -79,23 +75,31 @@ class BottomNavigationBarWidget extends StatelessWidget {
     required bool isActive,
     required VoidCallback onClick,
   }) {
+    final Color tint = isActive ? DashTheme.blue : DashTheme.faint;
+
     return Expanded(
       child: InkWell(
         onTap: onClick,
+        borderRadius: BorderRadius.circular(12),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            SvgPicture.asset(iconPath),
-            const SizedBox(height: 4),
+            SvgPicture.asset(
+              iconPath,
+              height: 22,
+              // The icons carried their own colour, so an "active" tab
+              // changed only its label while the icon above it stayed grey.
+              colorFilter: ColorFilter.mode(tint, BlendMode.srcIn),
+            ),
+            const SizedBox(height: 5),
             Text(
               label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: GoogleFonts.poppins(
-                color:
-                    isActive
-                        ? const Color(0xFF308BF9)
-                        : const Color(0xFFA1A1A1),
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
+                color: tint,
+                fontSize: 11.5,
+                fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
               ),
             ),
           ],
@@ -108,31 +112,46 @@ class BottomNavigationBarWidget extends StatelessWidget {
     final bool locked = lockedForSeconds > 0;
 
     return Expanded(
-      child: InkWell(
-        onTap: onClick,
-        child: Container(
-          decoration: BoxDecoration(
-            color: locked ? const Color(0xFFA1A1A1) : const Color(0xFF308BF9),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              locked
-                  ? const Icon(Icons.lock_clock, color: Colors.white, size: 22)
-                  : SvgPicture.asset(
-                      "assets/sagar/icon-park-outline_wind.svg",
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 6),
+        child: Material(
+          color: locked ? DashTheme.faint : DashTheme.blue,
+          borderRadius: BorderRadius.circular(14),
+          child: InkWell(
+            onTap: onClick,
+            borderRadius: BorderRadius.circular(14),
+            child: SizedBox.expand(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  locked
+                      ? const Icon(
+                          Icons.lock_clock,
+                          color: DashTheme.white,
+                          size: 21,
+                        )
+                      : SvgPicture.asset(
+                          "assets/sagar/icon-park-outline_wind.svg",
+                          height: 21,
+                          colorFilter: const ColorFilter.mode(
+                            DashTheme.white,
+                            BlendMode.srcIn,
+                          ),
+                        ),
+                  const SizedBox(height: 5),
+                  Text(
+                    locked ? "Wait ${lockedForSeconds}s" : "Take Test",
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.poppins(
+                      color: DashTheme.white,
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w600,
                     ),
-              const SizedBox(height: 4),
-              Text(
-                locked ? "Wait ${lockedForSeconds}s" : "Take Test",
-                style: GoogleFonts.poppins(
-                  color: Colors.white,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
       ),
