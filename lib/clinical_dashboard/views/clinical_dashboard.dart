@@ -135,14 +135,22 @@ class _ClinicalDashboardMainState extends State<ClinicalDashboardMain>
 
     _hasFetchedInitialData = true;
 
-    taskManager.add(() async => fetchOverallData());
-    taskManager.add(() async {
-      await fetchTestAllowApi();
+    // These two feed the screen, and they do not depend on each other — start
+    // both now. They used to sit in a queue that ran every job strictly one
+    // after another, so the dashboard waited on a notification permission
+    // prompt, an FCM token and a Play Store update check before it could draw.
+    fetchOverallData();
+    fetchTestAllowApi().then((_) {
       // Fresh quota data was just written to storage — re-read it once.
-      if (mounted) {
-        setState(() => _testDataFuture = getStoredClinicalTestData());
-      }
+      if (!mounted) return;
+      setState(() {
+        _testDataFuture = getStoredClinicalTestData();
+      });
     });
+
+    // Housekeeping. Nothing on screen waits for any of it, so it runs behind
+    // the data rather than in front of it — and stays serialised, since the
+    // permission prompt is better not competing with anything.
     taskManager.add(() async => requestNotificationPermission());
     taskManager.add(() async => saveFCMToken());
     if (!_hasCheckedForUpdate) {

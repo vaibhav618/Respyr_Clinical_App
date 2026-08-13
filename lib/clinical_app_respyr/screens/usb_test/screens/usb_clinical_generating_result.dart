@@ -12,6 +12,7 @@ import 'package:respyr_clinical/clinical_app_respyr/services/disconnected_error.
 import 'package:respyr_clinical/clinical_app_respyr/services/generation_foreground_service.dart';
 import 'package:respyr_clinical/widgets/internet_connectivity_check.dart';
 import 'package:respyr_clinical/shared/colors.dart';
+import 'package:respyr_clinical/clinical_dashboard/existing_profile/recent_subjects.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../new_result/bloc/new_result_bloc.dart';
 import '../../../../new_result/bloc/new_result_cubit.dart';
@@ -250,6 +251,9 @@ class _UsbClinicalGeneratingResultState
       'last_reading_time',
       DateTime.now().millisecondsSinceEpoch,
     );
+
+    // Also record who was tested, so the subjects list can lead with them.
+    await RecentSubjects.markTested(widget.profileDetails.subjectId ?? '');
   }
 
   Future<void> _setCancelOrDisconnectFlag() async {

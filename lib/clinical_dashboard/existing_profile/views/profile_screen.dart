@@ -68,12 +68,15 @@ class ExistingProfilesListScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (_) => ProfileBloc(ProfileRepository()),
+      // Load once, when the bloc is created. Dispatching from inside build()
+      // re-fetched the whole subject list from the network on every rebuild —
+      // including every keystroke in the search field, since that rebuilds
+      // this subtree.
+      create: (_) => ProfileBloc(ProfileRepository())..add(
+        LoadProfiles(clinicName),
+      ),
       child: Builder(
         builder: (context) {
-          // Load profiles AFTER the BlocProvider is fully in the widget tree
-          context.read<ProfileBloc>().add(LoadProfiles(clinicName));
-
           return Scaffold(
             appBar: AppBar(
               backgroundColor: Colors.white,
@@ -148,7 +151,7 @@ class ExistingProfilesListScreen extends StatelessWidget {
                             return _emptyState();
                           }
                           return ListView.separated(
-                            padding: const EdgeInsets.fromLTRB(16, 4, 16, 90),
+                            padding: const EdgeInsets.fromLTRB(16, 2, 16, 90),
                             itemCount: state.filteredProfiles.length,
                             separatorBuilder: (_, __) =>
                                 const SizedBox(height: 10),

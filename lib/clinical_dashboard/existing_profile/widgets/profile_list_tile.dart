@@ -234,7 +234,7 @@ class ProfileListTile extends StatelessWidget {
       },
       borderRadius: BorderRadius.circular(14),
       child: Container(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(14),
@@ -245,37 +245,48 @@ class ProfileListTile extends StatelessWidget {
             _initialAvatar(),
             const SizedBox(width: 14),
             Expanded(
+              // Two lines instead of three: the id sits beside the name rather
+              // than on a row of its own, which is what made the card tall.
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    profile.profileName,
-                    overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.poppins(
-                      color: const Color(0xFF252525),
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          profile.profileName,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.poppins(
+                            color: const Color(0xFF252525),
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            height: 1.25,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      _subjectIdPill(),
+                    ],
                   ),
-                  const SizedBox(height: 3),
+                  const SizedBox(height: 4),
                   Text(
                     "${profile.age} yrs  •  ${profile.gender}",
                     style: GoogleFonts.poppins(
                       color: const Color(0xFF535359),
-                      fontSize: 12,
+                      fontSize: 12.5,
                       fontWeight: FontWeight.w400,
+                      height: 1.25,
                     ),
                   ),
-                  const SizedBox(height: 6),
-                  _subjectIdPill(),
                 ],
               ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 6),
             const Icon(
               Icons.chevron_right_rounded,
               color: Color(0xFFA1A1A1),
-              size: 22,
+              size: 20,
             ),
           ],
         ),
@@ -310,7 +321,7 @@ class ProfileListTile extends StatelessWidget {
   /// treatment so the name leads.
   Widget _subjectIdPill() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
       decoration: BoxDecoration(
         color: const Color(0xFFF5F7FA),
         borderRadius: BorderRadius.circular(6),

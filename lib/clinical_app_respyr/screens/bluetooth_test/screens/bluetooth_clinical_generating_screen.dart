@@ -16,6 +16,7 @@ import 'package:respyr_clinical/clinical_app_respyr/services/generation_foregrou
 import 'package:respyr_clinical/clinical_app_respyr/services/raw_data_service.dart';
 import 'package:respyr_clinical/shared/colors.dart';
 import 'package:respyr_clinical/shared/urls.dart';
+import 'package:respyr_clinical/clinical_dashboard/existing_profile/recent_subjects.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../../new_result/data/model/result_model.dart';
@@ -888,6 +889,9 @@ class _BluetoothGeneratingScreenState extends State<BluetoothGeneratingScreen>
     final now = DateTime.now().millisecondsSinceEpoch;
 
     await prefs.setInt('last_reading_time', now);
+
+    // Also record who was tested, so the subjects list can lead with them.
+    await RecentSubjects.markTested(widget.profileDetails.subjectId ?? '');
   }
 
   void _abortProcess() {
