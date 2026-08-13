@@ -1,11 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
-import '../bloc/test_log_bloc.dart';
 import '../model/OverallDataByDateModel.dart';
-import '../repositories/test_log_repository.dart';
-import '../views/complete_test_log.dart';
 import '../views/subject_profile.dart';
 import 'dashboard_theme.dart';
 
@@ -21,6 +17,11 @@ class TestLogWidget extends StatelessWidget {
   final String scoreType;
   final List<ScoreData> scoreData;
 
+  /// Opens the full log. Supplied by the dashboard, which switches to its log
+  /// tab — pushing a route from here would stack the log over the bottom bar
+  /// that also leads to it.
+  final VoidCallback onViewAll;
+
   /// Rows shown before the list is cut off and handed to the full log.
   static const int previewLimit = 6;
 
@@ -29,19 +30,8 @@ class TestLogWidget extends StatelessWidget {
     required this.loginId,
     required this.scoreType,
     required this.scoreData,
+    required this.onViewAll,
   });
-
-  void _openFullLog(BuildContext context) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => BlocProvider(
-          create: (_) => TestLogBloc()..add(FetchTestLogs(loginId)),
-          child: CompleteTestLog(loginId: loginId),
-        ),
-      ),
-    );
-  }
 
   void _openSubject(BuildContext context, String subjectId) {
     Navigator.push(
@@ -90,7 +80,7 @@ class TestLogWidget extends StatelessWidget {
 
   Widget _viewAllFooter(BuildContext context) {
     return InkWell(
-      onTap: () => _openFullLog(context),
+      onTap: onViewAll,
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 14),
         child: Row(

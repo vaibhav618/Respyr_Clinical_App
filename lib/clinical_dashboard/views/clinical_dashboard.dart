@@ -101,6 +101,20 @@ class _ClinicalDashboardMainState extends State<ClinicalDashboardMain>
   final List<DateTime> _markedEvents = [];
   bool _isCalendarVisible = false;
 
+  /// Which bottom-bar tab is showing. Uses the bar's own indices — 0 for the
+  /// dashboard, 2 for the test log — so the value can be handed straight to it.
+  ///
+  /// Test History used to push a whole new route, which left the bar below it
+  /// still highlighting "Dashboard" and made a peer view feel like a detour.
+  int _navIndex = 0;
+
+  /// The log tab is built on first visit and kept alive from then on.
+  ///
+  /// An IndexedStack builds every child up front, so putting the log there
+  /// unconditionally would fire its fetch on app start for everyone who never
+  /// opens it — the dashboard's own load is already the thing people notice.
+  bool _historyOpened = false;
+
   /// Which score the distribution chart and the reading list are showing.
   ///
   /// Held here rather than inside the analytics panel: the list needs the same
@@ -320,21 +334,49 @@ class _ClinicalDashboardMainState extends State<ClinicalDashboardMain>
       return Errors().showDashboardLoadError(errorMessage: "Clinic not found");
     }
 
+    // Back from the log tab returns to the dashboard rather than leaving the
+    // app — the two are peers, and the bar shows you are still "inside".
+    return PopScope(
+      canPop: _navIndex == 0,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _selectTab(0);
+      },
+      child: _buildScaffold(),
+    );
+  }
+
+  Widget _buildScaffold() {
+    final bool onDashboard = _navIndex == 0;
+
     return Scaffold(
       key: _scaffoldKey,
       // Light background so the white dashboard cards read as cards.
       backgroundColor: const Color(0xFFF5F7FA),
-      appBar: _buildCustomAppBar(),
-      body: InternetConnectivityHandler(
-        isBody: true,
-        onConnectivityChanged: (hasInternet) {
-          _hasInternet = hasInternet;
-          if (hasInternet) {
-            _hasFetchedInitialData = false;
-            _initData();
-          }
-        },
-        child: Stack(
+      // The log tab brings its own bar, with the search field that docks into
+      // it as the list scrolls.
+      appBar: onDashboard ? _buildCustomAppBar() : null,
+      body: IndexedStack(
+        index: onDashboard ? 0 : 1,
+        children: [
+          _dashboardTab(),
+          _historyTab(),
+        ],
+      ),
+      bottomNavigationBar: _bottomBar(),
+    );
+  }
+
+  Widget _dashboardTab() {
+    return InternetConnectivityHandler(
+      isBody: true,
+      onConnectivityChanged: (hasInternet) {
+        _hasInternet = hasInternet;
+        if (hasInternet) {
+          _hasFetchedInitialData = false;
+          _initData();
+        }
+      },
+      child: Stack(
           // Fill the viewport even when the page content is short (e.g. a
           // "no test data" message) — otherwise the Stack shrinks to the text
           // and clips the calendar overlay.
@@ -474,11 +516,46 @@ class _ClinicalDashboardMainState extends State<ClinicalDashboardMain>
             ),
           ],
         ),
-      ),
-      bottomNavigationBar: BottomNavigationBarWidget(
-        activeIndex: 0,
-        onDashboardTap: () => _initData(),
-        lockedForSeconds: _takeTestLockSeconds,
+    );
+  }
+
+  /// The full test log, as a tab rather than a pushed route.
+  ///
+  /// It keeps its own Scaffold and app bar — that bar owns the search field
+  /// that docks into it on scroll, and pulling that apart to share the
+  /// dashboard's bar would cost more than it buys.
+  Widget _historyTab() {
+    if (!_historyOpened) return const SizedBox.shrink();
+
+    return BlocProvider(
+      create: (_) => TestLogBloc()..add(FetchTestLogs(widget.loginId)),
+      child: CompleteTestLog(loginId: widget.loginId),
+    );
+  }
+
+  void _selectTab(int index) {
+    if (_navIndex == index) return;
+    setState(() {
+      _navIndex = index;
+      if (index == 2) _historyOpened = true;
+      // A calendar left hanging open would sit over the log tab.
+      _isCalendarVisible = false;
+    });
+  }
+
+  Widget _bottomBar() {
+    return BottomNavigationBarWidget(
+      activeIndex: _navIndex,
+      onDashboardTap: () {
+        // Already here: treat the tap as a refresh, as it always has.
+        if (_navIndex == 0) {
+          _initData();
+        } else {
+          _selectTab(0);
+        }
+      },
+      onProfileTap: () => _selectTab(2),
+      lockedForSeconds: _takeTestLockSeconds,
         onTakeTestTap: () async {
           if (_hasInternet) {
             // Locked during the cool-down. An aborted test gets the sheet,
@@ -510,19 +587,6 @@ class _ClinicalDashboardMainState extends State<ClinicalDashboardMain>
             );
           }
         },
-        onProfileTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => BlocProvider(
-                create: (_) =>
-                TestLogBloc()..add(FetchTestLogs(widget.loginId)),
-                child: CompleteTestLog(loginId: widget.loginId),
-              ),
-            ),
-          );
-        },
-      ),
     );
   }
 
@@ -628,6 +692,7 @@ class _ClinicalDashboardMainState extends State<ClinicalDashboardMain>
             loginId: widget.loginId,
             scoreType: _selectedScoreType,
             scoreData: scores,
+            onViewAll: _openFullTestLog,
           ),
         ],
         const SizedBox(height: 28),
@@ -732,17 +797,9 @@ class _ClinicalDashboardMainState extends State<ClinicalDashboardMain>
     );
   }
 
-  void _openFullTestLog() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => BlocProvider(
-          create: (_) => TestLogBloc()..add(FetchTestLogs(widget.loginId)),
-          child: CompleteTestLog(loginId: widget.loginId),
-        ),
-      ),
-    );
-  }
+  /// "Full history" and the log's own "view all" footer land on the same tab
+  /// the bottom bar opens, rather than on a route stacked over it.
+  void _openFullTestLog() => _selectTab(2);
 
   Future<void> checkDeviceAbortStatus() async {
     final isDeviceAborted = await AbortDeviceManager.getAbortStatus();
