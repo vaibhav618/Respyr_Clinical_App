@@ -321,105 +321,71 @@ class _CompleteTestLogState extends State<CompleteTestLog> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // ── Header: avatar + name / id / time + tests pill ──────────
+                // ── Header: name + tests pill, then id • time ───────────────
+                //
+                // No avatar. It was a circle holding the first letter of the
+                // name printed beside it — no information of its own — and it
+                // cost 52px of a 288px card, which is what left the name and
+                // the pill fighting over the rest on a 360dp phone. It also
+                // indented the header text to a second left edge while the
+                // score rows below started at the card's, so one card had two
+                // margins. Everything lines up now, and the name has ~218px
+                // instead of ~166px.
                 Row(
                   children: [
-                    Container(
-                      height: 40,
-                      width: 40,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF308BF9).withValues(alpha: 0.10),
-                        shape: BoxShape.circle,
-                      ),
+                    Expanded(
                       child: Text(
-                        profileName.isNotEmpty
-                            ? profileName[0].toUpperCase()
-                            : "?",
+                        profileName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.poppins(
-                          color: const Color(0xFF308BF9),
-                          fontSize: 16,
+                          color: const Color(0xFF252525),
+                          fontSize: 15,
                           fontWeight: FontWeight.w600,
+                          height: 1.3,
                         ),
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    // The pill shares the NAME's line, not the whole text
-                    // column — so the ID and time below it get the column's
-                    // full width and run on underneath it.
-                    //
-                    // With the pill inline, that second line had ~166px on a
-                    // 360dp phone while "RC1042 • 12 Aug, 10:30 AM" needs
-                    // ~155px and a longer subject ID needs ~180px, so it was
-                    // clipping. Under the pill it has ~236px.
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  profileName,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: GoogleFonts.poppins(
-                                    color: const Color(0xFF252525),
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w600,
-                                    height: 1.3,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 3,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFF308BF9)
-                                      .withValues(alpha: 0.10),
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                child: Text(
-                                  "$recordCount ${recordCount == 1 ? 'test' : 'tests'}",
-                                  style: GoogleFonts.poppins(
-                                    color: const Color(0xFF308BF9),
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w500,
-                                    height: 1.3,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          Text(
-                            "$profileId  •  $dateTime",
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.poppins(
-                              color: const Color(0xFFA1A1A1),
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.w400,
-                              height: 1.35,
-                            ),
-                          ),
-                        ],
+                    const SizedBox(width: 10),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF308BF9).withValues(alpha: 0.10),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        "$recordCount ${recordCount == 1 ? 'test' : 'tests'}",
+                        style: GoogleFonts.poppins(
+                          color: const Color(0xFF308BF9),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                          height: 1.3,
+                        ),
                       ),
                     ),
                   ],
+                ),
+                const SizedBox(height: 2),
+                // Full card width now — nothing to its right, and no indent.
+                Text(
+                  "$profileId  •  $dateTime",
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.poppins(
+                    color: const Color(0xFFA1A1A1),
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w400,
+                    height: 1.35,
+                  ),
                 ),
                 const SizedBox(height: 12),
                 const Divider(height: 1, color: Color(0xFFE5E7EB)),
                 const SizedBox(height: 12),
 
                 // ── Scores: one per line ────────────────────────────────────
-                // Was a 2×2 grid of tiles, each stacking a label, a big
-                // percentage and a progress bar into half the card — on a
-                // narrow phone the labels had nowhere to go and the four
-                // tiles ran together. Full-width rows read as a list.
                 _scoreRow("Sugar Score", diabeticScore),
                 const SizedBox(height: 9),
                 _scoreRow("Liver Stress Score", liverScore),
@@ -437,11 +403,10 @@ class _CompleteTestLogState extends State<CompleteTestLog> {
 
   /// One score: name on the left, value on the right in its band's colour.
   ///
-  /// This has now shed a progress bar and then a tinted pill. Four bars read
-  /// as ruled lines; four pills put five rounded, tinted shapes on a card
-  /// that repeats down a whole page. Both were extra encodings of a number
-  /// that is already printed and already coloured — the colour is what says
-  /// good, fair or poor, and it does that on its own.
+  /// Each score used to carry a progress bar, and later a tinted pill. Both
+  /// were extra encodings of a number that is already printed and already
+  /// coloured — four of either per card turned the list into a texture. The
+  /// colour alone says good, fair or poor.
   Widget _scoreRow(String label, double score) {
     final Color scoreColor = ScoreColorHelper.getScoreColor(score);
 

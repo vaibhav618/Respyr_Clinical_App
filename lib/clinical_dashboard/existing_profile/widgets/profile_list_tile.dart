@@ -242,8 +242,10 @@ class ProfileListTile extends StatelessWidget {
         ),
         child: Row(
           children: [
-            _initialAvatar(),
-            const SizedBox(width: 14),
+            // No avatar. Subjects have no photo — registration never collects
+            // one and no API returns one — so it could only ever be a circle
+            // holding the first letter of the name printed beside it, for 60px
+            // of a card this size.
             Expanded(
               // Two lines instead of three: the id sits beside the name rather
               // than on a row of its own, which is what made the card tall.
@@ -289,29 +291,6 @@ class ProfileListTile extends StatelessWidget {
               size: 20,
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  /// Initial in a tinted circle — same treatment as the subject profile header,
-  /// so a subject looks the same wherever they appear.
-  Widget _initialAvatar() {
-    final String name = profile.profileName.trim();
-    return Container(
-      height: 46,
-      width: 46,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: const Color(0xFF308BF9).withValues(alpha: 0.10),
-        shape: BoxShape.circle,
-      ),
-      child: Text(
-        name.isNotEmpty ? name[0].toUpperCase() : "?",
-        style: GoogleFonts.poppins(
-          color: const Color(0xFF308BF9),
-          fontSize: 19,
-          fontWeight: FontWeight.w600,
         ),
       ),
     );

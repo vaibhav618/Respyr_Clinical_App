@@ -64,7 +64,10 @@ class TestLogWidget extends StatelessWidget {
                   height: 1,
                   thickness: 1,
                   color: DashTheme.line,
-                  indent: 62,
+                  // Was indented 62 to start past the avatar; with the avatar
+                  // gone it lines up with the row's own padding.
+                  indent: 14,
+                  endIndent: 14,
                 ),
               _row(context, visible[i]),
             ],
@@ -116,8 +119,8 @@ class TestLogWidget extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         child: Row(
           children: [
-            _initialAvatar(item.name),
-            const SizedBox(width: 12),
+            // No avatar. Subjects have no photo anywhere in the app, so it
+            // could only ever repeat the first letter of the name beside it.
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -172,30 +175,6 @@ class TestLogWidget extends StatelessWidget {
               size: 20,
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _initialAvatar(String name) {
-    final String initial =
-        name.trim().isNotEmpty ? name.trim()[0].toUpperCase() : '?';
-
-    return Container(
-      height: 36,
-      width: 36,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: DashTheme.blue.withValues(alpha: 0.10),
-        shape: BoxShape.circle,
-      ),
-      child: Text(
-        initial,
-        style: GoogleFonts.poppins(
-          color: DashTheme.blue,
-          fontSize: 15,
-          fontWeight: FontWeight.w600,
-          height: 1,
         ),
       ),
     );
