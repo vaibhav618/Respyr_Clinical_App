@@ -12,6 +12,11 @@ PreferredSizeWidget resultScreenAppbar({
   required NewResultModel userResultData,
   required ResultProfileDataModel userProfileData,
   required VoidCallback navigateToDashboard,
+
+  /// Downloads the report as a PDF. Shown top-right when provided; while
+  /// [downloadBusy] is true the icon becomes a spinner and stops taking taps.
+  VoidCallback? onDownload,
+  bool downloadBusy = false,
 }) {
   final dummyTimeStamp = DateTime.fromMillisecondsSinceEpoch(
     userResultData.timestamp * 1000,
@@ -21,6 +26,14 @@ PreferredSizeWidget resultScreenAppbar({
   ).format(dummyTimeStamp);
 
   return AppBar(
+    // The cross is the bar's only control and sits leading, where a screen's
+    // exit lives everywhere else in the app. (No implied back arrow either —
+    // it ran the same navigateToDashboard, offering one action twice.)
+    automaticallyImplyLeading: false,
+    leading: IconButton(
+      onPressed: () => navigateToDashboard(),
+      icon: SvgPicture.asset("assets/svg_icons/close_icon.svg"),
+    ),
     title: Column(
       children: [
         Text(
@@ -43,13 +56,30 @@ PreferredSizeWidget resultScreenAppbar({
     ),
     centerTitle: true,
     actions: [
-      Padding(
-        padding: const EdgeInsets.only(right: 30),
-        child: IconButton(
-          onPressed: () => navigateToDashboard(),
-          icon: SvgPicture.asset("assets/svg_icons/close_icon.svg"),
+      if (onDownload != null)
+        Padding(
+          padding: const EdgeInsets.only(right: 6),
+          child: downloadBusy
+              ? const Padding(
+                  padding: EdgeInsets.all(14),
+                  child: SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.2,
+                      color: Color(0xFF308BF9),
+                    ),
+                  ),
+                )
+              : IconButton(
+                  onPressed: onDownload,
+                  tooltip: 'Download report as PDF',
+                  icon: const Icon(
+                    Icons.download_rounded,
+                    color: Color(0xFF252525),
+                  ),
+                ),
         ),
-      ),
     ],
     backgroundColor: AppColor.whiteColor,
     surfaceTintColor: AppColor.whiteColor,

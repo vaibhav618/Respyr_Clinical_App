@@ -12,6 +12,7 @@ Widget buildScoreCard({
   required double scoreVal,
   required String category,
   required NewResultModel userResultData,
+  VoidCallback? onBackToTop,
 }) {
   final timeStamp = userResultData.timestamp.toString();
 
@@ -37,5 +38,6 @@ Widget buildScoreCard({
     category: category,
     timeStamp: timeStamp,
     userResultData: userResultData,
+    onBackToTop: onBackToTop,
   );
 }

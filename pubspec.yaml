@@ -60,6 +60,7 @@ dependencies:
   flutter_image_compress: ^2.1.0
   path_provider: ^2.1.2
   open_file: ^3.3.2
+  pdf: ^3.11.1
   tab_container: ^3.5.3
   logging: ^1.2.0
   connectivity_plus: ^6.1.4

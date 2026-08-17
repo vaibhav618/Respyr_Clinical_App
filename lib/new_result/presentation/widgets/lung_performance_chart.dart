@@ -133,7 +133,7 @@ class _LungChartScreenState extends State<LungChartScreen> {
 }
 
 /// CHART WIDGET
-class LungPerformanceChartWidget extends StatelessWidget {
+class LungPerformanceChartWidget extends StatefulWidget {
   final List<FlSpot> spots;
   final double minY;
   final double maxY;
@@ -146,7 +146,117 @@ class LungPerformanceChartWidget extends StatelessWidget {
   });
 
   @override
+  State<LungPerformanceChartWidget> createState() =>
+      _LungPerformanceChartWidgetState();
+}
+
+class _LungPerformanceChartWidgetState extends State<LungPerformanceChartWidget>
+    with SingleTickerProviderStateMixin {
+  /// Traces the curve left to right, as if the breath were being recorded
+  /// live — this is a plot OF a breath, so appearing fully drawn was a missed
+  /// opportunity.
+  late final AnimationController _controller;
+  late final Animation<double> _draw;
+
+  /// The trace waits for the chart to scroll into view. Started from
+  /// initState it played immediately — but the chart sits below the
+  /// interpretation text, so it usually finished off-screen and the reader
+  /// arrived to a chart that had already "always been there".
+  bool _started = false;
+  ScrollPosition? _scrollPosition;
+
+  /// How much of the chart must be on screen before the trace starts.
+  static const double _revealMargin = 80;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1100),
+    );
+    _draw = CurvedAnimation(parent: _controller, curve: Curves.easeInOutCubic);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final ScrollPosition? position = Scrollable.maybeOf(context)?.position;
+    if (!identical(position, _scrollPosition)) {
+      _scrollPosition?.removeListener(_startIfVisible);
+      _scrollPosition = position;
+      _scrollPosition?.addListener(_startIfVisible);
+    }
+    // Covers the chart being in view from the first frame (no scroll needed),
+    // and the no-Scrollable-ancestor case, where it just plays.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _startIfVisible());
+  }
+
+  void _startIfVisible() {
+    if (_started || !mounted) return;
+
+    final RenderObject? ro = context.findRenderObject();
+    if (ro is! RenderBox || !ro.hasSize) return;
+
+    if (_scrollPosition != null) {
+      final RenderObject? viewportRO =
+          Scrollable.maybeOf(context)?.context.findRenderObject();
+      if (viewportRO is RenderBox && viewportRO.hasSize) {
+        final double chartTop = ro.localToGlobal(Offset.zero).dy;
+        final double chartBottom = chartTop + ro.size.height;
+        final double viewTop = viewportRO.localToGlobal(Offset.zero).dy;
+        final double viewBottom = viewTop + viewportRO.size.height;
+
+        final bool inView = chartTop < viewBottom - _revealMargin &&
+            chartBottom > viewTop + _revealMargin;
+        if (!inView) return;
+      }
+    }
+
+    _started = true;
+    _scrollPosition?.removeListener(_startIfVisible);
+    _controller.forward();
+  }
+
+  @override
+  void dispose() {
+    _scrollPosition?.removeListener(_startIfVisible);
+    _controller.dispose();
+    super.dispose();
+  }
+
+  /// The spots up to the drawn fraction, with the tip interpolated between
+  /// samples so it advances smoothly instead of snapping point to point.
+  List<FlSpot> _visibleSpots(double t) {
+    final List<FlSpot> all = widget.spots;
+    if (t >= 1 || all.length < 2) return all;
+
+    final double exact = (all.length - 1) * t;
+    final int index = exact.floor();
+    final double frac = exact - index;
+
+    final List<FlSpot> shown = all.sublist(0, index + 1);
+    if (index + 1 < all.length && frac > 0) {
+      final FlSpot a = all[index];
+      final FlSpot b = all[index + 1];
+      shown.add(FlSpot(a.x + (b.x - a.x) * frac, a.y + (b.y - a.y) * frac));
+    }
+    return shown;
+  }
+
+  @override
   Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _draw,
+      builder: (context, _) => _chart(_visibleSpots(_draw.value)),
+    );
+  }
+
+  Widget _chart(List<FlSpot> visible) {
+    final spots = widget.spots;
+    final minY = widget.minY;
+    final maxY = widget.maxY;
+
     final yInterval = ((maxY - minY) / 4).clamp(0.5, 2.0);
     final minX = spots.first.x;
     final maxX = spots.last.x;
@@ -161,16 +271,30 @@ class LungPerformanceChartWidget extends StatelessWidget {
       height: 270,
       constraints: const BoxConstraints(maxWidth: 300),
       child: LineChart(
+        // Axes are computed from the FULL data, so the frame stays fixed
+        // while the trace grows into it instead of rescaling every frame.
         LineChartData(
           lineBarsData: [
             LineChartBarData(
-              spots: spots,
+              spots: visible,
               isCurved: true,
               curveSmoothness: 0.09,
-              color: Colors.blue,
+              color: const Color(0xFF308BF9),
               barWidth: 3,
               dotData: FlDotData(show: false),
-              belowBarData: BarAreaData(show: false),
+              // A soft wash under the curve — the bare 3px line read as thin
+              // against a full-width card.
+              belowBarData: BarAreaData(
+                show: true,
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    const Color(0xFF308BF9).withValues(alpha: 0.20),
+                    const Color(0xFF308BF9).withValues(alpha: 0.0),
+                  ],
+                ),
+              ),
             ),
           ],
           titlesData: FlTitlesData(
@@ -259,6 +383,9 @@ class LungPerformanceChartWidget extends StatelessWidget {
             ],
           ),
         ),
+        // The trace advances a frame at a time; the chart's own lerp between
+        // successive data sets would lag behind it and smear the tip.
+        duration: Duration.zero,
       ),
     );
   }

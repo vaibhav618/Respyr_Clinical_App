@@ -4,77 +4,46 @@ import 'package:respyr_clinical/new_result/presentation/widgets/quick_summary_ta
 
 import '../../data/model/result_model.dart';
 
-
-class QuickSummary extends StatefulWidget {
+/// Card around the quick summary.
+///
+/// Its header used to be a blue "Quick Interpretation →" button whose only
+/// job was driving the table's horizontal scrollbar to the far column; the
+/// summary is vertical now, so the header is simply the card's title.
+class QuickSummary extends StatelessWidget {
   final NewResultModel userResultData;
   const QuickSummary({super.key, required this.userResultData});
 
   @override
-  State<QuickSummary> createState() => _QuickSummaryState();
-}
-
-class _QuickSummaryState extends State<QuickSummary> {
-  final ScrollController horizontalScrollController = ScrollController();
-  @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 10),
       child: Container(
-        decoration: ShapeDecoration(
+        decoration: BoxDecoration(
           color: Colors.white,
-          shape: RoundedRectangleBorder(
-            side: BorderSide(width: 0.50, color: const Color(0xFFC7C6CE)),
-            borderRadius: BorderRadius.circular(15),
-          ),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFFE5E7EB)),
         ),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-              child: InkWell(
-                onTap: () {
-                  horizontalScrollController.animateTo(
-                    horizontalScrollController.position.maxScrollExtent,
-                    duration: Duration(milliseconds: 500),
-                    curve: Curves.easeOut,
-                  );
-                },
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    Text(
-                      "Quick Interpretation",
-                      style: GoogleFonts.poppins(
-                        color: const Color(0xFF308BF9),
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        height: 1.10,
-                        letterSpacing: -0.30,
-                      ),
-                    ),
-                    Icon(
-                      Icons.keyboard_arrow_right_rounded,
-                      color: Color(0xFF308BF9),
-                    ),
-                  ],
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+              child: Text(
+                "Quick Interpretation",
+                style: GoogleFonts.poppins(
+                  color: const Color(0xFF252525),
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: -0.3,
                 ),
               ),
             ),
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16),
-              child: Divider(
-                height: 16,
-                color: Color(0xFFC7C6CE),
-                thickness: 0.5,
-              ),
+            const Padding(
+              padding: EdgeInsets.fromLTRB(16, 10, 16, 0),
+              child: Divider(height: 1, thickness: 1, color: Color(0xFFE5E7EB)),
             ),
-            Padding(
-              padding: const EdgeInsets.only(left: 5, bottom: 0),
-              child: QuickSummaryTable(
-                userResultData: widget.userResultData,
-                scrollController: horizontalScrollController,
-              ),
-            ),
+            const SizedBox(height: 8),
+            QuickSummaryTable(userResultData: userResultData),
           ],
         ),
       ),

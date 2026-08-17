@@ -15,6 +15,10 @@ class CustomResultScorecard extends StatelessWidget {
   final String timeStamp;
   final NewResultModel userResultData;
 
+  /// Shows a small back-to-top arrow in the card's bottom-right corner.
+  /// Reading a card ends a long way from the score selector above it.
+  final VoidCallback? onBackToTop;
+
   const CustomResultScorecard({
     super.key,
     required this.scoreTitle,
@@ -22,11 +26,12 @@ class CustomResultScorecard extends StatelessWidget {
     required this.category,
     required this.timeStamp,
     required this.userResultData,
+    this.onBackToTop,
   });
 
   @override
   Widget build(BuildContext context) {
-    final interpretation = _getScoreInterpretation(category, scoreVal);
+    final interpretation = getFullScoreInterpretation(category, scoreVal);
     final titles = interpretation['titles'] as List<String>;
     final subtitles = interpretation['subtitles'] as List<String>;
     final insight = interpretation['insight'];
@@ -269,7 +274,40 @@ class CustomResultScorecard extends StatelessWidget {
               title: "Clinical Insight",
               content: insight,
             ),
-            const SizedBox(height: 17),
+            if (onBackToTop != null) ...[
+              const SizedBox(height: 17),
+              // Card footer, same idiom as the dashboard list's "View all"
+              // row — a full-width action under a hairline reads as part of
+              // the card, where a lone floating arrow did not.
+              const Divider(height: 1, thickness: 1, color: Color(0xFFE5E7EB)),
+              InkWell(
+                onTap: onBackToTop,
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 12, bottom: 2),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(
+                        Icons.keyboard_arrow_up_rounded,
+                        size: 18,
+                        color: Color(0xFF308BF9),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        "Back to top",
+                        style: GoogleFonts.poppins(
+                          color: const Color(0xFF308BF9),
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: -0.2,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ] else
+              const SizedBox(height: 17),
           ],
         ),
       ),
@@ -464,11 +502,19 @@ class CustomResultScorecard extends StatelessWidget {
     }
   }
 
-  Map<String, dynamic> _getScoreInterpretation(
-    String category,
-    double scoreVal,
-  ) {
-    String level = ScoreStatusHelper.getScoreTitle(scoreVal);
+}
+
+/// Full interpretation content for one score: section titles, band-specific
+/// meaning and consideration paragraphs, main-marker description, correlation
+/// and clinical insight.
+///
+/// Top-level rather than private to the card so the PDF report renders
+/// exactly the content the score card shows — one source, no drift.
+Map<String, dynamic> getFullScoreInterpretation(
+  String category,
+  double scoreVal,
+) {
+  String level = ScoreStatusHelper.getScoreTitle(scoreVal);
 
     Map<String, Map<String, List<String>>> scoreData = {
       'sugar': {
@@ -623,5 +669,4 @@ class CustomResultScorecard extends StatelessWidget {
       'correlation': correlations[category] ?? '',
       'mainMarker': mainMarker[category] ?? '',
     };
-  }
 }

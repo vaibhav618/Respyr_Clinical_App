@@ -119,15 +119,15 @@ class ScoreTypeSelector extends StatelessWidget {
   Widget _chip(String key, String label, bool isSelected, double fontSize) {
     return Material(
       color: isSelected ? DashTheme.blue : DashTheme.white,
-      borderRadius: BorderRadius.circular(18),
+      borderRadius: BorderRadius.circular(10),
       child: InkWell(
         onTap: () => onChanged(key),
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(10),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: _hPadding),
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(18),
+            borderRadius: BorderRadius.circular(10),
             border: Border.all(
               color: isSelected ? DashTheme.blue : DashTheme.line,
             ),

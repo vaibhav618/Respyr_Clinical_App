@@ -31,7 +31,6 @@ class SubjectHistoryWidget extends StatefulWidget {
 class _SubjectHistoryWidgetState extends State<SubjectHistoryWidget> {
   String selectedValue = "Sugar score";
   String scoreType = "Db_Score";
-  bool isLoading = false;
 
   // Incremental rendering: build only this many history cards initially and
   // append a page when the surrounding screen scrolls near its bottom.
@@ -87,12 +86,6 @@ class _SubjectHistoryWidgetState extends State<SubjectHistoryWidget> {
   Widget build(BuildContext context) {
     return BlocListener<NewResultCubit, NewResultState>(
       listener: (context, state) {
-        if (state is NewResultLoading) {
-          setState(() => isLoading = true);
-        } else {
-          setState(() => isLoading = false);
-        }
-
         if (state is NewResultSuccess) {
           // One push only. This also pushed a second, provider-less copy of the
           // result screen, which was then discarded by the navigation below.
@@ -103,9 +96,7 @@ class _SubjectHistoryWidgetState extends State<SubjectHistoryWidget> {
           ).showSnackBar(SnackBar(content: Text('Failed: ${state.error}')));
         }
       },
-      child: Stack(
-        children: [
-          Column(
+      child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 /// Heading & Dropdown
@@ -205,16 +196,6 @@ class _SubjectHistoryWidgetState extends State<SubjectHistoryWidget> {
                 ),
               ],
             ),
-          if (isLoading)
-            Positioned.fill(
-              child: Center(
-                child: CircularProgressIndicator(
-                  color: AppColor.primaryBlueColor,
-                ),
-              ),
-            ),
-        ],
-      ),
     );
   }
 
