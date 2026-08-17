@@ -16,10 +16,16 @@ class SubjectProfileScreen extends StatefulWidget {
   final String clinicName;
   final String profileName;
 
+  /// Which result screen a history entry opens: 'clinical' (default) or
+  /// 'corporate'. The corporate dashboard reuses this screen as its History
+  /// tab, and without the role its results would render the clinical layout.
+  final String role;
+
   const SubjectProfileScreen({
     super.key,
     required this.clinicName,
     required this.profileName,
+    this.role = 'clinical',
   });
 
   @override
@@ -139,6 +145,7 @@ class _SubjectProfileScreenState extends State<SubjectProfileScreen> {
                   weight: weight,
                   region: "not_available",
                   dttm: "not_available",
+                  role: widget.role,
                 );
 
                 return SingleChildScrollView(

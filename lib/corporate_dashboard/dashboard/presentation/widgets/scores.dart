@@ -53,35 +53,29 @@ class Scores extends StatelessWidget {
     final liver = _safeToDouble(latestOfDate?.liverScore);
     final gut = _safeToDouble(latestOfDate?.gutScorePer);
 
+    // Section on the page, not a grey box: heading in the standard section
+    // style, the four tiles as bordered cards, tight spacing. The old block
+    // put 43-50px voids between rows inside a background-coloured container.
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Container(
-        decoration: ShapeDecoration(
-          color: const Color(0xFFF5F7FA),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(15),
-          ),
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-        child: Column(
-          spacing: 50,
-          crossAxisAlignment: CrossAxisAlignment.center,
+      child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              spacing: 20,
+              spacing: 12,
               children: [
                 Text(
-                  "Scores",
+                  "Today's scores",
                   style: GoogleFonts.poppins(
                     color: const Color(0xFF252525),
-                    fontSize: 18,
-                    fontWeight: FontWeight.w500,
-                    height: 1.10,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: -0.3,
                   ),
                 ),
                 Column(
-                  spacing: 43,
+                  spacing: 10,
                   children: [
                     Row(
                       spacing: 12,
@@ -113,10 +107,10 @@ class Scores extends StatelessWidget {
                 ),
               ],
             ),
-            TextButton(
+            const SizedBox(height: 4),
+            Center(
+            child: TextButton(
               onPressed: () async{
-
-
                 try {
                   final result =
                   await CorporateResultHistoryService().fetchSingleResult(
@@ -150,29 +144,28 @@ class Scores extends StatelessWidget {
               },
               child: Row(
                 mainAxisSize: MainAxisSize.min,
-                spacing: 5,
+                spacing: 4,
                 children: [
                   Text(
-                    "View More",
+                    "View full result",
                     style: GoogleFonts.poppins(
                       color: const Color(0xFF308BF9),
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                      height: 1.10,
-                      letterSpacing: 0.30,
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: -0.2,
                     ),
                   ),
                   const Icon(
-                    Icons.keyboard_arrow_right_rounded,
+                    Icons.chevron_right_rounded,
                     color: Color(0xFF308BF9),
-                    size: 24,
+                    size: 20,
                   )
                 ],
               ),
-            )
+            ),
+            ),
           ],
         ),
-      ),
     );
   }
 }

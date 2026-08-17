@@ -32,42 +32,67 @@ class AccountCreationSuccessScreen extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  // A green check leads; the message reads in ink — a full
+                  // sentence set in green was using the status colour as
+                  // body text.
+                  Container(
+                    height: 64,
+                    width: 64,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF3EAF58).withValues(alpha: 0.10),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.check_rounded,
+                      color: Color(0xFF3EAF58),
+                      size: 34,
+                    ),
+                  ),
+                  const SizedBox(height: 18),
                   Text(
-                    "Account created successfully.\nSign in to proceed.",
-                    textAlign: TextAlign.center,
+                    "Account created",
                     style: GoogleFonts.poppins(
-                      color: Colors.green,
+                      color: const Color(0xFF252525),
                       fontSize: 18,
                       fontWeight: FontWeight.w600,
-                      height: 1.25,
                       letterSpacing: -0.4,
                     ),
                   ),
-                  const SizedBox(height: 50),
-
-                  ElevatedButton(
-                    onPressed: () {
-                      // ✅ GetX navigation (matches your GetPage routing)
-                      Get.offAllNamed(AppRoutes.corporateLogin);
-
-                      // If you want corporate login instead, use:
-                      // Get.offAllNamed(AppRoutes.corporateLogin);
-                    },
-                    style: ElevatedButton.styleFrom(
-                      elevation: 0,
-                      backgroundColor: const Color(0xFF308BF9),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(28),
-                      ),
+                  const SizedBox(height: 6),
+                  Text(
+                    "Log in with your email and password to continue.",
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.poppins(
+                      color: const Color(0xFF535359),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w400,
+                      height: 1.4,
                     ),
-                    child: Text(
-                      "Back to signin",
-                      style: GoogleFonts.poppins(
-                        color: Colors.white,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                        height: 1.10,
-                        letterSpacing: 0.30,
+                  ),
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 50,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Get.offAllNamed(AppRoutes.corporateLogin);
+                      },
+                      style: ElevatedButton.styleFrom(
+                        elevation: 0,
+                        backgroundColor: const Color(0xFF308BF9),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: Text(
+                        "Log in",
+                        style: GoogleFonts.poppins(
+                          color: Colors.white,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: -0.2,
+                        ),
                       ),
                     ),
                   ),

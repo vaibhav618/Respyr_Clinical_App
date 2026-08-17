@@ -29,6 +29,7 @@ Widget buildScoreCard({
       timeStamp: timeStamp,
       userResultData: userResultData,
       corporateInterpretation: corporateInterpretation!,
+      onBackToTop: onBackToTop,
     );
   }
 

@@ -22,14 +22,20 @@ class ScoreSummaryGrid extends StatelessWidget {
   final String selected;
   final ValueChanged<String> onSelect;
 
+  /// Chip labels by category. Defaults to the clinical names; the corporate
+  /// result passes its own ("Breathing", "Energy", …) so the chips speak the
+  /// same language as the cards they open.
+  final Map<String, String> labels;
+
   const ScoreSummaryGrid({
     super.key,
     required this.userResultData,
     required this.selected,
     required this.onSelect,
+    this.labels = clinicalLabels,
   });
 
-  static const Map<String, String> _labels = {
+  static const Map<String, String> clinicalLabels = {
     'respiratory': 'Respiratory',
     'sugar': 'Sugar',
     'liver': 'Liver',
@@ -63,13 +69,13 @@ class ScoreSummaryGrid extends StatelessWidget {
     // The dot and its gap eat into the text space alongside padding/border.
     const double dotSpace = 7 + 5;
     final double chipWidth =
-        (rowWidth - _gap * (_labels.length - 1)) / _labels.length;
+        (rowWidth - _gap * (labels.length - 1)) / labels.length;
     final double textSpace =
         chipWidth - (_hPadding + _border) * 2 - dotSpace;
     if (textSpace <= 0) return _minFont;
 
     final String longest =
-        _labels.values.reduce((a, b) => a.length >= b.length ? a : b);
+        labels.values.reduce((a, b) => a.length >= b.length ? a : b);
 
     final TextPainter painter = TextPainter(
       text: TextSpan(
@@ -98,7 +104,7 @@ class ScoreSummaryGrid extends StatelessWidget {
       child: LayoutBuilder(
         builder: (context, constraints) {
           final double fontSize = _fontSize(context, constraints.maxWidth);
-          final List<String> keys = _labels.keys.toList();
+          final List<String> keys = labels.keys.toList();
 
           return SizedBox(
             height: 36,
@@ -169,7 +175,7 @@ class ScoreSummaryGrid extends StatelessWidget {
                   ),
                   const SizedBox(width: 5),
                   Text(
-                    _labels[category]!,
+                    labels[category]!,
                     maxLines: 1,
                     softWrap: false,
                     // Ink even when selected. Band-coloured text on the

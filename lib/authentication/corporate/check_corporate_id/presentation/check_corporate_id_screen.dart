@@ -53,13 +53,13 @@ class _CheckCorporateIdViewState extends State<_CheckCorporateIdView> {
     return InputDecoration(
       counterText: '',
       hintText: hint,
-      hintStyle: GoogleFonts.roboto(
-        fontSize: 15,
-        fontWeight: FontWeight.w300,
-        color: const Color(0xFF737373),
+      hintStyle: GoogleFonts.poppins(
+        fontSize: 14,
+        fontWeight: FontWeight.w400,
+        color: const Color(0xFFA1A1A1),
       ),
       filled: true,
-      fillColor: const Color(0xFFF8F8F8),
+      fillColor: Colors.white,
 
       // ✅ show status message
       helperText: helperText,
@@ -73,19 +73,19 @@ class _CheckCorporateIdViewState extends State<_CheckCorporateIdView> {
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Color(0xFFF0F0F0)),
+        borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Color(0xFF809BF9), width: 1.5),
+        borderSide: const BorderSide(color: Color(0xFF308BF9), width: 1.5),
       ),
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Colors.redAccent, width: 1),
+        borderSide: const BorderSide(color: Color(0xFFEA5455), width: 1),
       ),
       focusedErrorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Colors.redAccent, width: 1.5),
+        borderSide: const BorderSide(color: Color(0xFFEA5455), width: 1.5),
       ),
     );
   }
@@ -101,18 +101,18 @@ class _CheckCorporateIdViewState extends State<_CheckCorporateIdView> {
 
         if (state.status == ClinicNameCheckStatus.loading) {
           helperText = "Checking corporate id...";
-          helperColor = Colors.grey;
+          helperColor = const Color(0xFFA1A1A1);
         } else if (state.status == ClinicNameCheckStatus.success) {
           if (state.exists == true) {
             helperText = "Corporate ID found. You can continue.";
-            helperColor = Colors.green;
+            helperColor = const Color(0xFF3EAF58);
           } else {
             helperText = "Corporate ID not found.";
-            helperColor = Colors.red;
+            helperColor = const Color(0xFFEA5455);
           }
         } else if (state.status == ClinicNameCheckStatus.failure) {
           helperText = state.message ?? "Something went wrong";
-          helperColor = Colors.red;
+          helperColor = const Color(0xFFEA5455);
         }
 
         // ✅ safe check (exists can be null)
@@ -125,6 +125,14 @@ class _CheckCorporateIdViewState extends State<_CheckCorporateIdView> {
             automaticallyImplyLeading: false,
             backgroundColor: Colors.white,
             surfaceTintColor: Colors.white,
+            leading: IconButton(
+              onPressed: () => Navigator.pop(context),
+              icon: const Icon(
+                Icons.arrow_back_rounded,
+                color: Color(0xFF252525),
+              ),
+            ),
+            centerTitle: true,
             title: SvgPicture.asset("assets/respyr_logo.svg"),
           ),
           body: SafeArea(
@@ -133,16 +141,26 @@ class _CheckCorporateIdViewState extends State<_CheckCorporateIdView> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  const SizedBox(height: 8),
                   Text(
                     "Sign up",
                     style: GoogleFonts.poppins(
                       color: const Color(0xFF252525),
-                      fontSize: 34,
-                      fontWeight: FontWeight.w400,
-                      letterSpacing: -2.04,
+                      fontSize: 24,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: -0.6,
                     ),
                   ),
-                  const SizedBox(height: 25),
+                  const SizedBox(height: 4),
+                  Text(
+                    "Enter the corporate ID your organisation gave you.",
+                    style: GoogleFonts.poppins(
+                      color: const Color(0xFF535359),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w400,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
                   TextField(
                     controller: _controller,
                     onChanged: (v) {
@@ -182,35 +200,41 @@ class _CheckCorporateIdViewState extends State<_CheckCorporateIdView> {
             ),
             child: SafeArea(
               top: false,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  IconButton(
-                    onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.keyboard_arrow_left_outlined),
-                  ),
-                  IconButton(
-                    onPressed: canContinue
-                        ? () {
-                      Navigator.pushNamed(
-                        context,
-                        AppRoutes.corporateSignUp,
-                        arguments: {"clinic_name": state.clinicName},
-                      );
-                    }
-                        : null,
-                    style: IconButton.styleFrom(
-                      // ✅ enabled blue, disabled grey (NOT red)
-                      backgroundColor: canContinue
-                          ? AppColor.primaryBlueColor
-                          : Colors.grey,
+              // A labelled full-width button (back lives in the app bar now).
+              // Enabled only once the ID checks out, matching the login
+              // screen's primary action.
+              child: SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: ElevatedButton(
+                  onPressed: canContinue
+                      ? () {
+                          Navigator.pushNamed(
+                            context,
+                            AppRoutes.corporateSignUp,
+                            arguments: {"clinic_name": state.clinicName},
+                          );
+                        }
+                      : null,
+                  style: ElevatedButton.styleFrom(
+                    elevation: 0,
+                    backgroundColor: AppColor.primaryBlueColor,
+                    disabledBackgroundColor:
+                        const Color(0xFF308BF9).withValues(alpha: 0.4),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                    icon: const Icon(
-                      Icons.keyboard_arrow_right_outlined,
+                  ),
+                  child: Text(
+                    "Continue",
+                    style: GoogleFonts.poppins(
                       color: Colors.white,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: -0.2,
                     ),
                   ),
-                ],
+                ),
               ),
             ),
           ),

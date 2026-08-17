@@ -19,12 +19,12 @@ class DisclaimerCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _CollapsibleSection(
+          CollapsibleSection(
             title: "Disclaimer",
             child: _disclaimerBody(),
           ),
           const SizedBox(height: 10),
-          _CollapsibleSection(
+          CollapsibleSection(
             title: "Regulatory Status",
             child: _regulatoryBody(),
           ),
@@ -112,17 +112,17 @@ class DisclaimerCard extends StatelessWidget {
 }
 
 /// A titled card that keeps its body folded until tapped.
-class _CollapsibleSection extends StatefulWidget {
+class CollapsibleSection extends StatefulWidget {
   final String title;
   final Widget child;
 
-  const _CollapsibleSection({required this.title, required this.child});
+  const CollapsibleSection({super.key, required this.title, required this.child});
 
   @override
-  State<_CollapsibleSection> createState() => _CollapsibleSectionState();
+  State<CollapsibleSection> createState() => CollapsibleSectionState();
 }
 
-class _CollapsibleSectionState extends State<_CollapsibleSection> {
+class CollapsibleSectionState extends State<CollapsibleSection> {
   bool _open = false;
 
   @override

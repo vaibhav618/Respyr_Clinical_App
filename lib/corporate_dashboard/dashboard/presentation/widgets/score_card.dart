@@ -1,81 +1,95 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/svg.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:respyr_clinical/utils/score_color_helper.dart';
-import 'package:respyr_clinical/utils/score_status_helper.dart';
 
-import '../../../../shared/images_string.dart';
+import '../../../../utils/score_color_helper.dart';
+import '../../../../utils/score_status_helper.dart';
 
+/// One score tile on the corporate dashboard: name, band-coloured value with
+/// its status word, and a fill bar.
+///
+/// Restyled to the app's card idiom — white with a hairline border instead of
+/// a borderless block, natural title wrapping instead of one word per line,
+/// and a bar so the value reads against the 0-100 scale at a glance.
 class ScoreCard extends StatelessWidget {
   final String scoreName;
   final double score;
+
   const ScoreCard({super.key, required this.scoreName, required this.score});
 
   @override
   Widget build(BuildContext context) {
+    final Color band = ScoreColorHelper.getScoreColor(score);
+
     return Expanded(
       child: Container(
-        decoration: ShapeDecoration(
+        decoration: BoxDecoration(
           color: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(15),
-          ),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFE5E7EB)),
         ),
-        padding: EdgeInsets.fromLTRB(16, 20, 16, 16),
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              scoreName.replaceAll(" ", "\n"),
-              style: GoogleFonts.poppins(
-                color: const Color(0xFF252525),
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-                height: 1.10,
+            SizedBox(
+              height: 34,
+              child: Text(
+                scoreName,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.poppins(
+                  color: const Color(0xFF535359),
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w500,
+                  height: 1.25,
+                ),
               ),
             ),
-            SizedBox(height: 20),
-            Text(
-              ScoreStatusHelper.getScoreTitle(score),
-              style: GoogleFonts.poppins(
-                color: ScoreColorHelper.getScoreColor(score),
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            SizedBox(height: 8),
+            const SizedBox(height: 8),
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.baseline,
+              textBaseline: TextBaseline.alphabetic,
               children: [
                 Text(
                   "${score.toStringAsFixed(0)}%",
                   style: GoogleFonts.poppins(
-                    color: ScoreColorHelper.getScoreColor(score),
-                    fontSize: 24,
-                    fontWeight: FontWeight.w400,
+                    color: band,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w600,
+                    height: 1.1,
                   ),
                 ),
-                SvgPicture.asset(scoreIcon(scoreName), width: 28),
+                const Spacer(),
+                Text(
+                  ScoreStatusHelper.getScoreTitle(score),
+                  style: GoogleFonts.poppins(
+                    color: band,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ],
+            ),
+            const SizedBox(height: 8),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(2),
+              child: SizedBox(
+                height: 4,
+                width: double.infinity,
+                child: Stack(
+                  children: [
+                    Container(color: const Color(0xFFE5E7EB)),
+                    FractionallySizedBox(
+                      widthFactor: (score / 100).clamp(0.0, 1.0),
+                      child: Container(color: band),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ],
         ),
       ),
     );
-  }
-
-  String scoreIcon(String scoreName) {
-    switch (scoreName) {
-      case ("Sugar score"):
-        return ResSvg.sugarPancreas;
-      case ("Respiratory score"):
-        return ResSvg.respiratory;
-      case ("Liver score"):
-        return ResSvg.liver;
-      case ("Gut score"):
-        return ResSvg.gutVital;
-      default:
-        return ResSvg.sugarPancreas;
-    }
   }
 }

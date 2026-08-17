@@ -4,7 +4,6 @@ import 'package:respyr_clinical/widgets/shimmer_placeholders.dart';
 
 import 'package:flutter/material.dart' hide AppBar;
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -12,6 +11,7 @@ import 'package:respyr_clinical/shared/urls.dart';
 
 import '../../../../clinical_app_respyr/screens/bluetooth_test/screens/bluetooth_clinical_device_connectivity.dart';
 import '../../../../clinical_dashboard/helper/abort_device_manager.dart';
+import '../../../../clinical_dashboard/views/subject_profile.dart';
 import '../../../../clinical_dashboard/widgets/bottom_navigation.dart';
 import '../../../../clinical_dashboard/widgets/check_abort_sheet.dart'
     show CheckAbortSheet;
@@ -19,7 +19,6 @@ import '../../../../clinical_dashboard/widgets/connection_option_sheet.dart';
 import '../../../../common/floating_message.dart';
 import '../../../../device_connectivity/presentation/pages/device_connectivity_screen.dart';
 import '../../../../new_result/data/model/result_profile_data_model.dart';
-import '../../../../router/app_routers.dart';
 import '../../../../widgets/internet_connectivity_check.dart';
 
 import '../../bloc/corporate_profile_bloc.dart';
@@ -236,7 +235,7 @@ class _CorporateDashboardState extends State<CorporateDashboard>
                           : _bottomBarExtraGap);
 
                   return Scaffold(
-                    backgroundColor: Colors.white,
+                    backgroundColor: const Color(0xFFF5F7FA),
                     body: SafeArea(
                       bottom: true,
                       child: Stack(
@@ -256,7 +255,11 @@ class _CorporateDashboardState extends State<CorporateDashboard>
                                 activeIndex: 0,
                                 onDashboardTap:
                                     () => _refreshProfile(blocContext),
-                                label3: "Profile",
+                                // History, like the clinical app: the
+                                // person's past tests, each opening its
+                                // result. Profile stays reachable from the
+                                // badge in the header.
+                                label3: "History",
                                 onTakeTestTap: () {
                                   if (!_hasInternet) {
                                     FloatingMessage.show(
@@ -292,10 +295,16 @@ class _CorporateDashboardState extends State<CorporateDashboard>
                                   );
                                 },
                                 onProfileTap: () {
-                                  Navigator.pushNamed(
+                                  final u = profileState.user!;
+                                  Navigator.push(
                                     context,
-                                    AppRoutes.corporateProfile,
-                                    arguments: profileState.user,
+                                    MaterialPageRoute(
+                                      builder: (_) => SubjectProfileScreen(
+                                        clinicName: u.clinicName,
+                                        profileName: u.subjectId,
+                                        role: 'corporate',
+                                      ),
+                                    ),
                                   );
                                 },
                               ),
@@ -508,35 +517,71 @@ class _CorporateDashboardState extends State<CorporateDashboard>
           if (profileState.status == CorporateProfileStatus.failure) {
             return Center(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 50),
+                padding: const EdgeInsets.symmetric(horizontal: 40),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    SvgPicture.asset(
-                      "assets/sagar/undraw_not-found_6bgl.svg",
-                      height: 250,
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      _hasInternet
-                          ? "Oops! Something went wrong. Try again. If you see this error again, please reach out to the admin or support team."
-                          : "No internet connection.\nPlease turn it ON and tap Retry.",
-                      textAlign: TextAlign.center,
-                      style: GoogleFonts.poppins(
-                        color: const Color(0xFF252525),
-                        fontSize: 12,
-                        fontStyle: FontStyle.italic,
-                        fontWeight: FontWeight.w400,
-                        letterSpacing: -0.24,
+                    Container(
+                      height: 64,
+                      width: 64,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF308BF9).withValues(alpha: 0.08),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        _hasInternet
+                            ? Icons.error_outline_rounded
+                            : Icons.cloud_off_rounded,
+                        color: const Color(0xFF308BF9),
+                        size: 30,
                       ),
                     ),
-                    const SizedBox(height: 30),
-                    ElevatedButton(
-                      style: ElevatedButton.styleFrom(elevation: 0),
-                      onPressed: () {
-                        _refreshProfile(blocContext);
-                      },
-                      child: const Text("Retry"),
+                    const SizedBox(height: 16),
+                    Text(
+                      _hasInternet
+                          ? "Couldn't load your profile"
+                          : "No internet connection",
+                      style: GoogleFonts.poppins(
+                        color: const Color(0xFF252525),
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      _hasInternet
+                          ? "Try again — if this keeps happening, contact support."
+                          : "Turn it on and tap Retry.",
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.poppins(
+                        color: const Color(0xFF535359),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w400,
+                        height: 1.4,
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    OutlinedButton(
+                      onPressed: () => _refreshProfile(blocContext),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFF308BF9),
+                        side: const BorderSide(color: Color(0xFF308BF9)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 22,
+                          vertical: 10,
+                        ),
+                      ),
+                      child: Text(
+                        "Retry",
+                        style: GoogleFonts.poppins(
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -650,8 +695,8 @@ class _PinnedHeaderDelegate extends SliverPersistentHeaderDelegate {
     bool overlapsContent,
   ) {
     return Material(
-      color: Colors.white,
-      elevation: overlapsContent ? 3 : 0,
+      color: const Color(0xFFF5F7FA),
+      elevation: overlapsContent ? 2 : 0,
       child: child,
     );
   }

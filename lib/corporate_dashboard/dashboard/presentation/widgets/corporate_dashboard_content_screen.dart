@@ -108,11 +108,17 @@ class _CorporateDashboardContentScreenState
 
                 if (state.status == CorporateProfileTestsStatus.failure) {
                   return Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 24,
+                      horizontal: 32,
+                    ),
                     child: Center(
                       child: Text(
                         state.errorMessage ?? "Failed to load data",
-                        style: const TextStyle(color: Colors.red),
+                        style: GoogleFonts.poppins(
+                          color: const Color(0xFF535359),
+                          fontSize: 13,
+                        ),
                         textAlign: TextAlign.center,
                       ),
                     ),
@@ -192,51 +198,78 @@ class _CorporateDashboardContentScreenState
             ? "You haven’t taken your reading $label."
             : "You haven’t taken your reading yet.";
 
+    // Standard empty-state card — the old block set a 25px blue sentence on
+    // a fading gradient with a 50px void before a pill button.
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
+      padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Container(
         width: double.infinity,
-        decoration: ShapeDecoration(
-          gradient: const LinearGradient(
-            begin: Alignment(0.50, 0.00),
-            end: Alignment(0.50, 1.00),
-            colors: [Color(0xFFE4F0FF), Color(0x00E4F0FF)],
-          ),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(15),
-          ),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFFE5E7EB)),
         ),
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
         child: Column(
-          spacing: 50,
           children: [
+            Container(
+              height: 56,
+              width: 56,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: const Color(0xFF308BF9).withValues(alpha: 0.08),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.air_rounded,
+                color: Color(0xFF308BF9),
+                size: 28,
+              ),
+            ),
+            const SizedBox(height: 14),
             Text(
               message,
               textAlign: TextAlign.center,
               style: GoogleFonts.poppins(
-                color: const Color(0xFF308BF9),
-                fontSize: 25,
+                color: const Color(0xFF252525),
+                fontSize: 15,
                 fontWeight: FontWeight.w600,
-                height: 1.10,
+                height: 1.35,
+                letterSpacing: -0.2,
               ),
             ),
-            ElevatedButton(
-              onPressed: () {
-                widget.onTrackHealthButtonClicked();
-              },
-              style: ElevatedButton.styleFrom(
-                elevation: 0,
-                backgroundColor: const Color(0xFF308BF9),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(30),
-                ),
+            const SizedBox(height: 4),
+            Text(
+              "A reading takes about a minute.",
+              style: GoogleFonts.poppins(
+                color: const Color(0xFF535359),
+                fontSize: 12.5,
+                fontWeight: FontWeight.w400,
               ),
-              child: Text(
-                "Track Your Health",
-                style: GoogleFonts.poppins(
-                  color: Colors.white,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
+            ),
+            const SizedBox(height: 18),
+            SizedBox(
+              width: double.infinity,
+              height: 46,
+              child: ElevatedButton(
+                onPressed: () {
+                  widget.onTrackHealthButtonClicked();
+                },
+                style: ElevatedButton.styleFrom(
+                  elevation: 0,
+                  backgroundColor: const Color(0xFF308BF9),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: Text(
+                  "Take Test",
+                  style: GoogleFonts.poppins(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: -0.2,
+                  ),
                 ),
               ),
             ),

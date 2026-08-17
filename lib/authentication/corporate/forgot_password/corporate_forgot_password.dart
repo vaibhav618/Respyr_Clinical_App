@@ -62,7 +62,7 @@ class _CorporateForgotPasswordState extends State<CorporateForgotPassword> {
         elevation: 0,
         backgroundColor: Colors.white,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, color: Colors.black, size: 20),
+          icon: const Icon(Icons.arrow_back_rounded, color: Color(0xFF252525)),
           onPressed: () => Navigator.pop(context),
         ),
       ),
@@ -77,9 +77,10 @@ class _CorporateForgotPasswordState extends State<CorporateForgotPassword> {
               Text(
                 _isSuccess ? "Email Sent" : "Forgot\nPassword",
                 style: GoogleFonts.poppins(
-                  fontSize: 32,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black,
+                  fontSize: 24,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFF252525),
+                  letterSpacing: -0.6,
                   height: 1.2,
                 )
               ),
@@ -89,10 +90,10 @@ class _CorporateForgotPasswordState extends State<CorporateForgotPassword> {
                     ? "We have sent your password to ${_emailController.text}. Please check your inbox."
                     : "Please enter your corporate email address to receive your password.",
                 style: GoogleFonts.poppins(
-                    color: Colors.grey[600], fontSize: 16, height: 1.5
+                    color: const Color(0xFF535359), fontSize: 13, height: 1.5
                 ),
               ),
-              const SizedBox(height: 50),
+              const SizedBox(height: 28),
 
               if (!_isSuccess) ...[
                 // Minimal Input
@@ -101,17 +102,28 @@ class _CorporateForgotPasswordState extends State<CorporateForgotPassword> {
                   keyboardType: TextInputType.emailAddress,
                   decoration: InputDecoration(
                     labelText: "Corporate Email",
-                    labelStyle: const TextStyle(color: Colors.black54),
-                    enabledBorder: const UnderlineInputBorder(
-                      borderSide: BorderSide(color: Colors.black12),
+                    labelStyle: GoogleFonts.poppins(
+                      color: const Color(0xFFA1A1A1),
+                      fontSize: 14,
                     ),
-                    focusedBorder: const UnderlineInputBorder(
-                      borderSide: BorderSide(color: Colors.black, width: 2),
+                    filled: true,
+                    fillColor: Colors.white,
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 14),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide:
+                          const BorderSide(color: Color(0xFFE5E7EB)),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(
+                          color: Color(0xFF308BF9), width: 1.5),
                     ),
                   ),
                   validator: (value) => (value == null || !value.contains('@')) ? "Enter a valid email" : null,
                 ),
-                const SizedBox(height: 60),
+                const SizedBox(height: 32),
 
                 // Solid Black Button
                 SizedBox(
@@ -120,10 +132,11 @@ class _CorporateForgotPasswordState extends State<CorporateForgotPassword> {
                   child: ElevatedButton(
                     onPressed: _isLoading ? null : handleReset,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.black,
+                      backgroundColor: const Color(0xFF308BF9),
                       foregroundColor: Colors.white,
                       elevation: 0,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
                     ),
                     child: _isLoading
                         ? const SizedBox(
@@ -132,7 +145,7 @@ class _CorporateForgotPasswordState extends State<CorporateForgotPassword> {
                       child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
                     )
                         :  Text("Send Password", style: GoogleFonts.poppins(
-                        fontSize: 16, fontWeight: FontWeight.w600
+                        fontSize: 15, fontWeight: FontWeight.w600
                     )),
                   ),
                 ),
@@ -144,13 +157,14 @@ class _CorporateForgotPasswordState extends State<CorporateForgotPassword> {
                   child: OutlinedButton(
                     onPressed: () => Navigator.pop(context),
                     style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: Colors.black, width: 1.5),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      side: const BorderSide(color: Color(0xFF308BF9), width: 1.5),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
                     ),
                     child:  Text(
                       "Back to Login",
                       style: GoogleFonts.poppins(
-                          color: Colors.black, fontSize: 16, fontWeight: FontWeight.w600
+                          color: const Color(0xFF308BF9), fontSize: 15, fontWeight: FontWeight.w600
                       )
                     ),
                   ),

@@ -133,13 +133,13 @@ class _CorporateSignUpViewState extends State<_CorporateSignUpView> {
     return InputDecoration(
       counterText: '',
       hintText: hint,
-      hintStyle: GoogleFonts.roboto(
-        fontSize: 15,
-        fontWeight: FontWeight.w300,
-        color: const Color(0xFF737373),
+      hintStyle: GoogleFonts.poppins(
+        fontSize: 14,
+        fontWeight: FontWeight.w400,
+        color: const Color(0xFFA1A1A1),
       ),
       filled: true,
-      fillColor: const Color(0xFFF8F8F8),
+      fillColor: Colors.white,
       suffixText: suffixText,
       suffixIcon: suffixIcon,
       suffixStyle: GoogleFonts.poppins(
@@ -150,19 +150,19 @@ class _CorporateSignUpViewState extends State<_CorporateSignUpView> {
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Color(0xFFF0F0F0)),
+        borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Color(0xFF809BF9), width: 1.5),
+        borderSide: const BorderSide(color: Color(0xFF308BF9), width: 1.5),
       ),
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Colors.redAccent, width: 1),
+        borderSide: const BorderSide(color: Color(0xFFEA5455), width: 1),
       ),
       focusedErrorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Colors.redAccent, width: 1.5),
+        borderSide: const BorderSide(color: Color(0xFFEA5455), width: 1.5),
       ),
     );
   }
@@ -307,9 +307,9 @@ class _CorporateSignUpViewState extends State<_CorporateSignUpView> {
                           "Sign up",
                           style: GoogleFonts.poppins(
                             color: const Color(0xFF252525),
-                            fontSize: 34,
-                            fontWeight: FontWeight.w400,
-                            letterSpacing: -2.04,
+                            fontSize: 24,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: -0.6,
                           ),
                         ),
                         const SizedBox(height: 25),
@@ -555,7 +555,7 @@ class _CorporateSignUpViewState extends State<_CorporateSignUpView> {
                       backgroundColor: AppColor.primaryBlueColor,
                       minimumSize: const Size(double.infinity, 54),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(30),
+                        borderRadius: BorderRadius.circular(12),
                       ),
                       elevation: 0,
                     ),
@@ -615,13 +615,13 @@ class _GenderButton extends StatelessWidget {
             color:
                 isSelected
                     ? AppColor.primaryBlueColor
-                    : const Color(0xFFF8F8F8),
+                    : Colors.white,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
               color:
                   isSelected
                       ? AppColor.primaryBlueColor
-                      : const Color(0xFFF0F0F0),
+                      : const Color(0xFFE5E7EB),
             ),
           ),
           child: Row(

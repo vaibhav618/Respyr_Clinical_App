@@ -1,8 +1,15 @@
-import 'dart:io' show Platform;
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+/// "Take test via" chooser: Bluetooth or USB, as two tappable option rows in
+/// the same style as the dashboard's take-test sheet — drag handle, icon in a
+/// tinted rounded square, label, chevron.
+///
+/// On iOS only Bluetooth exists, so the sheet auto-forwards there without
+/// drawing anything.
 class ConnectionOptionSheet extends StatefulWidget {
   final VoidCallback onBluetoothTap;
   final VoidCallback onUsbTap;
@@ -23,11 +30,8 @@ class _ConnectionOptionSheetState extends State<ConnectionOptionSheet> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-
     if (Platform.isIOS && !_autoTriggered) {
       _autoTriggered = true;
-
-      // schedule after first frame (safe)
       WidgetsBinding.instance.addPostFrameCallback((_) {
         widget.onBluetoothTap();
       });
@@ -36,101 +40,116 @@ class _ConnectionOptionSheetState extends State<ConnectionOptionSheet> {
 
   @override
   Widget build(BuildContext context) {
-    // ✅ iOS: return nothing so bottom sheet UI won't be shown
     if (Platform.isIOS) {
       return const SizedBox.shrink();
     }
 
-    // ✅ Android: show both options
     return Container(
-      height: MediaQuery.of(context).size.height * 0.32,
-      padding: const EdgeInsets.all(16.0),
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 24),
       decoration: const BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(25),
-          topRight: Radius.circular(25),
-        ),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(
-            'Take test via',
-            style: GoogleFonts.mulish(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
+      child: SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE5E7EB),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
             ),
-          ),
-          const SizedBox(height: 20),
-
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              _buildConnectionOption(
-                context: context,
-                iconPath: 'assets/icon_bluetooth.svg',
-                label: 'Bluetooth',
-                onTap: widget.onBluetoothTap,
+            const SizedBox(height: 18),
+            Text(
+              "Take test via",
+              style: GoogleFonts.poppins(
+                color: const Color(0xFF252525),
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                letterSpacing: -0.3,
               ),
-              _buildConnectionOption(
-                context: context,
-                iconPath: 'assets/carbon_usb.svg',
-                label: 'Cable',
-                onTap: widget.onUsbTap,
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 16),
-        ],
+            ),
+            const SizedBox(height: 14),
+            _option(
+              iconPath: 'assets/icon_bluetooth.svg',
+              label: 'Bluetooth',
+              onTap: widget.onBluetoothTap,
+            ),
+            const SizedBox(height: 10),
+            _option(
+              iconPath: 'assets/carbon_usb.svg',
+              label: 'USB cable',
+              onTap: widget.onUsbTap,
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildConnectionOption({
-    required BuildContext context,
+  Widget _option({
     required String iconPath,
     required String label,
     required VoidCallback onTap,
   }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: MediaQuery.of(context).size.width * 0.35,
-        height: MediaQuery.of(context).size.height * 0.15,
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withAlpha(43),
-              blurRadius: 9,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            SvgPicture.asset(
-              iconPath,
-              width: 40,
-              height: 40,
-              fit: BoxFit.contain,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              label,
-              style: GoogleFonts.mulish(
-                fontSize: 14,
-                fontWeight: FontWeight.w400,
-                color: const Color(0xFF9A9A9A),
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: const Color(0xFFE5E7EB)),
+          ),
+          child: Row(
+            children: [
+              Container(
+                height: 40,
+                width: 40,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF308BF9).withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: SvgPicture.asset(
+                  iconPath,
+                  height: 22,
+                  width: 22,
+                  colorFilter: const ColorFilter.mode(
+                    Color(0xFF308BF9),
+                    BlendMode.srcIn,
+                  ),
+                ),
               ),
-            ),
-          ],
+              const SizedBox(width: 14),
+              Expanded(
+                child: Text(
+                  label,
+                  style: GoogleFonts.poppins(
+                    color: const Color(0xFF252525),
+                    fontSize: 14.5,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: -0.2,
+                  ),
+                ),
+              ),
+              const Icon(
+                Icons.chevron_right_rounded,
+                color: Color(0xFFA1A1A1),
+                size: 22,
+              ),
+            ],
+          ),
         ),
       ),
     );

@@ -18,20 +18,10 @@ class Urls {
   // ---------------------------------------------------------------------------
   // Authentication
   // ---------------------------------------------------------------------------
-  static const String sendOtp = '$_appFinal/send_otp2.php';
-  static const String checkLoginId = '$_appFinal/check_otp2.php';
-  static const String getClinicalId = '$_appFinal/get_clinical_id.php';
   static const String generateJwtToken =
       '$_clinicalApi/generate/generate_jwt_token.php';
   static const String validateLoginWithPassword =
       '$_clinicalApi/fetch/validate_login_with_password.php';
-  static const String checkPhoneNumberExists =
-      '$_appFinal/check_phone_number.php';
-  static const String checkEmailExists = '$_appFinal/check_email_exist.php';
-  static const String checkUserNameExists = '$_appFinal/check_name_exist.php';
-  static const String updateUserPassword = '$_appFinal/update_password.php';
-  static const String createAndCheckUserPassword =
-      '$_appFinal/check_password.php';
 
   // ---------------------------------------------------------------------------
   // Corporate
@@ -52,34 +42,13 @@ class Urls {
   // ---------------------------------------------------------------------------
   // Profiles / subjects
   // ---------------------------------------------------------------------------
-  static const String selectProfileNew = '$_appFinal/select_profile.php';
-  static const String getLoginId = '$_appFinal/fetch_profile_counts.php';
-  static const String checkProfileCount = '$_appFinal/fetch_profile_counts.php';
-  static const String newProfileCreation = '$_appFinal/add_new_profile.php';
-  static const String createPatientProfile =
-      '$_appFinal/create_patient_profile.php';
   static const String fetchClinicSubjectsProfile =
       '$_appFinal/fetch_clinic_subjects_profile.php';
-  static const String fetchUserProfileService =
-      '$_appFinal/fetch_profile_data.php';
   static const String fetchSubjectProfile =
       '$_clinicalApi/fetch/fetch_profile_data_test_log2.php?';
   static const String getSubjects = '$_clinicalApi/fetch/get_subjects.php';
-  static const String updateUserPersonalInfo =
-      '$_appFinal/update_persnoal_info.php';
-  static const String updatePersonalInfo =
-      '$_appFinal/update_persnoal_info.php';
-  static const String updateUserHobbies = '$_appFinal/update_hobbies_data.php';
-  static const String updateLifeStyleInfo =
-      '$_appFinal/update_hobbies_data.php';
-  static const String updateMedicalHistoryInfo =
-      '$_appFinal/update_medical_history.php';
   static const String updateUserRegion =
       '$_clinicalApi/update/update_profile_region.php';
-  static const String addHobbies = '$_appFinal/add_hobbies.php';
-  static const String addBloodReport = '$_appFinal/add_blood_report.php';
-  static const String deleteAccountApi = '$_appFinal/delete_account.php';
-  static const String profileDeletionApi = '$_appFinal/delete_profile.php';
 
   // ---------------------------------------------------------------------------
   // Clinic
@@ -103,29 +72,12 @@ class Urls {
   static const String fetchTestLog = '$_clinicalApi/fetch/all_test_data.php?';
   static const String fetchOverallDataByDate =
       '$_clinicalApi/fetch/overall_data_by_date.php';
-  static const String trend7Days = '$_clinical/trend_7_days.php';
   static const String allClinicScore =
       '${entryPoint}humors/json_curl/all_clinic_score.php';
   static const String fetchLastDataTime =
       '$_clinicalApi/fetch/fetch_last_data_time2.php';
-  static const String processRawData =
-      '${entryPoint}humorscalculation/production.php?';
   static const String productionCalculation =
       '${entryPoint}humorscalculation/production.php';
-  static const String fetchLifeStyleScore =
-      '${entryPoint}humors/json_curl/life_style.php';
-  static const String dbVital = '${entryPoint}humors/json_curl/db_vital.php?';
-  static const String fetchMonthFlChartData = '$_appFinal/trends/test53.php';
-  static const String fetchDayFlchartData =
-      '$_appFinal/trends/dashboard_trend_by_date.php';
-
-  // ---------------------------------------------------------------------------
-  // Raphacure
-  // ---------------------------------------------------------------------------
-  static const String raphacureBase = '$_clinicalApi/fetch/raphacure';
-  static const String fetchUserdata = '$raphacureBase/check_profile.php';
-  static const String fetchOverallData = '$raphacureBase/user_overall_data.php';
-  static const String fetchRaphacureResult = '$raphacureBase/fetch_result.php?';
 
   // ---------------------------------------------------------------------------
   // Help & support
@@ -136,21 +88,12 @@ class Urls {
       'https://wa.me/8296380628?text=Hi%2C%20I%20need%20some%20help';
 
   // ---------------------------------------------------------------------------
-  // Notifications / logging / app updates
+  // Notifications / logging
   // ---------------------------------------------------------------------------
   static const String saveFcmToken = '$_clinicalApi/insert/save_fcm_token.php';
   static const String appErrorReport =
       '${entryPoint}log_manager/app_error_report.php';
   static const String logger = '${entryPoint}log_manager/logger.php';
-  static const String appVersionJson = '$_clinical/app_version.json';
-
-  // ---------------------------------------------------------------------------
-  // Food (consumer app leftovers — kept for compatibility)
-  // ---------------------------------------------------------------------------
-  static const String fetchFoodMenu = '$_appFinal/food/fetch_food2.php';
-  static const String fetchFoodMenuById =
-      '$_appFinal/food/fetch_food_data_by_id.php';
-  static const String fetchFoodQuantity = '$_appFinal/food/food_amount3.php';
 
   // ---------------------------------------------------------------------------
   // External web pages
@@ -160,10 +103,4 @@ class Urls {
   static const String privacyPolicy = 'https://respyr.in/privacy_policy/';
   static const String forgotPasswordPortal =
       'https://portal.respyr.in/clinical/login-port/forgot-password/?appshow=true';
-
-  // ---------------------------------------------------------------------------
-  // Placeholder (endpoint never implemented — kept so the code still compiles)
-  // ---------------------------------------------------------------------------
-  static const String clinicFetch =
-      'https://yourdomain.com/api/clinic_fetch.php';
 }

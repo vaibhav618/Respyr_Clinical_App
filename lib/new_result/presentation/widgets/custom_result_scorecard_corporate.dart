@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
 import '../../../utils/score_color_helper.dart';
@@ -14,6 +15,10 @@ class CustomResultScorecardCorporate extends StatelessWidget {
   final NewResultModel userResultData;
   final ScoreInterpretation corporateInterpretation;
 
+  /// Shows a "Back to top" footer — reading a card ends a long way from the
+  /// score selector above it.
+  final VoidCallback? onBackToTop;
+
   const CustomResultScorecardCorporate({
     super.key,
     required this.scoreTitle,
@@ -22,6 +27,7 @@ class CustomResultScorecardCorporate extends StatelessWidget {
     required this.timeStamp,
     required this.userResultData,
     required this.corporateInterpretation,
+    this.onBackToTop,
   });
 
   @override
@@ -110,7 +116,39 @@ class CustomResultScorecardCorporate extends StatelessWidget {
               title: "Wellness Insight",
               content: wellnessInsight,
             ),
-            const SizedBox(height: 17),
+            if (onBackToTop != null) ...[
+              const SizedBox(height: 17),
+              // Same footer as the clinical card, so the gesture is one
+              // habit across both roles.
+              const Divider(height: 1, thickness: 1, color: Color(0xFFE5E7EB)),
+              InkWell(
+                onTap: onBackToTop,
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 12, bottom: 2),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(
+                        Icons.keyboard_arrow_up_rounded,
+                        size: 18,
+                        color: Color(0xFF308BF9),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        "Back to top",
+                        style: GoogleFonts.poppins(
+                          color: const Color(0xFF308BF9),
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: -0.2,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ] else
+              const SizedBox(height: 17),
           ],
         ),
       ),
