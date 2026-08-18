@@ -4,6 +4,7 @@ import 'package:flutter_svg/svg.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:respyr_clinical/authentication/screens/terms_privacy_widget.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../clinical_dashboard/bloc/health_score_bloc.dart';
@@ -256,29 +257,86 @@ class _LoginWithPasswordState extends State<LoginWithPassword> {
 
   @override
   Widget build(BuildContext context) {
+    // Reached two ways: pushed from the sign-in chooser (back must work,
+    // by button and by gesture) or directly from splash for a returning
+    // clinical session (nothing to pop to — the arrow hides itself).
+    final bool canGoBack = Navigator.of(context).canPop();
+
+    final double keyboardInset = MediaQuery.of(context).viewInsets.bottom;
+
     return Scaffold(
-      backgroundColor: Colors.white,
-      resizeToAvoidBottomInset: true,
-      body: SafeArea(
-        child: WillPopScope(
-          onWillPop: () async {
-            // SystemNavigator.pop();
-            Navigator.of(context).pop();
-            return false;
-          },
-          child: Stack(
-            children: [
-              LoginForm(
-                formKey: formKey,
-                nameController: nameController,
-                passwordController: passwordController,
-                onLoginPressed: _handleLogin,
-                adminIdError: _adminIdError,
-                passwordError: _passwordError,
-                isLoading: isLoading,
+      // Same canvas as the splash underlay and the rest of the app, so the
+      // curtain-lift handoff lands on identical ground. The form area eases
+      // its own bottom inset (animated), so the Scaffold must not also
+      // resize — that double-resize was the patchy jump.
+      backgroundColor: const Color(0xFFF5F7FA),
+      resizeToAvoidBottomInset: false,
+      // The app bar sits on the page's own canvas — no white band cutting
+      // across the top of a grey page.
+      appBar: AppBar(
+        backgroundColor: const Color(0xFFF5F7FA),
+        surfaceTintColor: const Color(0xFFF5F7FA),
+        elevation: 0,
+        automaticallyImplyLeading: false,
+        leading:
+            canGoBack
+                ? IconButton(
+                  onPressed:
+                      isLoading ? null : () => Navigator.of(context).pop(),
+                  icon: const Icon(
+                    Icons.arrow_back_rounded,
+                    color: Color(0xFF252525),
+                  ),
+                )
+                : null,
+        centerTitle: true,
+        title: SvgPicture.asset("assets/respyr_logo.svg"),
+      ),
+      // Tap anywhere outside a field to put the keyboard away; scrolling
+      // deliberately does NOT dismiss it. No dock: the button and the terms
+      // line sit directly on the page canvas.
+      body: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: SafeArea(
+                bottom: false,
+                // The scroll area eases its own bottom inset so the card —
+                // Log in button included — always sits reachable above the
+                // keys, without the Scaffold's un-animated snap.
+                child: AnimatedPadding(
+                  duration: const Duration(milliseconds: 200),
+                  curve: Curves.easeOutCubic,
+                  padding: EdgeInsets.only(bottom: keyboardInset),
+                  child: LoginForm(
+                    formKey: formKey,
+                    nameController: nameController,
+                    passwordController: passwordController,
+                    onLoginPressed: _handleLogin,
+                    adminIdError: _adminIdError,
+                    passwordError: _passwordError,
+                    isLoading: isLoading,
+                  ),
+                ),
               ),
-            ],
-          ),
+            ),
+            // The terms line holds the very bottom and never rides the
+            // keyboard — the keys just cover it while they're up.
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: SafeArea(
+                top: false,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(30, 0, 30, 26),
+                  child: buildPrivacyText(context),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Android 12+ system splash: the CLOSED-BLINDS blue with NO icon.
+         Flutter's first frame is the closed curtain (#2578E5 blinds covering
+         everything), so the OS field must be that exact color for the
+         handoff to be invisible - the brand blue is what the blinds then
+         reveal. The default was the app icon on black (dark mode) - a
+         "photo splash" nobody designed. -->
+    <style name="LaunchTheme" parent="@android:style/Theme.Light.NoTitleBar">
+        <item name="android:windowSplashScreenBackground">#2578E5</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/transparent</item>
+        <item name="android:windowBackground">@drawable/launch_background</item>
+    </style>
+    <style name="NormalTheme" parent="@android:style/Theme.Light.NoTitleBar">
+        <item name="android:windowBackground">?android:colorBackground</item>
+    </style>
+</resources>

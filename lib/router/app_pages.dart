@@ -1,5 +1,5 @@
-import 'package:flutter/cupertino.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
+// flutter_bloc also exports a `Transition`; GetX's is the one meant here.
+import 'package:flutter_bloc/flutter_bloc.dart' hide Transition;
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:provider/provider.dart';
@@ -24,7 +24,6 @@ import '../new_result/data/model/result_model.dart';
 import '../new_result/data/model/result_profile_data_model.dart';
 import '../new_result/presentation/view/overall_result.dart';
 import '../new_result/presentation/view_model/result_view_model.dart';
-import '../splash/corporate_splash.dart';
 import '../splash/splash.dart';
 import 'app_routers.dart';
 
@@ -32,26 +31,23 @@ class AppPages {
   static final routes = <GetPage>[
     GetPage(
       name: AppRoutes.splash,
-      page: () {
-        // ✅ Read at runtime (NOT as instance variable)
-        final storage = GetStorage();
-        final savedRole = (storage.read('role') ?? '').toString().toLowerCase();
-
-        Widget child;
-
-        if (savedRole == "clinical") {
-          child = const Splash();
-        } else if (savedRole == "corporate") {
-          child = const CorporateSplash();
-        } else {
-          child = const SignIn();
-        }
-
-        return UpgradeAlert(upgrader: Upgrader(), child: child);
-      },
+      // One splash for every launch. The role branching lives inside the
+      // Splash itself now — the old routing sent corporate users to a
+      // separate static splash and fresh installs straight to sign-in, so
+      // the launch animation only ever played for saved clinical sessions.
+      page: () => UpgradeAlert(upgrader: Upgrader(), child: const Splash()),
     ),
 
-    GetPage(name: AppRoutes.signIn, page: () => const SignIn()),
+    // No route transition: SignIn is its own entrance (the 800ms stagger).
+    // The default 300ms fadeIn multiplied on top of it — a double fade that
+    // made the landing read heavier and later than designed. The swap is
+    // invisible because splash's revealed canvas and SignIn's background are
+    // the same color, and SignIn's first frame is fully transparent slots.
+    GetPage(
+      name: AppRoutes.signIn,
+      page: () => const SignIn(),
+      transition: Transition.noTransition,
+    ),
     GetPage(
       name: AppRoutes.clinicalLogin,
       page: () => const LoginWithPassword(),
