@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/svg.dart';
@@ -21,12 +22,10 @@ class CompleteTestLog extends StatefulWidget {
 class _CompleteTestLogState extends State<CompleteTestLog> {
   final TextEditingController _controller = TextEditingController();
 
-  // Incremental rendering: only this many cards are built at first; scrolling
-  // near the bottom appends another page. Building the full list at once
-  // (shrinkWrap) laid out every card in one frame and froze the page open.
-  static const int _pageSize = 15;
-  int _visibleCount = _pageSize;
-  int _totalCount = 0;
+  // Server-side pagination: scrolling near the bottom asks the bloc for the
+  // next page from the server. Search is debounced so it doesn't fire a query
+  // on every keystroke.
+  Timer? _debounce;
   final ScrollController _scrollController = ScrollController();
 
   // Collapsing search: the body search bar cross-fades into the app bar as it
@@ -50,14 +49,17 @@ class _CompleteTestLogState extends State<CompleteTestLog> {
     _searchT.value = ((position.pixels - _fadeStart) / (_fadeEnd - _fadeStart))
         .clamp(0.0, 1.0);
 
-    if (position.pixels >= position.maxScrollExtent - 400 &&
-        _visibleCount < _totalCount) {
-      setState(() => _visibleCount += _pageSize);
+    if (position.pixels >= position.maxScrollExtent - 400) {
+      final st = context.read<TestLogBloc>().state;
+      if (st is TestLogLoaded && st.hasMore && !st.isLoadingMore) {
+        context.read<TestLogBloc>().add(LoadMoreTestLogs());
+      }
     }
   }
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _scrollController.dispose();
     _searchT.dispose();
     _controller.dispose();
@@ -98,7 +100,7 @@ class _CompleteTestLogState extends State<CompleteTestLog> {
                 icon: Icon(Icons.close, size: compact ? 18 : 24),
                 onPressed: () {
                   _controller.clear();
-                  _visibleCount = _pageSize;
+                  _debounce?.cancel();
                   context.read<TestLogBloc>().add(FilterTestLogs(''));
                   FocusScope.of(context).unfocus();
                 },
@@ -119,9 +121,11 @@ class _CompleteTestLogState extends State<CompleteTestLog> {
           ),
         ),
         onChanged: (value) {
-          // New filter → start again from the first page.
-          _visibleCount = _pageSize;
-          context.read<TestLogBloc>().add(FilterTestLogs(value));
+          // Debounced server-side search → reloads page 1 for the query.
+          _debounce?.cancel();
+          _debounce = Timer(const Duration(milliseconds: 400), () {
+            context.read<TestLogBloc>().add(FilterTestLogs(value));
+          });
         },
       ),
     );
@@ -185,14 +189,10 @@ class _CompleteTestLogState extends State<CompleteTestLog> {
                 return Center(child: Text(state.message));
               } else if (state is TestLogLoaded) {
                 final filteredList =
-                    state.filteredList
+                    state.logs
                         .where((item) => item.profileId.isNotEmpty)
                         .toList();
-                _totalCount = filteredList.length;
-                final int builtCount =
-                    _visibleCount < filteredList.length
-                        ? _visibleCount
-                        : filteredList.length;
+                final int builtCount = filteredList.length;
 
                 return SingleChildScrollView(
                   controller: _scrollController,
@@ -281,6 +281,23 @@ class _CompleteTestLogState extends State<CompleteTestLog> {
                               );
                             },
                           ),
+
+                      /// Spinner while the next page loads from the server.
+                      if (state.isLoadingMore)
+                        const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 16),
+                          child: Center(
+                            child: SizedBox(
+                              height: 22,
+                              width: 22,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.4,
+                                color: Color(0xFF308BF9),
+                              ),
+                            ),
+                          ),
+                        ),
+                      const SizedBox(height: 8),
                     ],
                   ),
                 );

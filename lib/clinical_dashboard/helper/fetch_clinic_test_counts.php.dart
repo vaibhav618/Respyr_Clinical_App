@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:respyr_clinical/shared/urls.dart';
+import 'package:respyr_clinical/shared/nodeurl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../log_manager/log_manager.dart';
@@ -16,7 +16,7 @@ Map<String, dynamic> data,
   required String loginId,
 }) async {
   final url = Uri.parse(
-    Urls.checkTestCounts,
+    NodeUrls.checkTestCounts,
   );
 
   try {
@@ -49,11 +49,11 @@ Map<String, dynamic> data,
       url,
       headers: {
         'Authorization': 'Bearer $token',
-        'Content-Type': 'application/x-www-form-urlencoded',
+        'Content-Type': 'application/json',
       },
-      body: {
+      body: jsonEncode({
         'login_id': loginId,
-      },
+      }),
     );
 
     final decoded = jsonDecode(response.body);

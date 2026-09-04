@@ -20,11 +20,11 @@ class CorporateLoginRepository {
 
     final res = await _client.post(
       uri,
-      headers: {"Content-Type": "application/x-www-form-urlencoded"},
-      body: {
+      headers: {"Content-Type": "application/json"},
+      body: jsonEncode({
         "email": email.trim(),
         "password": password,
-      },
+      }),
     );
 
     final body = res.body.trim();

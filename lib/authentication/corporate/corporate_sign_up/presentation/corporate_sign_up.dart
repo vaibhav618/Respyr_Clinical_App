@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:respyr_clinical/shared/urls.dart';
+import 'package:respyr_clinical/shared/nodeurl.dart';
 
 import '../../../../clinical_dashboard/utils/user_region_manager.dart';
 import '../../../../common/floating_message.dart';
@@ -23,7 +23,7 @@ class CorporateSignUp extends StatelessWidget {
       create: (_) {
         final bloc = CorporateSignUpBloc(
           repo: CorporateSignUpRepository(
-            endpointUrl: Urls.insertCorporateProfile,
+            endpointUrl: NodeUrls.insertCorporateProfile,
           ),
         );
         bloc.add(const CorporateGenderChanged("Male"));

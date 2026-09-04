@@ -5,7 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:respyr_clinical/corporate_dashboard/dashboard/presentation/widgets/score_trend.dart';
 import 'package:respyr_clinical/corporate_dashboard/dashboard/presentation/widgets/timeline.dart';
-import 'package:respyr_clinical/shared/urls.dart';
+import 'package:respyr_clinical/shared/nodeurl.dart';
 
 import '../../../../authentication/corporate/corporate_login/data/response/corporate_login_response.dart';
 import '../../bloc/corporate_profile_tests_bloc.dart';
@@ -45,7 +45,7 @@ class _CorporateDashboardContentScreenState
 
     _bloc = CorporateProfileTestsBloc(
       repository: CorporateProfileTestsRepository(
-        endpointUrl: Urls.corporateProfileTests,
+        endpointUrl: NodeUrls.corporateProfileTests,
       ),
     );
 

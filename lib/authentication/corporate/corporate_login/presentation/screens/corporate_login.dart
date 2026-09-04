@@ -4,7 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:respyr_clinical/shared/urls.dart';
+import 'package:respyr_clinical/shared/nodeurl.dart';
 
 import '../../../../../common/floating_message.dart';
 import '../../../../../router/app_routers.dart';
@@ -223,7 +223,7 @@ class _CorporateLoginState extends State<CorporateLogin>
     return BlocProvider(
       create:
           (_) => CorporateLoginBloc(
-            repo: CorporateLoginRepository(endpointUrl: Urls.corporateLogin),
+            repo: CorporateLoginRepository(endpointUrl: NodeUrls.corporateLogin),
           ),
       child: BlocListener<CorporateLoginBloc, CorporateLoginState>(
         listenWhen: (p, c) => p.status != c.status,

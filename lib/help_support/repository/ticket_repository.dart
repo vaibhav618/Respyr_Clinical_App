@@ -1,15 +1,19 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:respyr_clinical/shared/urls.dart';
+import 'package:respyr_clinical/shared/nodeurl.dart';
 import '../models/ticket_model.dart';
 
 class TicketRepository {
   Future<List<Ticket>> fetchTickets(String loginId) async {
     final url = Uri.parse(
-      Urls.fetchIssues,
+      NodeUrls.fetchIssues,
     );
 
-    final response = await http.post(url, body: {'login_id': loginId});
+    final response = await http.post(
+      url,
+      headers: {"Content-Type": "application/json"},
+      body: jsonEncode({'login_id': loginId}),
+    );
 
     if (response.statusCode == 200) {
       final jsonData = jsonDecode(response.body);

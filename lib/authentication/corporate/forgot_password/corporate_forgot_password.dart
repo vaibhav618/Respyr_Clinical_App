@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
-import 'package:respyr_clinical/shared/urls.dart';
+import 'package:respyr_clinical/shared/nodeurl.dart';
 import 'dart:convert';
 
 class CorporateForgotPassword extends StatefulWidget {
@@ -17,7 +17,7 @@ class _CorporateForgotPasswordState extends State<CorporateForgotPassword> {
   bool _isLoading = false;
   bool _isSuccess = false;
 
-  final String apiEndpoint = Urls.corporateForgotPassword;
+  final String apiEndpoint = NodeUrls.corporateForgotPassword;
 
   Future<void> handleReset() async {
     if (!_formKey.currentState!.validate()) return;

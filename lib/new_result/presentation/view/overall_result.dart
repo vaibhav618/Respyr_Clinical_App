@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:respyr_clinical/widgets/shimmer_placeholders.dart';
 import 'package:get/get.dart';
-import 'package:respyr_clinical/shared/urls.dart';
+import 'package:respyr_clinical/shared/nodeurl.dart';
 
 import '../../../router/app_routers.dart';
 import '../../data/model/result_model.dart';
@@ -48,7 +48,7 @@ class ResultScreen extends StatelessWidget {
 
     return FutureBuilder<CorporateInterpretation>(
       future: CorporateInterpretationService(
-        apiUrl: Urls.scoreInterpretation,
+        apiUrl: NodeUrls.scoreInterpretation,
       ).fetchCorporateInterpretation(
         energyUtilization: userResultData.sugarScore,
         digestiveBalance: userResultData.gutScore,

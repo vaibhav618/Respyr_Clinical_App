@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:respyr_clinical/widgets/shimmer_placeholders.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -8,7 +9,7 @@ import '../bloc/profile_bloc.dart';
 import '../repositories/profile_repository.dart';
 import '../widgets/profile_list_tile.dart';
 
-class ExistingProfilesListScreen extends StatelessWidget {
+class ExistingProfilesListScreen extends StatefulWidget {
   final String clinicName;
   final bool isCreateAccountButtonShow;
   const ExistingProfilesListScreen({
@@ -16,6 +17,30 @@ class ExistingProfilesListScreen extends StatelessWidget {
     required this.isCreateAccountButtonShow,
     super.key,
   });
+
+  @override
+  State<ExistingProfilesListScreen> createState() =>
+      _ExistingProfilesListScreenState();
+}
+
+class _ExistingProfilesListScreenState
+    extends State<ExistingProfilesListScreen> {
+  // Debounces the search field so we don't fire a server query on every
+  // keystroke — only ~400ms after the user stops typing.
+  Timer? _debounce;
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    super.dispose();
+  }
+
+  void _onSearchChanged(BuildContext blocContext, String query) {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 400), () {
+      blocContext.read<ProfileBloc>().add(SearchProfiles(query));
+    });
+  }
 
   /// Covers both "this clinic has no subjects yet" and "the search matched
   /// nothing" — the previous bare "No profiles found." gave no sense of which.
@@ -65,6 +90,27 @@ class ExistingProfilesListScreen extends StatelessWidget {
     );
   }
 
+  /// Footer under the list: a spinner while the next page auto-loads on scroll.
+  Widget _listFooter(ProfileLoaded state) {
+    if (state.isLoadingMore) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 16),
+        child: Center(
+          child: SizedBox(
+            height: 22,
+            width: 22,
+            child: CircularProgressIndicator(
+              strokeWidth: 2.4,
+              color: Color(0xFF308BF9),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return const SizedBox.shrink();
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
@@ -72,9 +118,8 @@ class ExistingProfilesListScreen extends StatelessWidget {
       // re-fetched the whole subject list from the network on every rebuild —
       // including every keystroke in the search field, since that rebuilds
       // this subtree.
-      create: (_) => ProfileBloc(ProfileRepository())..add(
-        LoadProfiles(clinicName),
-      ),
+      create: (_) =>
+          ProfileBloc(ProfileRepository())..add(LoadProfiles(widget.clinicName)),
       child: Builder(
         builder: (context) {
           return Scaffold(
@@ -97,7 +142,9 @@ class ExistingProfilesListScreen extends StatelessWidget {
               isBody: true,
               onConnectivityChanged: (hasInternet) {
                 if (hasInternet) {
-                  context.read<ProfileBloc>().add(LoadProfiles(clinicName));
+                  context.read<ProfileBloc>().add(
+                    LoadProfiles(widget.clinicName),
+                  );
                 }
               },
               child: Column(
@@ -133,11 +180,7 @@ class ExistingProfilesListScreen extends StatelessWidget {
                             fontWeight: FontWeight.w400,
                           ),
                         ),
-                        onChanged: (query) {
-                          context.read<ProfileBloc>().add(
-                            SearchProfiles(query),
-                          );
-                        },
+                        onChanged: (query) => _onSearchChanged(context, query),
                       ),
                     ),
                   ),
@@ -147,26 +190,44 @@ class ExistingProfilesListScreen extends StatelessWidget {
                         if (state is ProfileLoading) {
                           return const ListShimmer(rows: 7, rowHeight: 76);
                         } else if (state is ProfileLoaded) {
-                          if (state.filteredProfiles.isEmpty) {
+                          if (state.profiles.isEmpty) {
                             return _emptyState();
                           }
-                          return ListView.separated(
-                            padding: const EdgeInsets.fromLTRB(16, 2, 16, 90),
-                            itemCount: state.filteredProfiles.length,
-                            separatorBuilder: (_, __) =>
-                                const SizedBox(height: 10),
-                            itemBuilder: (context, index) {
-                              return ProfileListTile(
-                                profile: state.filteredProfiles[index],
-                                isCreateAccountButtonShow:
-                                    isCreateAccountButtonShow,
-                                onRegionUpdated: () {
-                                  context.read<ProfileBloc>().add(
-                                    LoadProfiles(clinicName),
-                                  );
-                                },
-                              );
+                          // Auto-load the next page when scrolled near the end.
+                          return NotificationListener<ScrollNotification>(
+                            onNotification: (n) {
+                              if (n.metrics.pixels >=
+                                      n.metrics.maxScrollExtent - 400 &&
+                                  state.hasMore &&
+                                  !state.isLoadingMore) {
+                                context.read<ProfileBloc>().add(
+                                  LoadMoreProfiles(),
+                                );
+                              }
+                              return false;
                             },
+                            // +1 row for the loading spinner footer.
+                            child: ListView.separated(
+                              padding: const EdgeInsets.fromLTRB(16, 2, 16, 90),
+                              itemCount: state.profiles.length + 1,
+                              separatorBuilder: (_, __) =>
+                                  const SizedBox(height: 10),
+                              itemBuilder: (context, index) {
+                                if (index >= state.profiles.length) {
+                                  return _listFooter(state);
+                                }
+                                return ProfileListTile(
+                                  profile: state.profiles[index],
+                                  isCreateAccountButtonShow:
+                                      widget.isCreateAccountButtonShow,
+                                  onRegionUpdated: () {
+                                    context.read<ProfileBloc>().add(
+                                      LoadProfiles(widget.clinicName),
+                                    );
+                                  },
+                                );
+                              },
+                            ),
                           );
                         } else if (state is ProfileError) {
                           return Center(
@@ -188,13 +249,14 @@ class ExistingProfilesListScreen extends StatelessWidget {
               ),
             ),
             floatingActionButton:
-                isCreateAccountButtonShow
+                widget.isCreateAccountButtonShow
                     ? FloatingActionButton.extended(
                       onPressed: () async {
                         Navigator.pushReplacement(
                           context,
                           MaterialPageRoute(
-                            builder: (_) => CreateProfile(loginId: clinicName),
+                            builder: (_) =>
+                                CreateProfile(loginId: widget.clinicName),
                           ),
                         );
                       },

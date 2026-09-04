@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:respyr_clinical/shared/urls.dart';
+import 'package:respyr_clinical/shared/nodeurl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../log_manager/log_manager.dart';
@@ -11,7 +11,7 @@ class JwtApiHelper {
     required String loginId,
   }) async {
     final url = Uri.parse(
-      Urls.generateJwtToken,
+      NodeUrls.generateJwtToken,
     );
 
     // Log the API call attempt
@@ -25,8 +25,8 @@ class JwtApiHelper {
     try {
       final response = await http.post(
         url,
-        headers: {"Content-Type": "application/x-www-form-urlencoded"},
-        body: {'login_id': loginId},
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({'login_id': loginId}),
       );
 
       final data = json.decode(response.body);

@@ -18,10 +18,19 @@ class SubjectHistoryWidget extends StatefulWidget {
   final List<dynamic> scoreList;
   final ResultProfileDataModel profileDataModel;
 
+  /// Server-side pagination: whether more history pages remain, whether the
+  /// next page is currently loading, and how to request it.
+  final bool hasMore;
+  final bool isLoadingMore;
+  final VoidCallback? onLoadMore;
+
   const SubjectHistoryWidget({
     super.key,
     required this.scoreList,
     required this.profileDataModel,
+    this.hasMore = false,
+    this.isLoadingMore = false,
+    this.onLoadMore,
   });
 
   @override
@@ -32,12 +41,8 @@ class _SubjectHistoryWidgetState extends State<SubjectHistoryWidget> {
   String selectedValue = "Sugar score";
   String scoreType = "Db_Score";
 
-  // Incremental rendering: build only this many history cards initially and
-  // append a page when the surrounding screen scrolls near its bottom.
-  // Building the whole history at once froze the profile screen open for
-  // subjects with hundreds of tests.
-  static const int _pageSize = 15;
-  int _visibleCount = _pageSize;
+  // When the surrounding screen scrolls near its bottom, ask the bloc to fetch
+  // the next page of history from the server (true server-side pagination).
   ScrollPosition? _pagePosition;
 
   @override
@@ -55,17 +60,9 @@ class _SubjectHistoryWidgetState extends State<SubjectHistoryWidget> {
     final ScrollPosition? position = _pagePosition;
     if (position == null || !mounted) return;
     if (position.pixels >= position.maxScrollExtent - 400 &&
-        _visibleCount < widget.scoreList.length) {
-      setState(() => _visibleCount += _pageSize);
-    }
-  }
-
-  @override
-  void didUpdateWidget(SubjectHistoryWidget oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    // Fresh subject/data → start from the first page again.
-    if (oldWidget.scoreList.length != widget.scoreList.length) {
-      _visibleCount = _pageSize;
+        widget.hasMore &&
+        !widget.isLoadingMore) {
+      widget.onLoadMore?.call();
     }
   }
 
@@ -161,10 +158,7 @@ class _SubjectHistoryWidgetState extends State<SubjectHistoryWidget> {
 
                 /// Score List
                 ListView.builder(
-                  itemCount:
-                      _visibleCount < widget.scoreList.length
-                          ? _visibleCount
-                          : widget.scoreList.length,
+                  itemCount: widget.scoreList.length,
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
                   itemBuilder: (context, index) {
@@ -194,6 +188,22 @@ class _SubjectHistoryWidgetState extends State<SubjectHistoryWidget> {
                     }
                   },
                 ),
+
+                /// Loading indicator while the next history page is fetched.
+                if (widget.isLoadingMore)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 16),
+                    child: Center(
+                      child: SizedBox(
+                        height: 22,
+                        width: 22,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.4,
+                          color: Color(0xFF308BF9),
+                        ),
+                      ),
+                    ),
+                  ),
               ],
             ),
     );

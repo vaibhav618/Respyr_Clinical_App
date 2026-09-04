@@ -19,8 +19,8 @@ class CorporateSignUpRepository {
 
     final res = await _client.post(
       uri,
-      headers: {"Content-Type": "application/x-www-form-urlencoded"},
-      body: request.toJson().map((k, v) => MapEntry(k, v.toString())),
+      headers: {"Content-Type": "application/json"},
+      body: jsonEncode(request.toJson().map((k, v) => MapEntry(k, v.toString()))),
     );
 
     print(res.body);

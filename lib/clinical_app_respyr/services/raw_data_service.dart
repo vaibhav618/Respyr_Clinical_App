@@ -20,7 +20,7 @@ class RawDataService {
     String exractedRawData =
         deviceRawData.split('\n').map((line) => line.trim()).join();
 
-    final uri = Uri.parse(baseUrl).replace(queryParameters: {
+    final Map<String, String> requestBody = {
       'bflag': bFlag2,
       'bpm': '78',
       'testdata': exractedRawData,
@@ -30,10 +30,10 @@ class RawDataService {
       'abortcounter': aboutCounter.toString(),
       'spo2': '120',
       'gender': gender,
-    });
+    };
 
     if (kDebugMode) {
-      print("Final raw Data URL: $uri");
+      print("Final raw Data URL: $baseUrl");
       print("bflag: $bFlag2");
       print("deviceRawData: $deviceRawData");
       print("exractedRawData: $exractedRawData");
@@ -42,7 +42,13 @@ class RawDataService {
     }
 
     try {
-      final response = await http.get(uri).timeout(const Duration(seconds: 15));
+      final response = await http
+          .post(
+            Uri.parse(baseUrl),
+            headers: {"Content-Type": "application/json"},
+            body: json.encode(requestBody),
+          )
+          .timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 200) {
         if (kDebugMode) {

@@ -6,7 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:respyr_clinical/shared/colors.dart';
-import 'package:respyr_clinical/shared/urls.dart';
+import 'package:respyr_clinical/shared/nodeurl.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 class PrivacyPolicy extends StatefulWidget {
@@ -18,7 +18,7 @@ class PrivacyPolicy extends StatefulWidget {
 
 class _PrivacyPolicyState extends State<PrivacyPolicy> {
   late WebViewController _webViewController;
-  final Uri uri = Uri.parse(Urls.privacyPolicy);
+  final Uri uri = Uri.parse(NodeUrls.privacyPolicy);
   bool isLoading = true;
   @override
   void initState() {

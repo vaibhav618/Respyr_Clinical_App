@@ -1,13 +1,12 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:respyr_clinical/shared/urls.dart';
+import 'package:respyr_clinical/shared/nodeurl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../log_manager/log_manager.dart';
 
 class CreateProfileService {
-  final String baseUrl = Urls.clinicalInsertBase;
-  final String endpoint = "create_user_profile.php";
+  final String endpointUrl = NodeUrls.createUserProfile;
 
   Future<Map<String, dynamic>> createProfile({
     required String clinicName,
@@ -20,17 +19,17 @@ class CreateProfileService {
     String? phone,
     String? email,
   }) async {
-    final uri = Uri.parse('$baseUrl$endpoint');
+    final uri = Uri.parse(endpointUrl);
 
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('jwt_token');
 
     final headers = {
       'Authorization': 'Bearer $token',
-      'Content-Type': 'application/x-www-form-urlencoded',
+      'Content-Type': 'application/json',
     };
 
-    final body = {
+    final body = json.encode({
       'clinic_name': clinicName,
       'profile_name': profileName,
       'gender': gender,
@@ -40,7 +39,7 @@ class CreateProfileService {
       'region': region,
       'phone': "not_available",
       'email': "not_available",
-    };
+    });
 
     // Log profile creation attempt
     LogManager().logEvent(

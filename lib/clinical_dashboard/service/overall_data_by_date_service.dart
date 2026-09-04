@@ -3,10 +3,10 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../log_manager/log_manager.dart';
 import '../model/OverallDataByDateModel.dart';
-import 'package:respyr_clinical/shared/urls.dart';
+import 'package:respyr_clinical/shared/nodeurl.dart';
 
 class OverallDataByDateService {
-  final String url = Urls.fetchOverallDataByDate;
+  final String url = NodeUrls.fetchOverallDataByDate;
 
   Future<OverallDataByDateModel> fetchOverallData({
     required String loginId,
@@ -39,12 +39,12 @@ class OverallDataByDateService {
         Uri.parse(url),
         headers: {
           'Authorization': 'Bearer $token',
-          'Content-Type': 'application/x-www-form-urlencoded',
+          'Content-Type': 'application/json',
         },
-        body: {
+        body: jsonEncode({
           'login_id': loginId,
           'date': date,
-        },
+        }),
       );
       if (response.statusCode == 200) {
         final jsonResponse = json.decode(response.body);

@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
-import 'package:respyr_clinical/shared/urls.dart';
+import 'package:respyr_clinical/shared/nodeurl.dart';
 
 import '../../new_result/data/model/result_profile_data_model.dart';
 
@@ -9,9 +9,11 @@ class ClinicalProfileApi {
   static Future<List<ResultProfileDataModel>> fetchProfiles(
     String clinicalName,
   ) async {
-    final String baseUrl =
-        '${Urls.fetchClinicSubjectsProfile}?clinic_name=$clinicalName';
-    final response = await http.get(Uri.parse(baseUrl));
+    final response = await http.post(
+      Uri.parse(NodeUrls.fetchClinicSubjectsProfile),
+      headers: {"Content-Type": "application/json"},
+      body: json.encode({"clinic_name": clinicalName}),
+    );
 
     if (response.statusCode == 200) {
       final List<dynamic> data = json.decode(response.body);

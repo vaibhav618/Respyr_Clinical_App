@@ -10,7 +10,7 @@ import 'package:respyr_clinical/widgets/internet_connectivity_check.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../clinical_dashboard/clinic_details/model/clinical_details_model.dart';
-import 'package:respyr_clinical/shared/urls.dart';
+import 'package:respyr_clinical/shared/nodeurl.dart';
 import '../clinical_dashboard/widgets/clinical_logo_widget.dart';
 import '../clinical_dashboard/widgets/test_details_widget.dart';
 import '../common/auth_logout.dart';
@@ -69,12 +69,12 @@ class _MenuScreenState extends State<MenuScreen> {
     }
 
     final response = await http.post(
-      Uri.parse(Urls.fetchClinicDetails),
+      Uri.parse(NodeUrls.fetchClinicDetails),
       headers: {
         'Authorization': 'Bearer $token',
-        'Content-Type': 'application/x-www-form-urlencoded',
+        'Content-Type': 'application/json',
       },
-      body: {'clinic_name': clinicName},
+      body: jsonEncode({'clinic_name': clinicName}),
     );
 
     final decoded = jsonDecode(response.body);

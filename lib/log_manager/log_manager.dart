@@ -1,18 +1,17 @@
-import 'dart:convert';
 import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
-import 'package:respyr_clinical/shared/urls.dart';
 
 class LogManager {
   static final LogManager _instance = LogManager._internal();
   factory LogManager() => _instance;
   LogManager._internal();
 
-  String logApiEndpoint = Urls.logger;
   String? userId;
 
   void setUserId(String id) => userId = id;
 
+  /// Server-side event logging is disabled for now — this no-ops the network
+  /// call, so nothing is sent to the logger endpoint. Every caller across the
+  /// app keeps working; in debug builds the event is still printed locally.
   Future<void> logEvent({
     required String event,
     String? apiUrl,
@@ -20,28 +19,8 @@ class LogManager {
     String? details,
     Map<String, dynamic>? extra,
   }) async {
-    final DateTime now = DateTime.now().toUtc();
-    final logEntry = {
-      'timestamp': now.toIso8601String(),
-      'event': event,
-      'userId': userId ?? '',
-      'url': apiUrl ?? '',
-      'status': status ?? '',
-      'details': details ?? '',
-      'extra': extra != null ? jsonEncode(extra) : '',
-    };
-
-    try {
-      final response = await http.post(
-        Uri.parse(logApiEndpoint),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode(logEntry),
-      );
-
-    } catch (e) {
-      if (kDebugMode) {
-        print('Failed to send log: $e');
-      }
+    if (kDebugMode) {
+      print('[log] $event  ${status ?? ''}  ${details ?? ''}');
     }
   }
 }

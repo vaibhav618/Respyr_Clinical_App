@@ -15,7 +15,7 @@ import 'package:respyr_clinical/clinical_app_respyr/services/disconnected_error.
 import 'package:respyr_clinical/clinical_app_respyr/services/generation_foreground_service.dart';
 import 'package:respyr_clinical/clinical_app_respyr/services/raw_data_service.dart';
 import 'package:respyr_clinical/shared/colors.dart';
-import 'package:respyr_clinical/shared/urls.dart';
+import 'package:respyr_clinical/shared/nodeurl.dart';
 import 'package:respyr_clinical/clinical_dashboard/existing_profile/recent_subjects.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -585,7 +585,7 @@ class _BluetoothGeneratingScreenState extends State<BluetoothGeneratingScreen>
     deviceRawData = deviceRawData.replaceAll("/analize", "");
     final match = RegExp(r'H(\d{3,5})').firstMatch(deviceRawData);
     final int hardwareId = int.tryParse(match?.group(1) ?? '0') ?? 0;
-    final rawDataService = RawDataService(Urls.productionCalculation);
+    final rawDataService = RawDataService(NodeUrls.productionCalculation);
     try {
       // print('third Step started : $completedSteps');
       if (_isDisposed) return;

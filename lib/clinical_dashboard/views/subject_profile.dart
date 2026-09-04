@@ -169,6 +169,11 @@ class _SubjectProfileScreenState extends State<SubjectProfileScreen> {
                           child: SubjectHistoryWidget(
                             scoreList: scores,
                             profileDataModel: profileDetails,
+                            hasMore: state.hasMore,
+                            isLoadingMore: state.isLoadingMore,
+                            onLoadMore: () => context
+                                .read<SubjectProfileBloc>()
+                                .add(LoadMoreSubjectScores()),
                           ),
                         ),
                         const SizedBox(height: 24),

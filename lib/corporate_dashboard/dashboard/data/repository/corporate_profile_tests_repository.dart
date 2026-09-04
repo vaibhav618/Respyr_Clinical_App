@@ -18,12 +18,12 @@ class CorporateProfileTestsRepository {
   }) async {
     final res = await _client.post(
       Uri.parse(endpointUrl),
-      headers: {"Content-Type": "application/x-www-form-urlencoded"},
-      body: {
+      headers: {"Content-Type": "application/json"},
+      body: jsonEncode({
         "login_id": loginId,
         "profile_id": profileId,
         if (date != null && date.isNotEmpty) "date": date,
-      },
+      }),
     );
 
     if (res.statusCode != 200) {

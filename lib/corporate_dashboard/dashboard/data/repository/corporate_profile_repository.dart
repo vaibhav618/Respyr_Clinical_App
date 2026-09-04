@@ -17,8 +17,8 @@ class CorporateProfileRepository {
 
     final res = await _client.post(
       uri,
-      headers: {"Content-Type": "application/x-www-form-urlencoded"},
-      body: {"email": email.trim()},
+      headers: {"Content-Type": "application/json"},
+      body: jsonEncode({"email": email.trim()}),
     );
 
     if (res.statusCode < 200 || res.statusCode >= 300) {

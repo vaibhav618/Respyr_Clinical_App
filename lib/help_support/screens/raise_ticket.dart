@@ -10,7 +10,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:http/http.dart' as http;
 import 'package:respyr_clinical/help_support/widgets/issue_tag_fill.dart';
 
-import 'package:respyr_clinical/shared/urls.dart';
+import 'package:respyr_clinical/shared/nodeurl.dart';
 import '../models/issue_cat_list.dart';
 import '../models/issue_item.dart';
 import '../widgets/issue_bottom_sheet.dart';
@@ -204,7 +204,7 @@ class _RaiseTicketState extends State<RaiseTicket> {
 
     setState(() => isLoading = true);
 
-    var uri = Uri.parse(Urls.raiseIssue);
+    var uri = Uri.parse(NodeUrls.raiseIssue);
     var request = http.MultipartRequest("POST", uri);
 
     request.fields['login_id'] = widget.loginId;

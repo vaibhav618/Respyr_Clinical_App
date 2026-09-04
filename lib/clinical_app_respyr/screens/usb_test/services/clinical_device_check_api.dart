@@ -1,21 +1,22 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:respyr_clinical/clinical_app_respyr/screens/usb_test/services/clinical_usb_communication_services.dart';
-import 'package:respyr_clinical/shared/urls.dart';
+import 'package:respyr_clinical/shared/nodeurl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 Future<void> clinicalDeviceCheckApi(String deviceId) async {
   final ClinicalUsbCommunicationServices usbService =
   ClinicalUsbCommunicationServices();
 
-  final String url =
-      '${Urls.fetchLastDataTime}?hwid=$deviceId';
-
   final prefs = await SharedPreferences.getInstance();
   String signal = '{';
 
   try {
-    final response = await http.get(Uri.parse(url));
+    final response = await http.post(
+      Uri.parse(NodeUrls.fetchLastDataTime),
+      headers: {"Content-Type": "application/json"},
+      body: jsonEncode({"hwid": deviceId}),
+    );
 
     if (response.statusCode == 200) {
       final jsonObject = jsonDecode(response.body);

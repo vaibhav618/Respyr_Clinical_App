@@ -1,18 +1,20 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart';
-import 'package:respyr_clinical/shared/urls.dart';
+import 'package:respyr_clinical/shared/nodeurl.dart';
 
 Future<String> fetchDeviceLastDataTime(String hwid) async {
-  const String baseUrl = Urls.fetchLastDataTime;
-
-  final Uri uri = Uri.parse(baseUrl).replace(queryParameters: {'hwid': hwid});
+  final Uri uri = Uri.parse(NodeUrls.fetchLastDataTime);
 
   try {
     debugPrint("➡️ fetchDeviceLastDataTime | HWID: $hwid");
     debugPrint("➡️ Request URL: $uri");
 
-    final response = await http.get(uri);
+    final response = await http.post(
+      uri,
+      headers: {"Content-Type": "application/json"},
+      body: jsonEncode({"hwid": hwid}),
+    );
 
     debugPrint("⬅️ Response Status Code: ${response.statusCode}");
     debugPrint("⬅️ Raw Response Body: ${response.body}");

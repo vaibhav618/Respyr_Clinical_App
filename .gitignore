@@ -50,3 +50,8 @@ android/build/
 ios/build/
 *.apk
 *.aab
+
+# Stray Node artifacts accidentally created in the Flutter root (not app code).
+/node_modules/
+/package.json
+/package-lock.json

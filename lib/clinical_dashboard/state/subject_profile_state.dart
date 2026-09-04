@@ -10,8 +10,15 @@ class SubjectProfileLoading extends SubjectProfileState {}
 class SubjectProfileLoaded extends SubjectProfileState {
   final SubjectProfileModel profile;
   final List<dynamic> scores;
+  final bool hasMore;
+  final bool isLoadingMore;
 
-  SubjectProfileLoaded({required this.profile, required this.scores});
+  SubjectProfileLoaded({
+    required this.profile,
+    required this.scores,
+    this.hasMore = false,
+    this.isLoadingMore = false,
+  });
 }
 
 class SubjectProfileError extends SubjectProfileState {

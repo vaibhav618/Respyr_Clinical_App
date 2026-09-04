@@ -3,7 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
-import 'package:respyr_clinical/shared/urls.dart';
+import 'package:respyr_clinical/shared/nodeurl.dart';
 
 class ClinicLogoWidget extends StatelessWidget {
   final String clinicName;
@@ -140,12 +140,14 @@ class ClinicLogoWidget extends StatelessWidget {
   }
 
   Future<Uint8List?> _fetchLogo(String clinicName) async {
-    final uri = Uri.parse(
-      "${Urls.fetchLogo}?clinic_name=$clinicName",
-    );
+    final uri = Uri.parse(NodeUrls.fetchLogo);
 
     try {
-      final res = await http.get(uri);
+      final res = await http.post(
+        uri,
+        headers: {"Content-Type": "application/json"},
+        body: json.encode({"clinic_name": clinicName}),
+      );
       if (res.statusCode == 200) {
         final data = json.decode(res.body);
         if (data['status'] == 'success' && data['logo_blob'].toString().length > 100) {

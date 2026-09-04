@@ -6,7 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:respyr_clinical/shared/colors.dart';
-import 'package:respyr_clinical/shared/urls.dart';
+import 'package:respyr_clinical/shared/nodeurl.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 class TermsAndConditions extends StatefulWidget {
@@ -18,7 +18,7 @@ class TermsAndConditions extends StatefulWidget {
 
 class _TermsAndConditionsState extends State<TermsAndConditions> {
   late WebViewController _webViewController;
-  final Uri uri = Uri.parse(Urls.termsAndConditions);
+  final Uri uri = Uri.parse(NodeUrls.termsAndConditions);
   bool isLoading = true;
   @override
   void initState() {

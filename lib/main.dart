@@ -2,7 +2,6 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart' hide Transition;
-import 'package:http/http.dart' as http;
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -16,10 +15,7 @@ import 'package:respyr_clinical/device_connectivity/presentation/cubit/usb_conne
 import 'package:respyr_clinical/router/app_pages.dart';
 import 'package:respyr_clinical/router/app_routers.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
-
-import 'package:respyr_clinical/shared/urls.dart';
 import 'authentication/services/clinical_name_getx_controller.dart';
-import 'log_manager/device_info.dart';
 
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
     FlutterLocalNotificationsPlugin();
@@ -33,22 +29,11 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   }
 }
 
-/// Sends uncaught errors and crash logs to server
+/// Server-side crash/error reporting is disabled for now — no network call is
+/// made. Kept as a no-op so the global error handlers below stay wired up.
 Future<void> sendErrorToServer(String error, String stack) async {
-  const url = Urls.appErrorReport;
-  final deviceDetails = await getDeviceDetails();
-
-  final body = {'error': error, 'stack': stack, ...deviceDetails};
-
-  try {
-    final response = await http.post(Uri.parse(url), body: body);
-    if (kDebugMode) {
-      print('✅ Error report sent. Server response: ${response.body}');
-    }
-  } catch (e) {
-    if (kDebugMode) {
-      print('❌ Failed to send error to server: $e');
-    }
+  if (kDebugMode) {
+    print('App error (not reported): $error');
   }
 }
 

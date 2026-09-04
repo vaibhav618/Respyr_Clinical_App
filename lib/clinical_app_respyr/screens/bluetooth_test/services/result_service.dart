@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:respyr_clinical/shared/urls.dart';
+import 'package:respyr_clinical/shared/nodeurl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../../log_manager/log_manager.dart';
@@ -28,12 +28,12 @@ class ResultService {
       final token = prefs.getString('jwt_token') ?? '';
 
       final response = await http.post(
-        Uri.parse(Urls.resultAnalysis),
+        Uri.parse(NodeUrls.resultAnalysis),
         headers: {
           "Authorization": "Bearer $token",
-          "Content-Type": "application/x-www-form-urlencoded",
+          "Content-Type": "application/json",
         },
-        body: {
+        body: jsonEncode({
           'testdata': sanitizedTestData, // Use the cleaned string here
           'subid': subjectId,
           'gender': gender,
@@ -41,7 +41,7 @@ class ResultService {
           'height': height,
           'blow_region': region,
           'blow_raw_values': blowData,
-        },
+        }),
       );
 
       // DEBUG: Verify the outgoing string matches Postman exactly
@@ -50,11 +50,11 @@ class ResultService {
 
       if (response.statusCode == 200) {
         final json = jsonDecode(response.body);
-        if (json['status'] == 'success') {
-          return NewResultModel.fromJson(json['data']);
-        } else {
-          throw Exception(json['message'] ?? 'API Error');
+        final obj = extractResultObject(json);
+        if (obj != null) {
+          return NewResultModel.fromJson(obj);
         }
+        throw Exception(json is Map ? (json['message'] ?? 'API Error') : 'API Error');
       } else {
         throw Exception('Server Error: ${response.statusCode}');
       }
@@ -71,7 +71,7 @@ class ResultService {
     // Log attempt
     LogManager().logEvent(
       event: 'FETCH_HISTORY_ATTEMPT',
-      apiUrl: Urls.fetchHistory,
+      apiUrl: NodeUrls.fetchHistory,
       status: 'ATTEMPT',
       details: 'Fetching history for loginId: $loginId, profileId: $profileId',
     );
@@ -84,22 +84,22 @@ class ResultService {
         // Log missing token
         LogManager().logEvent(
           event: 'FETCH_HISTORY_UNAUTHORIZED',
-          apiUrl: Urls.fetchHistory,
+          apiUrl: NodeUrls.fetchHistory,
           status: 'FAILED',
           details: 'JWT token missing for history fetch loginId: $loginId',
         );
         throw Exception('Missing token');
       }
 
-      final uri = Uri.parse(Urls.fetchHistory);
+      final uri = Uri.parse(NodeUrls.fetchHistory);
 
       final response = await http.post(
         uri,
         headers: {
           "Authorization": "Bearer $token",
-          "Content-Type": "application/x-www-form-urlencoded",
+          "Content-Type": "application/json",
         },
-        body: {"login_id": loginId, "profile_id": profileId, "id": id},
+        body: jsonEncode({"login_id": loginId, "profile_id": profileId, "id": id}),
       );
 
       print("response:${response.body}");
@@ -107,8 +107,9 @@ class ResultService {
       if (response.statusCode == 200) {
         final json = jsonDecode(response.body);
 
-        if (json['status'] == 'success') {
-          final model = NewResultModel.fromJson(json['data']);
+        final obj = extractResultObject(json);
+        if (obj != null) {
+          final model = NewResultModel.fromJson(obj);
           return model; // Return the fetched history
         } else {
           // Log API error
@@ -117,9 +118,9 @@ class ResultService {
             apiUrl: uri.toString(),
             status: 'FAILED',
             details:
-                'API error: ${json['message'] ?? 'Unknown error'} for loginId: $loginId',
+                'API error: ${json is Map ? (json['message'] ?? 'Unknown error') : 'Unknown error'} for loginId: $loginId',
           );
-          throw Exception(json['message'] ?? 'API responded with error');
+          throw Exception(json is Map ? (json['message'] ?? 'API responded with error') : 'API responded with error');
         }
       } else {
         // Log HTTP error
@@ -138,7 +139,7 @@ class ResultService {
       // Log exception
       LogManager().logEvent(
         event: 'FETCH_HISTORY_EXCEPTION',
-        apiUrl: Urls.fetchHistory,
+        apiUrl: NodeUrls.fetchHistory,
         status: 'EXCEPTION',
         details: 'Exception: $e for loginId: $loginId',
       );
@@ -164,12 +165,12 @@ class ResultService {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('jwt_token') ?? '';
 
-    final uri = Uri.parse(Urls.resultAnalysis2);
+    final uri = Uri.parse(NodeUrls.resultAnalysis2);
     final headers = {
       "Authorization": "Bearer $token",
-      "Content-Type": "application/x-www-form-urlencoded",
+      "Content-Type": "application/json",
     };
-    final body = {
+    final body = jsonEncode({
       'testdata': sanitizedTestData, // Use the cleaned string here
       'subid': subjectId,
       'gender': gender,
@@ -177,7 +178,7 @@ class ResultService {
       'height': height,
       'blow_region': region,
       'blow_raw_values': blowData,
-    };
+    });
 
     // Auto-retry transient connectivity failures (e.g. the data bearer briefly
     // switching during a phone call / Wi-Fi handoff, or Android suspending the
@@ -211,12 +212,12 @@ class ResultService {
 
         if (response.statusCode == 200) {
           final json = jsonDecode(response.body);
-          if (json['status'] == 'success') {
-            return NewResultModel.fromJson(json['data']);
-          } else {
-            // Server was reached and rejected the request — retrying won't help.
-            throw Exception(json['message'] ?? 'API Error');
+          final obj = extractResultObject(json);
+          if (obj != null) {
+            return NewResultModel.fromJson(obj);
           }
+          // Server was reached and rejected the request — retrying won't help.
+          throw Exception(json is Map ? (json['message'] ?? 'API Error') : 'API Error');
         } else {
           // Non-200 from a reachable server — not a transient network blip.
           throw Exception('Server Error: ${response.statusCode}');

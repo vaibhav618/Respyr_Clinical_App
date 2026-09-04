@@ -1,6 +1,7 @@
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
-import 'package:respyr_clinical/shared/urls.dart';
+import 'package:respyr_clinical/shared/nodeurl.dart';
 
 class FCMManager{
 
@@ -9,16 +10,17 @@ class FCMManager{
     required String fcmToken,
     String? deviceId,
   }) async {
-    const String url = Urls.saveFcmToken;
+    const String url = NodeUrls.saveFcmToken;
 
     try {
        await http.post(
         Uri.parse(url),
-        body: {
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({
           'login_id': loginId,
           'fcm_token': fcmToken,
           if (deviceId != null) 'device_id': deviceId,
-        },
+        }),
       );
     } catch (e) {
       if (kDebugMode) {

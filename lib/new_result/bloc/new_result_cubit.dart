@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:http/http.dart' as http;
-import 'package:respyr_clinical/shared/urls.dart';
+import 'package:respyr_clinical/shared/nodeurl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../log_manager/log_manager.dart';
 import '../data/model/result_model.dart';
@@ -23,7 +23,7 @@ class NewResultCubit extends Cubit<NewResultState> {
     // Log attempt
     LogManager().logEvent(
       event: 'FETCH_RESULT_ATTEMPT',
-      apiUrl: Urls.resultAnalysis2,
+      apiUrl: NodeUrls.resultAnalysis2,
       status: 'ATTEMPT',
       details: 'Attempting to fetch result for subject: $subjectId, region: $region',
     );
@@ -36,7 +36,7 @@ class NewResultCubit extends Cubit<NewResultState> {
         // Log missing token
         LogManager().logEvent(
           event: 'FETCH_RESULT_UNAUTHORIZED',
-          apiUrl: Urls.resultAnalysis,
+          apiUrl: NodeUrls.resultAnalysis,
           status: 'FAILED',
           details: 'JWT token missing when fetching result for subject: $subjectId',
         );
@@ -45,12 +45,12 @@ class NewResultCubit extends Cubit<NewResultState> {
       }
 
       final response = await http.post(
-        Uri.parse(Urls.resultAnalysis2),
+        Uri.parse(NodeUrls.resultAnalysis2),
         headers: {
           "Authorization": "Bearer $token",
-          "Content-Type": "application/x-www-form-urlencoded",
+          "Content-Type": "application/json",
         },
-        body: {
+        body: jsonEncode({
           'testdata': testdata,
           'subid': subjectId,
           'gender': gender,
@@ -58,7 +58,7 @@ class NewResultCubit extends Cubit<NewResultState> {
           'height': height,
           'blow_region': region,
           'blow_raw_values': blowData,
-        },
+        }),
       );
 
 
@@ -67,31 +67,33 @@ class NewResultCubit extends Cubit<NewResultState> {
       if (response.statusCode == 200) {
         final json = jsonDecode(response.body);
 
-        if (json['status'] == 'success') {
+        final obj = extractResultObject(json);
+        if (obj != null) {
           // Log success
           LogManager().logEvent(
             event: 'FETCH_RESULT_SUCCESS',
-            apiUrl: Urls.resultAnalysis2,
+            apiUrl: NodeUrls.resultAnalysis2,
             status: 'SUCCESS',
             details: 'Result fetched successfully for subject: $subjectId',
           );
-          final model = NewResultModel.fromJson(json['data']);
+          final model = NewResultModel.fromJson(obj);
           emit(NewResultSuccess(model));
         } else {
+          final msg = json is Map ? (json['message'] ?? 'Unknown error') : 'Unknown error';
           // Log API error
           LogManager().logEvent(
             event: 'FETCH_RESULT_FAILED',
-            apiUrl: Urls.resultAnalysis2,
+            apiUrl: NodeUrls.resultAnalysis2,
             status: 'FAILED',
-            details: 'API error: ${json['message'] ?? 'Unknown error'} for subject: $subjectId',
+            details: 'API error: $msg for subject: $subjectId',
           );
-          emit(NewResultFailure(json['message'] ?? 'API responded with error'));
+          emit(NewResultFailure(msg));
         }
       } else {
         // Log HTTP error
         LogManager().logEvent(
           event: 'FETCH_RESULT_FAILED',
-          apiUrl: Urls.resultAnalysis2,
+          apiUrl: NodeUrls.resultAnalysis2,
           status: 'FAILED',
           details: 'HTTP ${response.statusCode}: ${response.reasonPhrase ?? 'Unknown error'} for subject: $subjectId',
         );
@@ -103,7 +105,7 @@ class NewResultCubit extends Cubit<NewResultState> {
       // Log exception
       LogManager().logEvent(
         event: 'FETCH_RESULT_EXCEPTION',
-        apiUrl: Urls.resultAnalysis2,
+        apiUrl: NodeUrls.resultAnalysis2,
         status: 'EXCEPTION',
         details: 'Exception: $e for subject: $subjectId',
       );
@@ -129,7 +131,7 @@ class NewResultCubit extends Cubit<NewResultState> {
     // Log attempt
     LogManager().logEvent(
       event: 'FETCH_HISTORY_ATTEMPT',
-      apiUrl: Urls.fetchHistory,
+      apiUrl: NodeUrls.fetchHistory,
       status: 'ATTEMPT',
       details: 'Fetching history for loginId: $loginId, profileId: $profileId',
     );
@@ -142,7 +144,7 @@ class NewResultCubit extends Cubit<NewResultState> {
         // Log missing token
         LogManager().logEvent(
           event: 'FETCH_HISTORY_UNAUTHORIZED',
-          apiUrl: Urls.fetchHistory,
+          apiUrl: NodeUrls.fetchHistory,
           status: 'FAILED',
           details: 'JWT token missing for history fetch loginId: $loginId',
         );
@@ -151,26 +153,27 @@ class NewResultCubit extends Cubit<NewResultState> {
       }
 
       final uri = Uri.parse(
-        Urls.fetchHistory,
+        NodeUrls.fetchHistory,
       );
 
       final response = await http.post(
         uri,
         headers: {
           "Authorization": "Bearer $token",
-          "Content-Type": "application/x-www-form-urlencoded",
+          "Content-Type": "application/json",
         },
-        body: {
+        body: jsonEncode({
           "login_id": loginId,
           "profile_id": profileId,
           "id": id,
-        },
+        }),
       );
 
       if (response.statusCode == 200) {
         final json = jsonDecode(response.body);
 
-        if (json['status'] == 'success') {
+        final obj = extractResultObject(json);
+        if (obj != null) {
           // Log history fetch success
           LogManager().logEvent(
             event: 'FETCH_HISTORY_SUCCESS',
@@ -178,17 +181,18 @@ class NewResultCubit extends Cubit<NewResultState> {
             status: 'SUCCESS',
             details: 'Fetched history for loginId: $loginId, profileId: $profileId',
           );
-          final model = NewResultModel.fromJson(json['data']);
+          final model = NewResultModel.fromJson(obj);
           emit(NewResultSuccess(model));
         } else {
+          final msg = json is Map ? (json['message'] ?? 'Unknown error') : 'Unknown error';
           // Log API error
           LogManager().logEvent(
             event: 'FETCH_HISTORY_FAILED',
             apiUrl: uri.toString(),
             status: 'FAILED',
-            details: 'API error: ${json['message'] ?? 'Unknown error'} for loginId: $loginId',
+            details: 'API error: $msg for loginId: $loginId',
           );
-          emit(NewResultFailure(json['message'] ?? 'API responded with error'));
+          emit(NewResultFailure(msg));
         }
       } else {
         // Log HTTP error
@@ -206,7 +210,7 @@ class NewResultCubit extends Cubit<NewResultState> {
       // Log exception
       LogManager().logEvent(
         event: 'FETCH_HISTORY_EXCEPTION',
-        apiUrl: Urls.fetchHistory,
+        apiUrl: NodeUrls.fetchHistory,
         status: 'EXCEPTION',
         details: 'Exception: $e for loginId: $loginId',
       );

@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:respyr_clinical/shared/urls.dart';
+import 'package:respyr_clinical/shared/nodeurl.dart';
 
 class UserUpdateRegionService {
   Future<Map<String, dynamic>> updateRegion({
@@ -10,7 +10,7 @@ class UserUpdateRegionService {
     required String profileId,
     required String region,
   }) async {
-    final url = Uri.parse(Urls.updateUserRegion);
+    final url = Uri.parse(NodeUrls.updateUserRegion);
 
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('jwt_token');
@@ -26,9 +26,9 @@ class UserUpdateRegionService {
       url,
       headers: {
         'Authorization': 'Bearer $token',
-        'Content-Type': 'application/x-www-form-urlencoded',
+        'Content-Type': 'application/json',
       },
-      body: {'login_id': loginId, 'profile_id': profileId, 'region': region},
+      body: jsonEncode({'login_id': loginId, 'profile_id': profileId, 'region': region}),
     );
 
     final decodedBody = jsonDecode(response.body);

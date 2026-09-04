@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:respyr_clinical/shared/urls.dart';
+import 'package:respyr_clinical/shared/nodeurl.dart';
 
 import '../../new_result/data/model/result_model.dart';
 
@@ -14,15 +14,15 @@ class CorporateResultHistoryService {
     required String profileId,
   }) async {
     final response = await http.post(
-      Uri.parse(Urls.fetchCorporateHistory),
+      Uri.parse(NodeUrls.fetchCorporateHistory),
       headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
+        'Content-Type': 'application/json',
       },
-      body: {
+      body: jsonEncode({
         'id': id.toString(),
         'login_id': loginId,
         'profile_id': profileId,
-      },
+      }),
     );
 
     if (response.statusCode != 200) {

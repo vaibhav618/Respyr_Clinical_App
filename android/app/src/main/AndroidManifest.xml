@@ -61,6 +61,7 @@
         android:label="Respyr Clinical"
         android:icon="@mipmap/ic_launcher"
         android:allowBackup="false"
+        android:usesCleartextTraffic="true"
         tools:replace="android:allowBackup">
         
         <activity

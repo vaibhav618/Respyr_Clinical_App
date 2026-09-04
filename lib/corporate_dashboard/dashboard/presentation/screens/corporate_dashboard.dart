@@ -7,7 +7,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:respyr_clinical/shared/urls.dart';
+import 'package:respyr_clinical/shared/nodeurl.dart';
 
 import '../../../../clinical_app_respyr/screens/bluetooth_test/screens/bluetooth_clinical_device_connectivity.dart';
 import '../../../../clinical_dashboard/helper/abort_device_manager.dart';
@@ -193,7 +193,7 @@ class _CorporateDashboardState extends State<CorporateDashboard>
         create:
             (_) => CorporateProfileBloc(
               repo: CorporateProfileRepository(
-                endpointUrl: Urls.fetchCorporateProfile,
+                endpointUrl: NodeUrls.fetchCorporateProfile,
               ),
             )..add(CorporateProfileFetchRequested(widget.email)),
         child: Builder(

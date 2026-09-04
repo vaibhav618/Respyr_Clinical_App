@@ -1,3 +1,31 @@
+/// The scoring API returns the result in one of two shapes:
+///   {"status":"success","data":{...}}   (wrapped, older/PHP style)
+///   {"data":[{...}]}                     (raw upstream — current Lambda)
+/// Return the single result object from either, or null if neither is present.
+Map<String, dynamic>? extractResultObject(dynamic json) {
+  if (json is! Map) return null;
+  final data = json['data'];
+  if (data is List && data.isNotEmpty && data.first is Map) {
+    return Map<String, dynamic>.from(data.first as Map);
+  }
+  if (data is Map) {
+    return Map<String, dynamic>.from(data);
+  }
+  return null;
+}
+
+// Safe number coercion — the scoring API mixes numbers, numeric strings, empty
+// strings and nulls (e.g. "bpm":"" ), which crash `.toInt()` / `as num`.
+double _d(dynamic v) => v == null
+    ? 0.0
+    : (v is num ? v.toDouble() : (double.tryParse(v.toString()) ?? 0.0));
+double? _dn(dynamic v) => v == null
+    ? null
+    : (v is num ? v.toDouble() : double.tryParse(v.toString()));
+int _i(dynamic v) => v == null
+    ? 0
+    : (v is num ? v.toInt() : (double.tryParse(v.toString())?.toInt() ?? 0));
+
 class NewResultModel {
   final int status;
   final double acetonePpm;
@@ -60,33 +88,31 @@ class NewResultModel {
 
   factory NewResultModel.fromJson(Map<String, dynamic> json) {
     return NewResultModel(
-      status: json['status'] ?? 0,
-      acetonePpm: (json['AcetonePpm'] ?? 0).toDouble(),
-      ppPress: (json['pp_press'] ?? 0).toDouble(),
-      ethanolPpm: (json['ethanolPpm'] ?? 0).toDouble(),
-      battery: (json['battry'] != null) ? (json['battry']).toDouble() : null,
-      finalTemp: (json['finaltemp'] ?? 0).toDouble(),
-      duration: (json['duration'] ?? 0).toInt(),
-      rawMic: (json['rawmic'] != null) ? (json['rawmic']).toDouble() : null,
-      bmHumid: (json['bmhumid'] != null) ? (json['bmhumid']).toDouble() : null,
-      bestHumid: (json['besthumid'] ?? 0).toDouble(),
-      bpm: (json['bpm'] ?? 0).toInt(),
-      valPress:
-          (json['valpress'] != null) ? (json['valpress']).toDouble() : null,
-      peakPress:
-          (json['peak_press'] != null) ? (json['peak_press']).toDouble() : null,
-      cap: (json['cap'] ?? 0).toDouble(),
-      val1820: (json['val1820'] ?? 0).toDouble(),
-      valFinal1820: (json['valFinal1820'] ?? 0).toDouble(),
-      mvAcetone: (json['MVacetone'] ?? 0).toDouble(),
-      h2Ppm: (json['H2Ppm'] ?? 0).toDouble(),
-      hwid: (json['hwid'] ?? 0).toInt(),
-      lastMv: (json['lastmv'] != null) ? (json['lastmv']).toDouble() : null,
-      sugarScore: (json['SugarScore'] ?? 0).toDouble(),
-      respiratoryScore: (json['RespiratoryScore'] ?? 0).toDouble(),
-      gutScore: (json['GutScore'] ?? 0).toDouble(),
-      liverScore: (json['LiverScore'] ?? 0).toDouble(),
-      timestamp: (json['timestamp'] ?? 0).toInt(),
+      status: _i(json['status']),
+      acetonePpm: _d(json['AcetonePpm']),
+      ppPress: _d(json['pp_press']),
+      ethanolPpm: _d(json['ethanolPpm']),
+      battery: _dn(json['battry']),
+      finalTemp: _d(json['finaltemp']),
+      duration: _i(json['duration']),
+      rawMic: _dn(json['rawmic']),
+      bmHumid: _dn(json['bmhumid']),
+      bestHumid: _d(json['besthumid']),
+      bpm: _i(json['bpm']),
+      valPress: _dn(json['valpress']),
+      peakPress: _dn(json['peak_press']),
+      cap: _d(json['cap']),
+      val1820: _d(json['val1820']),
+      valFinal1820: _d(json['valFinal1820']),
+      mvAcetone: _d(json['MVacetone']),
+      h2Ppm: _d(json['H2Ppm']),
+      hwid: _i(json['hwid']),
+      lastMv: _dn(json['lastmv']),
+      sugarScore: _d(json['SugarScore']),
+      respiratoryScore: _d(json['RespiratoryScore']),
+      gutScore: _d(json['GutScore']),
+      liverScore: _d(json['LiverScore']),
+      timestamp: _i(json['timestamp']),
       blowRawValues: json['BlowRawValues'],
       blowArraysFevFvcValues: json['Blow_arrays_fev_fvc_values'] != null
           ? BlowArraysFevFvcValues.fromJson(json['Blow_arrays_fev_fvc_values'])

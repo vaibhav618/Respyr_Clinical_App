@@ -1,9 +1,9 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:respyr_clinical/shared/urls.dart';
+import 'package:respyr_clinical/shared/nodeurl.dart';
 
 class ClinicalDiabeticScore {
-  static const String baseUrl = Urls.allClinicScore;
+  static const String baseUrl = NodeUrls.allClinicScore;
 
   Future<Map<String, dynamic>> processDiabeticScore({
     required double acetone,
@@ -29,8 +29,11 @@ class ClinicalDiabeticScore {
         'h2': h2.toString(),
       };
 
-      final uri = Uri.parse(baseUrl).replace(queryParameters: params);
-      final response = await http.get(uri);
+      final response = await http.post(
+        Uri.parse(baseUrl),
+        headers: {"Content-Type": "application/json"},
+        body: json.encode(params),
+      );
 
       print(response.body.toString());
 

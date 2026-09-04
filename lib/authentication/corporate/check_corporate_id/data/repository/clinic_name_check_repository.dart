@@ -17,8 +17,8 @@ class ClinicNameCheckRepository {
 
     final res = await _client.post(
       uri,
-      headers: {"Content-Type": "application/x-www-form-urlencoded"},
-      body: {"clinic_name": clinicName},
+      headers: {"Content-Type": "application/json"},
+      body: jsonEncode({"clinic_name": clinicName}),
     );
 
     if (res.statusCode < 200 || res.statusCode >= 300) {
